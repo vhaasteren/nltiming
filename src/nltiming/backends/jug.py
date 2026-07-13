@@ -71,7 +71,7 @@ class JugEngine:
         design_matrix_method: str = "analytic",
     ) -> "JugEngine":
         """Build a native JUG engine from an already-created JUG session."""
-        from .jug_jax_state import export_jax_timing_state
+        from jug.fitting.jax_timing_state import export_jax_timing_state
 
         fitpars = tuple(linear_model.fitpars)
         mapping = dict(param_mapping or {})

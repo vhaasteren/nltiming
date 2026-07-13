@@ -15,7 +15,7 @@ from nltiming.protocols import EnterprisePulsarLike, TimingBackend
 # real IPTA data. See ref-packages/jug/PARITY_ROADMAP.md (G1).
 _JUG_TEMPO2_ZERO_DELTA_TOL_SEC = 1e-7
 
-# Lives here (not in jug_jax_state) so importing it never pulls in jax/jug.
+# Lives here so importing it never pulls in jax/jug.
 _NUMPY_RESIDUAL_DEPRECATION = (
     "JUG NumPy residual path (residual_delta_np) is deprecated and will be "
     "removed once JAX residual_delta_jax reaches full parity. Use "
