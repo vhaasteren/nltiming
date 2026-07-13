@@ -3,11 +3,11 @@
 import numpy as np
 import pytest
 
-from metapulsar.timing.bijectors import AxisPrior
-from metapulsar.timing.priors import PriorBlock, PriorOverrideSpec, store_prior_override
-from metapulsar.timing.partition import PartitionResult
-from metapulsar.timing.space import ParameterSpace
-from metapulsar.timing.whitening import (
+from nltiming.bijectors import AxisPrior
+from nltiming.priors import PriorBlock, PriorOverrideSpec, store_prior_override
+from nltiming.partition import PartitionResult
+from nltiming.space import ParameterSpace
+from nltiming.whitening import (
     diagonal_white,
     fixed_hyperparameters,
     schur_delta_wls,

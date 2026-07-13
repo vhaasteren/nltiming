@@ -6,8 +6,8 @@ import warnings
 
 import pytest
 
-from metapulsar.timing.nonlinear_timing_model import NonLinearTimingModel
-from metapulsar.timing.partition import resolve_partition
+from nltiming.nonlinear_timing_model import NonLinearTimingModel
+from nltiming.partition import resolve_partition
 
 
 class _StubBackend:

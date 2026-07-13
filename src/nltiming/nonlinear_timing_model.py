@@ -311,7 +311,7 @@ class NonLinearTimingModel:
             if not isinstance(spec, PriorOverrideSpec):
                 raise TypeError(
                     f"priors[{prior_name!r}] must be a PriorOverrideSpec (use the "
-                    "helpers in metapulsar.timing.priors, e.g. delta_uniform)"
+                    "helpers in nltiming.priors, e.g. delta_uniform)"
                 )
             self._prior_overrides = store_prior_override(
                 self._prior_overrides, prior_name, spec

@@ -7,7 +7,7 @@ import json
 import numpy as np
 import pytest
 
-from metapulsar.timing.artifacts import (
+from nltiming.artifacts import (
     DISCOVERY_CHECKPOINT_NAME,
     DISCOVERY_FINAL_NAME,
     NLTArtifactError,
@@ -17,10 +17,10 @@ from metapulsar.timing.artifacts import (
     physical_deterministics,
     save_discovery_checkpoint,
 )
-from metapulsar.timing.backends.base import LinearModel
-from metapulsar.timing.backends.jug import LinearizedJugEngine
-from metapulsar.timing.nonlinear_timing_model import NonLinearTimingModel
-from metapulsar.timing.space import ParameterSpace
+from nltiming.backends.base import LinearModel
+from nltiming.backends.jug import LinearizedJugEngine
+from nltiming.nonlinear_timing_model import NonLinearTimingModel
+from nltiming.space import ParameterSpace
 
 
 class _Host:
@@ -351,7 +351,7 @@ def test_sidecar_schema_is_v2_and_code_block_names_owning_package(tmp_path, bind
     binding.write(tmp_path)
     sidecar = json.loads((tmp_path / "nlt_sidecar.json").read_text())
     assert sidecar["schema"] == "nlt-sidecar-v2"
-    assert sidecar["code"]["package"] == "metapulsar"
+    assert sidecar["code"]["package"] == "nltiming"
     assert sidecar["code"]["version"]
 
 

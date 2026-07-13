@@ -1,9 +1,7 @@
 """Public export surface for the timing package."""
 
 import pytest
-
-import metapulsar
-from metapulsar.timing import (
+from nltiming import (
     EnterprisePulsarLike,
     EphemerisExtras,
     JaxTimingBackend,
@@ -24,12 +22,6 @@ def test_timing_subpackage_exports():
     assert TimingBackend is not None
 
 
-def test_metapulsar_lazy_timing_exports():
-    assert metapulsar.NonLinearTimingModel is NonLinearTimingModel
-    assert metapulsar.ParameterSpace is ParameterSpace
-    assert metapulsar.PulsarInterface is PulsarInterface
-
-
 def test_timing_imports_and_constructs_without_jug():
     """JUG-free configs must import and construct with jug/jax uninstalled.
 
@@ -44,8 +36,8 @@ def test_timing_imports_and_constructs_without_jug():
             "import sys",
             "sys.modules['jug'] = None",
             "sys.modules['jax'] = None",
-            "import metapulsar.timing",
-            "from metapulsar.timing import NonLinearTimingModel",
+            "import nltiming",
+            "from nltiming import NonLinearTimingModel",
             "m = NonLinearTimingModel("
             "engines={'tempo2': 'libstempo', 'pint': 'pint'})",
             "assert m.tempo2_jug_options is None",

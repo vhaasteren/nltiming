@@ -8,7 +8,7 @@ from typing import Any, Mapping
 
 import numpy as np
 
-from metapulsar.timing.protocols import JaxTimingBackend, TimingBackend
+from nltiming.protocols import JaxTimingBackend, TimingBackend
 
 
 @dataclass(frozen=True)

@@ -4,10 +4,10 @@ import numpy as np
 import pytest
 
 from jug.io.par_reader import get_longdouble
-from metapulsar.timing.backends.base import LinearModel
-from metapulsar.timing.backends.jug import LinearizedJugEngine
-from metapulsar.timing.backends import jug_jax_state
-from metapulsar.timing.backends.jug_jax_state import JaxTimingState
+from nltiming.backends.base import LinearModel
+from nltiming.backends.jug import LinearizedJugEngine
+from nltiming.backends import jug_jax_state
+from nltiming.backends.jug_jax_state import JaxTimingState
 
 pytestmark = [pytest.mark.requires_jug]
 

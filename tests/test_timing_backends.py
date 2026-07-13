@@ -3,22 +3,22 @@
 import numpy as np
 import pytest
 
-from metapulsar.timing.backends.base import (
+from nltiming.backends.base import (
     LinearModel,
     is_exact_linear_param,
     validate_backend_shapes,
     validate_backend_zero_delta,
     zero_delta_tolerance,
 )
-from metapulsar.timing.backends.jug import (
+from nltiming.backends.jug import (
     JugEngine,
     LinearizedJugEngine,
 )
-from metapulsar.timing.backends.pint import (
+from nltiming.backends.pint import (
     PintEngine,
     LinearizedPintEngine,
 )
-from metapulsar.timing.backends.tempo2 import (
+from nltiming.backends.tempo2 import (
     LibstempoEngine,
     LinearizedLibstempoEngine,
 )

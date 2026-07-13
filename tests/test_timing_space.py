@@ -3,9 +3,9 @@
 import numpy as np
 import pytest
 
-from metapulsar.timing.bijectors import PriorBijector, WhiteningLinear
-from metapulsar.timing.precision import ExactNativeRef
-from metapulsar.timing.space import DensityParts, ParameterSpace
+from nltiming.bijectors import PriorBijector, WhiteningLinear
+from nltiming.precision import ExactNativeRef
+from nltiming.space import DensityParts, ParameterSpace
 
 
 def _build_standardized_space():

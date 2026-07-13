@@ -1,14 +1,14 @@
-"""Tests for the sampler glue in metapulsar.timing.sampling."""
+"""Tests for the sampler glue in nltiming.sampling."""
 
 import numpy as np
 import pytest
 from numpyro import handlers
 
-from metapulsar.timing.backends.base import LinearModel
-from metapulsar.timing.backends.jug import LinearizedJugEngine
-from metapulsar.timing.nonlinear_timing_model import NonLinearTimingModel
-from metapulsar.timing.sampling import numpyro as nlt_numpyro
-from metapulsar.timing.sampling import ptmcmc as nlt_ptmcmc
+from nltiming.backends.base import LinearModel
+from nltiming.backends.jug import LinearizedJugEngine
+from nltiming.nonlinear_timing_model import NonLinearTimingModel
+from nltiming.sampling import numpyro as nlt_numpyro
+from nltiming.sampling import ptmcmc as nlt_ptmcmc
 
 
 class _Host:

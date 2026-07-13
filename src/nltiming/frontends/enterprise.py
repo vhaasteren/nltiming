@@ -26,8 +26,8 @@ from __future__ import annotations
 
 import numpy as np
 
-from metapulsar.timing.bijectors import PriorBijector
-from metapulsar.timing.space import default_coord_for_transform
+from nltiming.bijectors import PriorBijector
+from nltiming.space import default_coord_for_transform
 
 
 def _coord_from_transform(transform: str) -> str:
@@ -215,7 +215,7 @@ def _make_marginalizing_signal(
 
         def __init__(self, psr):
             super().__init__(psr)
-            from metapulsar.timing.whitening import normalized_basis
+            from nltiming.whitening import normalized_basis
 
             binding = binding_fn(psr)
             partition = binding.partition

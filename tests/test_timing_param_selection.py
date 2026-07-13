@@ -3,11 +3,11 @@
 import numpy as np
 import pytest
 
-from metapulsar.timing import priors as prior_specs
-from metapulsar.timing.backends.base import LinearModel
-from metapulsar.timing.backends.jug import LinearizedJugEngine
-from metapulsar.timing.nonlinear_timing_model import NonLinearTimingModel
-from metapulsar.timing.partition import (
+from nltiming import priors as prior_specs
+from nltiming.backends.base import LinearModel
+from nltiming.backends.jug import LinearizedJugEngine
+from nltiming.nonlinear_timing_model import NonLinearTimingModel
+from nltiming.partition import (
     fitpar_suffixes,
     match_fitpars,
     resolve_partition,

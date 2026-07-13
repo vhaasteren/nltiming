@@ -1,8 +1,8 @@
 """PINT parameter-name utilities used by the timing package.
 
 Pure functions over PINT's alias tables and component registry. This module
-must not import from the wider ``metapulsar`` package: the dependency
-direction is ``metapulsar`` → ``metapulsar.timing``, never the reverse.
+must not import from host packages (e.g. MetaPulsar): the dependency
+direction is host → ``nltiming``, never the reverse.
 """
 
 from __future__ import annotations

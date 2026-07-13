@@ -3,16 +3,16 @@
 import numpy as np
 import pytest
 
-from metapulsar.timing.backends.base import LinearModel
-from metapulsar.timing.backends.composite import (
+from nltiming.backends.base import LinearModel
+from nltiming.backends.composite import (
     PulsarSession,
     PulsarJaxTimingBackend,
     PulsarTimingBackend,
     build_composite_backend,
 )
-from metapulsar.timing.backends import build_backend
-from metapulsar.timing.backends.jug import LinearizedJugEngine
-from metapulsar.timing.backends.pint import LinearizedPintEngine
+from nltiming.backends import build_backend
+from nltiming.backends.jug import LinearizedJugEngine
+from nltiming.backends.pint import LinearizedPintEngine
 
 
 def _session_backends():

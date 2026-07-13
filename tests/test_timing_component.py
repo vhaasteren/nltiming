@@ -6,14 +6,14 @@ import pytest
 import jax.random as jr
 from numpyro import handlers
 
-from metapulsar.timing.backends.base import LinearModel
-from metapulsar.timing.backends.jug import LinearizedJugEngine
-from metapulsar.timing.backends.pint import LinearizedPintEngine
-from metapulsar.timing.nonlinear_timing_model import NonLinearTimingModel
-from metapulsar.timing.whitening import normalized_basis
-from metapulsar.timing.sampling.numpyro import contribute_timing
-from metapulsar.timing.partition import resolve_partition
-from metapulsar.timing.whitening import schur_delta_wls
+from nltiming.backends.base import LinearModel
+from nltiming.backends.jug import LinearizedJugEngine
+from nltiming.backends.pint import LinearizedPintEngine
+from nltiming.nonlinear_timing_model import NonLinearTimingModel
+from nltiming.whitening import normalized_basis
+from nltiming.sampling.numpyro import contribute_timing
+from nltiming.partition import resolve_partition
+from nltiming.whitening import schur_delta_wls
 
 
 class _Pulsar:

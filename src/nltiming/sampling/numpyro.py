@@ -5,7 +5,7 @@ factor (:func:`contribute_timing`), physical deterministic sites
 (:func:`record_physical`), the standard Discovery model closure
 (:func:`model`), and NUTS setup with init-at-reference (:func:`nuts`).
 
-All functions take a :class:`~metapulsar.timing.nonlinear_timing_model.TimingBinding`
+All functions take a :class:`~nltiming.nonlinear_timing_model.TimingBinding`
 (from ``NonLinearTimingModel.bind``); none of this leaks into the model config.
 """
 

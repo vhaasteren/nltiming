@@ -9,7 +9,7 @@ from typing import Mapping
 
 import numpy as np
 
-from metapulsar.timing.protocols import EnterprisePulsarLike, TimingBackend
+from nltiming.protocols import EnterprisePulsarLike, TimingBackend
 
 # JUG(tempo2) G1: reference vs _update_param longdouble promotion is ~1e-8 s on
 # real IPTA data. See ref-packages/jug/PARITY_ROADMAP.md (G1).

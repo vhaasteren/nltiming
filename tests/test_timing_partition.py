@@ -4,7 +4,7 @@ from dataclasses import dataclass
 
 import pytest
 
-from metapulsar.timing.partition import (
+from nltiming.partition import (
     default_analytically_marginalized_fitpars,
     resolve_partition,
 )

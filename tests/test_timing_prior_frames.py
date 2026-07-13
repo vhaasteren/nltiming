@@ -2,10 +2,10 @@
 
 import pytest
 
-from metapulsar.timing.bijectors import AxisPrior
-from metapulsar.timing.nonlinear_timing_model import NonLinearTimingModel
-from metapulsar.timing.partition import resolve_partition
-from metapulsar.timing.priors import (
+from nltiming.bijectors import AxisPrior
+from nltiming.nonlinear_timing_model import NonLinearTimingModel
+from nltiming.partition import resolve_partition
+from nltiming.priors import (
     PriorBuildContext,
     PriorOverrideSpec,
     apply_prior_scale,

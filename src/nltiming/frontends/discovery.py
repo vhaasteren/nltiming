@@ -27,8 +27,8 @@ from typing import Callable
 
 import numpy as np
 
-from metapulsar.timing.partition import PartitionResult
-from metapulsar.timing.protocols import JaxTimingBackend
+from nltiming.partition import PartitionResult
+from nltiming.protocols import JaxTimingBackend
 
 
 def _sample_key(pulsar_name: str, name: str, fitpar: str) -> str:
@@ -115,7 +115,7 @@ def discovery_signals(
 
     signals: list = []
     if partition.idx_analytically_marginalized:
-        from metapulsar.timing.whitening import normalized_basis
+        from nltiming.whitening import normalized_basis
 
         # Column-normalized: span-preserving under the improper prior, and
         # required for float64 conditioning with constant=1e40.

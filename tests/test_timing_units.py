@@ -3,7 +3,7 @@
 import astropy.units as u
 import numpy as np
 
-from metapulsar.timing.units import (
+from nltiming.units import (
     display_unit,
     native_physical_bounds,
     normalize_param_name,
@@ -91,7 +91,7 @@ def test_native_physical_bounds():
     assert native_physical_bounds("F0") == (None, None)
 
 
-def test_suffixed_metapulsar_names_use_canonical_units_and_bounds():
+def test_suffixed_composite_names_use_canonical_units_and_bounds():
     model = _astro_model()
     assert display_unit("RAJ_ng5", model) == "hourangle"
     np.testing.assert_allclose(to_display("RAJ_ng5", 12.0, pint_model=model), 12.0)

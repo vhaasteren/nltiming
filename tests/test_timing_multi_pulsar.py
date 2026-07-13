@@ -2,10 +2,10 @@
 
 import numpy as np
 
-from metapulsar.timing.backends.base import LinearModel
-from metapulsar.timing.backends.jug import LinearizedJugEngine
-from metapulsar.timing.nonlinear_timing_model import NonLinearTimingModel
-from metapulsar.timing.sampling.numpyro import contribute_timing, record_physical
+from nltiming.backends.base import LinearModel
+from nltiming.backends.jug import LinearizedJugEngine
+from nltiming.nonlinear_timing_model import NonLinearTimingModel
+from nltiming.sampling.numpyro import contribute_timing, record_physical
 
 
 class _Host:
