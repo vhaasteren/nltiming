@@ -6,9 +6,10 @@ from .composite import PulsarSession, build_composite_backend
 from .jug import JugEngine, LinearizedJugEngine
 from .pint import LinearizedPintEngine, PintEngine
 from .tempo2 import LinearizedLibstempoEngine, LibstempoEngine
+from .vela import VelaEngine
 
-_ENGINE_CHOICES = {"tempo2": ("libstempo", "jug"), "pint": ("pint", "jug")}
-_IMPL_FAMILY = {"libstempo": "tempo2", "pint": "pint", "jug": "jug"}
+_ENGINE_CHOICES = {"tempo2": ("libstempo", "jug"), "pint": ("pint", "jug", "vela")}
+_IMPL_FAMILY = {"libstempo": "tempo2", "pint": "pint", "jug": "jug", "vela": "vela"}
 
 
 def normalize_engines(engines):
@@ -50,6 +51,7 @@ def build_backend(
 __all__ = [
     "PulsarSession",
     "JugEngine",
+    "VelaEngine",
     "LinearizedJugEngine",
     "LinearizedPintEngine",
     "LinearizedLibstempoEngine",
