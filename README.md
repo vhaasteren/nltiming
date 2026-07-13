@@ -10,7 +10,9 @@ timing parameters inside the likelihood while the remaining linear nuisance
 parameters are analytically marginalized. The same model configuration drives
 both likelihood frontends and both sampler stacks (NumPyro NUTS via a
 JAX-capable timing engine, or PTMCMCSampler), and every run is decodable from
-small on-disk artifacts with no live model objects.
+small on-disk artifacts with no live model objects. Note: much of this was
+inspired by [Vela.jl](https://github.com/abhisrkckl/Vela.jl), and earlier work
+in TempoNest.
 
 ## Quick start
 
