@@ -1,0 +1,89 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel", "setuptools-scm[toml]>=8"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "nltiming"
+dynamic = ["version"]
+description = "Nonlinear pulsar-timing likelihood components for Discovery and Enterprise"
+readme = { file = "README.md", content-type = "text/markdown" }
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [
+    { name = "Rutger van Haasteren", email = "rutger@vhaasteren.com" },
+]
+keywords = ["pulsar", "timing", "gravitational-waves", "pta", "astronomy"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Astronomy",
+    "Topic :: Scientific/Engineering :: Physics",
+]
+
+dependencies = [
+    "numpy>=1.24",
+    "scipy>=1.10",
+    "astropy>=5.0",
+    "pint-pulsar>=0.9.7",
+    "loguru>=0.7",
+]
+
+[project.optional-dependencies]
+# The default engines="jug" path needs jug-timing (Python >= 3.12).
+jug = ["jug-timing"]
+discovery = ["discovery>=0.5"]
+enterprise = ["enterprise-pulsar>=3.0.0"]
+libstempo = ["libstempo>=2.0.0"]
+numpyro = ["jax>=0.4.0", "numpyro>=0.13.0"]
+ptmcmc = ["ptmcmcsampler>=2.1.0"]
+dev = [
+    "pytest>=7.0",
+    "pytest-cov>=4.0",
+    "black==25.11.0",
+    "ruff>=0.4",
+    "mypy>=1.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/vhaasteren/nltiming"
+Repository = "https://github.com/vhaasteren/nltiming"
+Issues = "https://github.com/vhaasteren/nltiming/issues"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-dir]
+"" = "src"
+
+[tool.setuptools_scm]
+tag_regex = "^v(?P<version>\\d+\\.\\d+\\.\\d+)$"
+version_scheme = "no-guess-dev"
+local_scheme = "no-local-version"
+fallback_version = "0.0.0"
+
+[tool.black]
+line-length = 88
+target-version = ["py311"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = [
+    "--strict-markers",
+    "--strict-config",
+    "--tb=short",
+]
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "requires_jug: marks tests that need the JUG/JAX timing engine",
+    "requires_libstempo: marks tests that need libstempo/tempo2 available",
+    "requires_discovery: marks tests that need the discovery package",
+    "requires_enterprise: marks tests that need enterprise-pulsar",
+]
