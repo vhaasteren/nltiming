@@ -48,10 +48,57 @@ from nltiming import NLTChainBundle
 post = NLTChainBundle.load(outdir).posterior(burn=0.25)
 ```
 
-The host object must satisfy the `PulsarInterface` protocol (frozen TOA
+The host object must satisfy the `TimingHost` protocol (also exported under
+the original `PulsarInterface` name): frozen TOA
 arrays, `pint_model()`, `timing_backend()`); single-pulsar hosts and
 multi-PTA composite hosts (e.g. [MetaPulsar](https://github.com/vhaasteren/metapulsar))
 both work — PTA-suffixed parameter names are matched by base name.
+
+## Interactive evaluator
+
+The same backend contract supports engine-independent timing inspection without
+constructing a likelihood:
+
+```python
+from nltiming import TimingEvaluator
+
+timing = TimingEvaluator.from_pulsar(
+    pulsar,
+    engines={"pint": "jug", "tempo2": "jug"},
+    design_matrix_method="autodiff",
+)
+
+timing.parameters["F0"]
+evaluation = timing.evaluate({"F0": 1e-10}, frame="delta")
+scan = timing.scan("TASC", [-0.5, 0.0, 0.5], scale="PB")
+jacobian = timing.jacobian(method="autodiff")
+fit = timing.fit(["F0", "F1"])
+```
+
+All operations return immutable result objects. The evaluator does not mutate
+TOAs, parameter fit flags, timing sessions, or input files. `white_chi2` and
+the built-in fit use diagonal TOA errors only; correlated-noise inference
+remains the responsibility of the Discovery or Enterprise frontend.
+
+## Scope
+
+`nltiming` owns the nonlinear-timing math, the timing backends (PINT,
+libstempo, JUG, Vela), and the Discovery and Enterprise likelihood frontends.
+Hosts (single-pulsar or multi-PTA composites such as MetaPulsar) supply the
+data via the `TimingHost` protocol; the JUG package owns the JAX timing-engine
+primitives.
+
+Deliberately **out of scope**: Fourier/DM/chromatic/ECORR bases, `Phi`
+inference, power-law or free-spectrum projection, and correlated-noise
+likelihoods. Those belong to Discovery and Enterprise. `nltiming` supplies the
+timing block and prior transform they build on, and downstream quick-look GP
+tooling composes `nltiming` with those frontends rather than re-homing noise
+math here.
+
+Maintainer notes (ownership table, engineering caveats, upstream tracks) live
+in [`DESIGN_NOTES.md`](DESIGN_NOTES.md). The proposed interactive
+transformed-space (`z`) timing fit is described in
+[`TRANSFORMED_SPACE_FIT.md`](TRANSFORMED_SPACE_FIT.md).
 
 ## Installation
 
@@ -70,7 +117,9 @@ Python ≥ 3.12), currently installed from source.
 
 - `nonlinear_timing_model.py` — `NonLinearTimingModel` (configuration) and
   `TimingBinding` (`ntm.bind(pulsar)`, all pulsar-bound queries)
-- `protocols.py` — `TimingBackend` / `JaxTimingBackend` / `PulsarInterface`
+- `protocols.py` — `PulsarData` / `TimingHost` and timing backend contracts
+- `evaluator.py` — mapping-based evaluation, metadata, scans, Jacobians, and
+  immutable local weighted fits
 - `backends/` — PINT, libstempo, and JUG engine adapters plus the multi-PTA
   composite backend
 - `frontends/` — Discovery and Enterprise likelihood adapters

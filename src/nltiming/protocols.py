@@ -46,8 +46,8 @@ class EphemerisExtras(Protocol):
 
 
 @runtime_checkable
-class EnterprisePulsarLike(Protocol):
-    """Duck-typed pulsar surface consumed by likelihood frontends."""
+class PulsarData(Protocol):
+    """Duck-typed frozen pulsar-data surface consumed by likelihood frontends."""
 
     name: str
     fitpars: list[str] | tuple[str, ...]
@@ -100,7 +100,7 @@ class JaxTimingBackend(TimingBackend, Protocol):
 
 
 @runtime_checkable
-class PulsarInterface(EnterprisePulsarLike, Protocol):
+class TimingHost(PulsarData, Protocol):
     """Pulsar protocol: frozen arrays plus timing-engine accessors."""
 
     def pint_model(self) -> Any: ...
@@ -110,3 +110,8 @@ class PulsarInterface(EnterprisePulsarLike, Protocol):
     def can_use_engines(self, engines="jug") -> bool: ...
 
     def cache_token(self) -> str | None: ...
+
+
+# Descriptive aliases retained for integrations that use the original names.
+EnterprisePulsarLike = PulsarData
+PulsarInterface = TimingHost

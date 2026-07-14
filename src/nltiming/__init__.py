@@ -11,11 +11,22 @@ from .artifacts import (
     save_discovery_checkpoint,
 )
 from .nonlinear_timing_model import NonLinearTimingModel, TimingBinding
+from .evaluator import (
+    TimingCapabilities,
+    TimingEvaluation,
+    TimingEvaluator,
+    TimingFitResult,
+    TimingParameter,
+    TimingParameters,
+    TimingScan,
+)
 from .protocols import (
     EnterprisePulsarLike,
     EphemerisExtras,
     JaxTimingBackend,
+    PulsarData,
     PulsarInterface,
+    TimingHost,
     TimingBackend,
 )
 from .space import ParameterSpace
@@ -37,4 +48,13 @@ __all__ = [
     "TimingBackend",
     "JaxTimingBackend",
     "PulsarInterface",
+    "PulsarData",
+    "TimingHost",
+    "TimingCapabilities",
+    "TimingEvaluation",
+    "TimingEvaluator",
+    "TimingFitResult",
+    "TimingParameter",
+    "TimingParameters",
+    "TimingScan",
 ]
