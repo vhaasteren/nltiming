@@ -272,10 +272,10 @@ class _OffsetZeroDeltaBackend:
         return np.full(3, self._offset_sec, dtype=float)
 
 
-def test_zero_delta_tolerance_relaxed_for_jug_tempo2_only():
+def test_zero_delta_tolerance_is_strict_for_jug_tempo2():
     backend = _OffsetZeroDeltaBackend(compatibility="tempo2", offset_sec=2.7e-8)
-    assert zero_delta_tolerance(backend, 1e-9) == 1e-7
-    with pytest.warns(UserWarning, match="tempo2"):
+    assert zero_delta_tolerance(backend, 1e-9) == 1e-9
+    with pytest.raises(ValueError, match="residual_delta\\(0\\)"):
         validate_backend_zero_delta(backend, tol=1e-9)
 
     strict = _OffsetZeroDeltaBackend(compatibility="pint", offset_sec=2.7e-8)
@@ -284,7 +284,7 @@ def test_zero_delta_tolerance_relaxed_for_jug_tempo2_only():
         validate_backend_zero_delta(strict, tol=1e-9)
 
 
-def test_zero_delta_tolerance_still_fails_large_jug_tempo2_offset():
+def test_zero_delta_tolerance_fails_large_jug_tempo2_offset():
     backend = _OffsetZeroDeltaBackend(compatibility="tempo2", offset_sec=1e-3)
     with pytest.raises(ValueError, match="residual_delta\\(0\\)"):
         validate_backend_zero_delta(backend, tol=1e-9)

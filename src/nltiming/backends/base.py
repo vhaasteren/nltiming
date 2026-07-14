@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import warnings
 from dataclasses import dataclass
 from decimal import Decimal, localcontext
 from typing import Mapping
@@ -11,18 +10,11 @@ import numpy as np
 
 from nltiming.protocols import EnterprisePulsarLike, TimingBackend
 
-# JUG(tempo2) G1: reference vs _update_param longdouble promotion is ~1e-8 s on
-# real IPTA data. See ref-packages/jug/PARITY_ROADMAP.md (G1).
-_JUG_TEMPO2_ZERO_DELTA_TOL_SEC = 1e-7
-
 # Lives here so importing it never pulls in jax/jug.
 _NUMPY_RESIDUAL_DEPRECATION = (
     "JUG NumPy residual path (residual_delta_np) is deprecated and will be "
     "removed once JAX residual_delta_jax reaches full parity. Use "
     "residual_delta_jax for new code."
-)
-_JUG_TEMPO2_COMPAT_MODES = frozenset(
-    {"tempo2", "tempo2-compatible", "tempo2_compatible"}
 )
 
 
@@ -55,27 +47,14 @@ def validate_enterprise_pulsar(pulsar: EnterprisePulsarLike) -> None:
         raise ValueError("Mmat column count must match fitpars length")
 
 
-def _is_jug_tempo2_backend(backend: TimingBackend) -> bool:
-    if getattr(backend, "backend_name", None) != "jug":
-        return False
-    mode = str(getattr(backend, "compatibility", "pint")).lower()
-    return mode in _JUG_TEMPO2_COMPAT_MODES
-
-
-def backend_uses_jug_tempo2_path(backend: TimingBackend) -> bool:
-    """Return whether any nested session uses JUG with tempo2 compatibility."""
-    if _is_jug_tempo2_backend(backend):
-        return True
-    sessions = getattr(backend, "_sessions", None)
-    if sessions is None:
-        return False
-    return any(backend_uses_jug_tempo2_path(session.backend) for session in sessions)
-
-
 def zero_delta_tolerance(backend: TimingBackend, requested: float) -> float:
-    """Return the residual_delta(0) tolerance for ``backend``."""
-    if backend_uses_jug_tempo2_path(backend):
-        return max(float(requested), _JUG_TEMPO2_ZERO_DELTA_TOL_SEC)
+    """Return the strict caller-requested residual-delta tolerance.
+
+    JUG's former tempo2-specific relaxation represented the now-closed G1
+    reference-state gap. Current tempo2 compatibility has picosecond-tier
+    zero-delta behavior and is validated by the same contract as other engines.
+    """
+    _ = backend
     return float(requested)
 
 
@@ -96,14 +75,6 @@ def validate_backend_zero_delta(backend: TimingBackend, tol: float = 1e-12) -> N
     residual = np.asarray(backend.residual_delta(zero), dtype=float)
     max_abs = float(np.max(np.abs(residual))) if residual.size else 0.0
     if max_abs <= effective_tol:
-        if effective_tol > tol and max_abs > tol:
-            warnings.warn(
-                "JUG compatibility='tempo2' residual_delta(0) is within the relaxed "
-                f"MetaPulsar tolerance ({effective_tol:.1e} s, max|delta|={max_abs:.1e} s) "
-                "but not the strict check. Known reference-state gap (JUG "
-                "PARITY_ROADMAP.md G1); nonlinear tempo2 parity is still experimental.",
-                stacklevel=2,
-            )
         return
     raise ValueError("residual_delta(0) must equal 0")
 
