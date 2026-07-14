@@ -202,6 +202,66 @@ def test_jug_backend_adds_exact_linear_to_numpy_and_jax_paths():
     )
 
 
+def test_jug_backend_converts_astrometry_fit_units_to_native():
+    """RAJ/DECJ deltas are scaled from host fit units to JUG native radians.
+
+    ``MetaPulsar.Mmat`` carries RAJ in hourangle and DECJ in degrees, while the
+    frozen ``JaxTimingState`` is native (radians). Without the conversion the
+    residual response is over-scaled by ``12/pi`` (RAJ) / ``180/pi`` (DECJ);
+    with it, ``residual_delta == design_matrix @ delta`` holds for every axis.
+    """
+    pytest.importorskip("jax")
+    pytest.importorskip("jug.utils.units")
+    import jax.numpy as jnp
+    from jug.utils.units import native_to_fit_value
+
+    fitpars = ("RAJ", "DECJ", "F0")
+    host_design = np.array(
+        [
+            [2.0, 1.0, 0.5],
+            [3.0, -1.0, 1.0],
+            [5.0, 0.5, -0.5],
+            [1.0, 2.0, 0.0],
+        ],
+        dtype=float,
+    )
+    model = LinearModel.from_host(
+        fitpars=fitpars,
+        design=host_design,
+        theta_exact={"RAJ": "0.0", "DECJ": "0.0", "F0": "100.0"},
+    )
+    # Native state: same physical derivative, re-expressed per column in native
+    # units (host_col * fit_per_native), acting linearly on the native delta.
+    scale = np.array([native_to_fit_value(name, 1.0) for name in fitpars])
+    native_design = host_design * scale
+
+    class _NativeState:
+        design_matrix = native_design
+        fit_params = fitpars
+        param_mapping = ()
+
+        def residual_delta_np(self, delta):
+            return native_design @ np.asarray(delta, dtype=float)
+
+        def residual_delta_jax(self, delta):
+            return jnp.asarray(native_design) @ jnp.asarray(delta)
+
+    backend = JugEngine(state=_NativeState(), linear_model=model)
+    fit_delta = np.array([7.0e-8, 5.0e-7, 1.0e-9], dtype=float)
+    expected = host_design @ fit_delta
+
+    np.testing.assert_allclose(backend.residual_delta(fit_delta), expected, rtol=1e-12)
+    np.testing.assert_allclose(
+        np.asarray(backend.residual_delta_jax(jnp.asarray(fit_delta))),
+        expected,
+        rtol=1e-12,
+    )
+    # linearized_design_matrix is served in host fit units too (native / scale).
+    np.testing.assert_allclose(
+        backend.linearized_design_matrix(), host_design, rtol=1e-12
+    )
+
+
 def test_exact_linear_policy_does_not_capture_spin_frequency_params():
     assert not is_exact_linear_param("F0")
     assert not is_exact_linear_param("F1")

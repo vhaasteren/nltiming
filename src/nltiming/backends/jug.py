@@ -36,6 +36,17 @@ class JugEngine:
     ``design_matrix`` and reference theta metadata are intentionally served from
     the pulsar-derived ``LinearModel`` so the pulsar timing backend uses the same
     canonical columns and analytically marginalized basis as ``MetaPulsar.Mmat``.
+
+    Unit convention: this adapter's entire external surface — ``design_matrix``,
+    ``linearized_design_matrix``, ``residual_delta`` and ``residual_delta_jax`` —
+    speaks the **host fit-unit** ``delta_theta`` convention that ``MetaPulsar.Mmat``
+    (and the libstempo/Vela engines) use, e.g. RAJ in hourangle and DECJ in
+    degrees. The frozen ``JaxTimingState`` is internally **native** (RAJ/DECJ in
+    radians), so incoming deltas are divided by the per-parameter fit/native
+    factor (``jug.utils.units.native_to_fit_value``) before reaching the state,
+    and JUG's native autodiff design columns are divided by the same factor on
+    the way out. This keeps ``residual_delta(delta) == design_matrix @ delta`` in
+    the linear regime for every parameter regardless of ``design_matrix_method``.
     """
 
     backend_name = "jug"
@@ -129,11 +140,30 @@ class JugEngine:
         """Pulsar fitpars evaluated exactly via the design matrix."""
         return getattr(self, "_exact_linear_fitpars", frozenset())
 
+    @property
+    def _native_scale(self) -> np.ndarray:
+        """Per-JUG-fitpar fit-unit -> native-delta factor (see class docstring).
+
+        Derived live from ``_jug_fitpars`` (and cached against it) so it stays
+        correct even when the JUG partition is adjusted after construction.
+        """
+        key = self._jug_fitpars
+        cached = self.__dict__.get("_native_scale_cache")
+        if cached is not None and cached[0] == key:
+            return cached[1]
+        scale = _native_delta_scale(key)
+        self.__dict__["_native_scale_cache"] = (key, scale)
+        return scale
+
     def _jug_delta(self, delta_theta) -> np.ndarray:
         delta = np.asarray(delta_theta, dtype=float).reshape(-1)
         if delta.shape != (len(self.fitpars),):
             raise ValueError("delta_theta shape mismatch with fitpars")
         return delta[np.asarray(self._jug_indices, dtype=int)]
+
+    def _jug_delta_native(self, delta_theta) -> np.ndarray:
+        """JUG-evaluable delta in the state's native units (fit -> native)."""
+        return self._jug_delta(delta_theta) / self._native_scale
 
     def _exact_linear_delta(self, delta_theta: np.ndarray) -> np.ndarray:
         indices = getattr(self, "_exact_linear_indices", tuple())
@@ -157,7 +187,7 @@ class JugEngine:
             DeprecationWarning,
             stacklevel=2,
         )
-        nonlinear = self._state.residual_delta_np(self._jug_delta(delta_theta))
+        nonlinear = self._state.residual_delta_np(self._jug_delta_native(delta_theta))
         return nonlinear + self._exact_linear_delta(delta_theta)
 
     def design_matrix(self, params: Any | None = None) -> np.ndarray:
@@ -170,7 +200,11 @@ class JugEngine:
         param_mapping = dict(getattr(self._state, "param_mapping", ()))
         jug_fitpars = getattr(self, "_jug_fitpars", self.fitpars)
         for local_col, model_col in enumerate(self._jug_indices):
-            design[:, model_col] = jug_matrix[:, local_col]
+            # JUG's autodiff columns are native (RAJ/DECJ in radians); divide by
+            # the fit/native factor to express them in host fit units.
+            design[:, model_col] = (
+                jug_matrix[:, local_col] / self._native_scale[local_col]
+            )
             canonical = jug_fitpars[local_col]
             backend = param_mapping.get(canonical, canonical)
             if (
@@ -191,7 +225,8 @@ class JugEngine:
         import jax.numpy as jnp
 
         delta = jnp.asarray(delta_theta)
-        jug_delta = delta[jnp.asarray(self._jug_indices, dtype=int)]
+        scale = jnp.asarray(self._native_scale, dtype=delta.dtype)
+        jug_delta = delta[jnp.asarray(self._jug_indices, dtype=int)] / scale
         nonlinear = self._state.residual_delta_jax(jug_delta)
 
         indices = getattr(self, "_exact_linear_indices", tuple())
@@ -203,6 +238,25 @@ class JugEngine:
 
     def precision_critical_fitpars(self) -> frozenset[str]:
         return self._precision_critical
+
+
+def _native_delta_scale(jug_fitpars: tuple[str, ...]) -> np.ndarray:
+    """Per-fitpar factor converting host fit-unit deltas to JUG native units.
+
+    ``delta_native = delta_fit / factor``; the factor is
+    ``jug.utils.units.native_to_fit_value(name, 1.0)`` — JUG's own authoritative
+    conversion (``HOURANGLE_PER_RAD`` for RAJ, ``RAD_TO_DEG`` for DECJ, 1.0
+    otherwise). Falls back to all-ones if JUG is unavailable (e.g. test doubles
+    with a fake state), which leaves non-astrometry parameters unchanged.
+    """
+    try:
+        from jug.utils.units import native_to_fit_value
+    except Exception:
+        return np.ones(len(jug_fitpars), dtype=float)
+    return np.array(
+        [float(native_to_fit_value(name, 1.0)) for name in jug_fitpars],
+        dtype=float,
+    )
 
 
 def _canonical_high_precision(
