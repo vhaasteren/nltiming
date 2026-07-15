@@ -28,9 +28,25 @@ jobs:
         run: |
           python -m pip install --upgrade pip setuptools wheel
           # jug: github.com/vhaasteren/jug@tempo2-dev (see optional-dependencies)
-          # discovery: github.com/nanograv/discovery
-          # enterprise (+ e_e) from nanograv */dev (not PyPI yet)
-          pip install -e ".[dev,jug,discovery,enterprise,enterprise_extensions,numpyro]"
+          # discovery: github.com/vhaasteren/discovery@temp/nltiming
+          # enterprise from nanograv/dev (not PyPI yet; prior_draw_mode, MockPulsar)
+          pip install -e ".[dev,jug,discovery,enterprise,numpyro]"
+          # enterprise_extensions@dev hard-requires libstempo (needs a system tempo2
+          # build). CI must not build libstempo: install e_e without that dep chain
+          # so JumpProposal / setup_sampler stay importable. Pure-Python runtime deps
+          # only — no libstempo/tempo2. Prefer libstempo.sandbox / MetaPulsar sandbox
+          # when a real tempo2 stack is available outside this job.
+          pip install --no-deps \
+            "enterprise_extensions @ git+https://github.com/nanograv/enterprise_extensions.git@dev"
+          pip install \
+            "healpy>=1.14.0" \
+            "emcee" \
+            "ptmcmcsampler>=2.1.0" \
+            "scikit-learn>=0.24" \
+            "ephem>=3.7.6.0" \
+            "matplotlib>=3.1.0" \
+            "pyarrow>=16.1.0" \
+            "six"
       - name: Lint
         run: |
           black --check src/ tests/

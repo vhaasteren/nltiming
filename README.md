@@ -352,9 +352,31 @@ timing fit (`fit_z`, `jacobian_z`, `TimingZFitResult`) is described in
 ```bash
 pip install nltiming
 
-# with optional integrations
-pip install "nltiming[discovery,numpyro,enterprise,enterprise_extensions,ptmcmc,libstempo,jug]"
+# typical stack without tempo2 / libstempo (CI and most development)
+pip install "nltiming[discovery,numpyro,enterprise,ptmcmc,jug]"
+
+# enterprise_extensions without building libstempo (nanograv/dev hard-depends
+# on libstempo≥2.4.0, which needs a system tempo2 at build time):
+pip install --no-deps \
+  "enterprise_extensions @ git+https://github.com/nanograv/enterprise_extensions.git@dev"
+pip install healpy emcee "ptmcmcsampler>=2.1.0" "scikit-learn>=0.24" \
+  ephem matplotlib pyarrow six
 ```
+
+Only install the `libstempo` extra when a real Tempo2 stack is available:
+
+```bash
+# TEMPO2_PREFIX must point at the tempo2 install prefix (bin/tempo2 lives under
+# $TEMPO2_PREFIX/bin). See libstempo's install docs / install_tempo2.sh.
+export TEMPO2_PREFIX=/path/to/tempo2/prefix
+pip install "nltiming[libstempo]"
+```
+
+When you *do* use libstempo for real `tempopulsar` evaluation, prefer
+**sandbox / process isolation** (`libstempo.sandbox`, or MetaPulsar’s
+`sandbox_tempo2`) so a tempo2 segfault cannot take down the host process.
+`nltiming`’s `LibstempoEngine` accepts whatever session object the host
+provides — it does not construct libstempo itself.
 
 The `discovery` extra installs Discovery from
 [`vhaasteren/discovery@temp/nltiming`](https://github.com/vhaasteren/discovery/tree/temp/nltiming)
@@ -363,7 +385,9 @@ The `discovery` extra installs Discovery from
 
 The `enterprise` / `enterprise_extensions` extras currently install from the
 NANOGrav **`dev`** branches (git), so CI and local installs pick up
-`prior_draw_mode` and related APIs before they hit PyPI.
+`prior_draw_mode` and related APIs before they hit PyPI. As noted above, the
+`enterprise_extensions` extra currently pulls `libstempo` via that package’s
+`install_requires`; use the `--no-deps` path on machines without tempo2.
 
 The default `engines="jug"` path needs the JAX timing engine **`jug-timing`**
 (import package `jug`). Until it is on PyPI, the `jug` extra installs from
@@ -389,13 +413,22 @@ and requires **Python ≥ 3.12**.
 ## Development
 
 ```bash
-pip install -e ".[dev]"
+# matches CI (no system tempo2 / libstempo build)
+pip install -e ".[dev,jug,discovery,enterprise,numpyro]"
+pip install --no-deps \
+  "enterprise_extensions @ git+https://github.com/nanograv/enterprise_extensions.git@dev"
+pip install healpy emcee "ptmcmcsampler>=2.1.0" "scikit-learn>=0.24" \
+  ephem matplotlib pyarrow six
+
 make fast     # tests, excluding slow
 make check    # black, ruff, tests
 ```
 
-Tests that need JUG, libstempo, Discovery, or Enterprise skip cleanly when
-those packages are not installed.
+Linux CI also installs `libsuitesparse-dev` so `scikit-sparse` (pulled by
+enterprise) can build against CHOLMOD. Tests that need JUG, libstempo,
+Discovery, or Enterprise skip cleanly when those packages are not installed.
+libstempo-backed tests are not run on bare runners; use a tempo2-enabled
+environment (devcontainer / conda) and sandbox mode for those.
 
 ## License
 
