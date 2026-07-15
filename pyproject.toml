@@ -34,8 +34,12 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-# The default engines="jug" path needs jug-timing (Python >= 3.12).
-jug = ["jug-timing"]
+# Default engines="jug" imports jug.timing (package name jug-timing).
+# Not on PyPI yet — pin the tempo2-dev branch until a release is published.
+# jug-timing currently requires Python >= 3.12.
+jug = [
+    "jug-timing @ git+https://github.com/vhaasteren/jug.git@tempo2-dev",
+]
 # Not on PyPI (name collides with an unrelated ETCD package 0.0.x).
 # Install NANOGrav discovery from GitHub.
 discovery = [
