@@ -356,6 +356,9 @@ pip install nltiming
 pip install "nltiming[discovery,numpyro,enterprise,ptmcmc,libstempo]"
 ```
 
+The `discovery` extra installs [NANOGrav discovery](https://github.com/nanograv/discovery)
+from GitHub (the PyPI name `discovery` is a different, unrelated package).
+
 The default `engines="jug"` path needs the
 [JUG](https://github.com/MattTMiles/jug) JAX timing engine (`jug-timing`,
 Python ≥ 3.12), currently installed from source.

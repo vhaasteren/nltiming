@@ -36,7 +36,11 @@ dependencies = [
 [project.optional-dependencies]
 # The default engines="jug" path needs jug-timing (Python >= 3.12).
 jug = ["jug-timing"]
-discovery = ["discovery>=0.5"]
+# Not on PyPI (name collides with an unrelated ETCD package 0.0.x).
+# Install NANOGrav discovery from GitHub.
+discovery = [
+    "discovery @ git+https://github.com/nanograv/discovery.git",
+]
 enterprise = ["enterprise-pulsar>=3.0.0"]
 libstempo = ["libstempo>=2.0.0"]
 numpyro = ["jax>=0.4.0", "numpyro>=0.13.0"]
