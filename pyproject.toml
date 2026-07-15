@@ -41,6 +41,8 @@ jug = ["jug-timing"]
 discovery = [
     "discovery @ git+https://github.com/nanograv/discovery.git",
 ]
+# Pulls scikit-sparse (needs SuiteSparse/CHOLMOD headers to build).
+# On Ubuntu/Debian: apt install libsuitesparse-dev  (see .github/workflows/ci.yml).
 enterprise = ["enterprise-pulsar>=3.0.0"]
 libstempo = ["libstempo>=2.0.0"]
 numpyro = ["jax>=0.4.0", "numpyro>=0.13.0"]
