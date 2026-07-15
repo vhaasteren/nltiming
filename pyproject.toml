@@ -41,13 +41,19 @@ jug = [
     "jug-timing @ git+https://github.com/vhaasteren/jug.git@tempo2-dev",
 ]
 # Not on PyPI (name collides with an unrelated ETCD package 0.0.x).
-# Install NANOGrav discovery from GitHub.
+# Temporary fork: JAX cho_solve static-arg fix for current JAX (upstream PR TBD).
 discovery = [
-    "discovery @ git+https://github.com/nanograv/discovery.git",
+    "discovery @ git+https://github.com/vhaasteren/discovery.git@temp/nltiming",
 ]
-# Pulls scikit-sparse (needs SuiteSparse/CHOLMOD headers to build).
-# On Ubuntu/Debian: apt install libsuitesparse-dev  (see .github/workflows/ci.yml).
-enterprise = ["enterprise-pulsar>=3.0.0"]
+# Use nanograv/enterprise@dev (prior_draw_mode, mockpulsar, etc. not yet on PyPI).
+# Pulls scikit-sparse — needs SuiteSparse/CHOLMOD headers (see .github/workflows/ci.yml).
+enterprise = [
+    "enterprise-pulsar @ git+https://github.com/nanograv/enterprise.git@dev",
+]
+# Optional JumpProposal / model helpers; also from git dev until released.
+enterprise_extensions = [
+    "enterprise_extensions @ git+https://github.com/nanograv/enterprise_extensions.git@dev",
+]
 libstempo = ["libstempo>=2.0.0"]
 numpyro = ["jax>=0.4.0", "numpyro>=0.13.0"]
 ptmcmc = ["ptmcmcsampler>=2.1.0"]

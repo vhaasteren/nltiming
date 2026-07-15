@@ -29,7 +29,8 @@ jobs:
           python -m pip install --upgrade pip setuptools wheel
           # jug: github.com/vhaasteren/jug@tempo2-dev (see optional-dependencies)
           # discovery: github.com/nanograv/discovery
-          pip install -e ".[dev,jug,discovery,enterprise,numpyro]"
+          # enterprise (+ e_e) from nanograv */dev (not PyPI yet)
+          pip install -e ".[dev,jug,discovery,enterprise,enterprise_extensions,numpyro]"
       - name: Lint
         run: |
           black --check src/ tests/

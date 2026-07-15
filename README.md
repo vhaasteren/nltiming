@@ -353,11 +353,17 @@ timing fit (`fit_z`, `jacobian_z`, `TimingZFitResult`) is described in
 pip install nltiming
 
 # with optional integrations
-pip install "nltiming[discovery,numpyro,enterprise,ptmcmc,libstempo,jug]"
+pip install "nltiming[discovery,numpyro,enterprise,enterprise_extensions,ptmcmc,libstempo,jug]"
 ```
 
-The `discovery` extra installs [NANOGrav discovery](https://github.com/nanograv/discovery)
-from GitHub (the PyPI name `discovery` is a different, unrelated package).
+The `discovery` extra installs Discovery from
+[`vhaasteren/discovery@temp/nltiming`](https://github.com/vhaasteren/discovery/tree/temp/nltiming)
+(temporary JAX/`cho_solve` fix on top of NANOGrav main; the PyPI name
+`discovery` is a different, unrelated package).
+
+The `enterprise` / `enterprise_extensions` extras currently install from the
+NANOGrav **`dev`** branches (git), so CI and local installs pick up
+`prior_draw_mode` and related APIs before they hit PyPI.
 
 The default `engines="jug"` path needs the JAX timing engine **`jug-timing`**
 (import package `jug`). Until it is on PyPI, the `jug` extra installs from
