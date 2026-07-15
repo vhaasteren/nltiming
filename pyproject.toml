@@ -34,10 +34,35 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-# The default engines="jug" path needs jug-timing (Python >= 3.12).
-jug = ["jug-timing"]
-discovery = ["discovery>=0.5"]
-enterprise = ["enterprise-pulsar>=3.0.0"]
+# Default engines="jug" imports jug.timing (package name jug-timing).
+# Not on PyPI yet — pin the tempo2-dev branch until a release is published.
+# jug-timing currently requires Python >= 3.12.
+jug = [
+    "jug-timing @ git+https://github.com/vhaasteren/jug.git@tempo2-dev",
+]
+# Not on PyPI (name collides with an unrelated ETCD package 0.0.x).
+# Temporary fork: JAX cho_solve static-arg fix for current JAX (upstream PR TBD).
+discovery = [
+    "discovery @ git+https://github.com/vhaasteren/discovery.git@temp/nltiming",
+]
+# Use nanograv/enterprise@dev (prior_draw_mode, mockpulsar, etc. not yet on PyPI).
+# Pulls scikit-sparse — needs SuiteSparse/CHOLMOD headers (see .github/workflows/ci.yml).
+enterprise = [
+    "enterprise-pulsar @ git+https://github.com/nanograv/enterprise.git@dev",
+]
+# Optional JumpProposal / model helpers; also from git dev until released.
+# WARNING: nanograv/enterprise_extensions@dev currently hard-depends on
+# libstempo>=2.4.0 (and thus a system tempo2 + TEMPO2_PREFIX). Bare CI and
+# machines without tempo2 must install this extra with --no-deps after
+# enterprise, then add pure-Python e_e deps (healpy, emcee, ptmcmcsampler,
+# …). See README and .github/workflows/ci.yml.
+enterprise_extensions = [
+    "enterprise_extensions @ git+https://github.com/nanograv/enterprise_extensions.git@dev",
+]
+# Requires a system tempo2 install (TEMPO2_PREFIX or tempo2 on PATH). Never
+# install on bare GitHub runners without tempo2. Prefer libstempo.sandbox
+# (or MetaPulsar sandbox_tempo2) for real tempopulsar evaluation — tempo2 can
+# segfault the host process when used in-process.
 libstempo = ["libstempo>=2.0.0"]
 numpyro = ["jax>=0.4.0", "numpyro>=0.13.0"]
 ptmcmc = ["ptmcmcsampler>=2.1.0"]

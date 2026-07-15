@@ -92,9 +92,17 @@ def _scalar_user_parameter(*, space, coord: str, idx: int):
             return float((z - space.linear.z0[idx]) / space.linear.C[idx, idx])
         raise ValueError(f"Scalar Enterprise parameters do not support coord={coord!r}")
 
+    def _sampler(size=None):
+        # Enterprise passes size for scalar Parameter.sample(); ignore it and
+        # return a scalar. A scalar timing parameter is one prior axis.
+        u = np.random.uniform(1e-12, 1.0 - 1e-12)
+        return _ppf(u)
+
     return parameter.UserParameter(
         logprior=parameter.Function(_logprior),
+        sampler=_sampler,
         ppf=parameter.Function(_ppf),
+        prior_draw_mode="component",
     )
 
 
@@ -109,10 +117,18 @@ def _vector_user_parameter(*, space):
         cube = np.asarray(u, dtype=float)
         return np.asarray(space.coord_from_cube(cube, np, coord="x"), dtype=float)
 
+    def _sampler(size=None):
+        if size is not None and size != space.ndim:
+            raise ValueError(f"expected sampler size {space.ndim}, received {size}")
+        u = np.random.uniform(1e-12, 1.0 - 1e-12, size=space.ndim)
+        return np.asarray(space.coord_from_cube(u, np, coord="x"), dtype=float)
+
     return parameter.UserParameter(
         logprior=parameter.Function(_logprior),
+        sampler=_sampler,
         ppf=parameter.Function(_ppf),
         size=space.ndim,
+        prior_draw_mode="joint",
     )
 
 

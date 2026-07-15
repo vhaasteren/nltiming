@@ -5,7 +5,7 @@ import numpy as np
 from nltiming.backends.base import LinearModel
 from nltiming.backends.jug import LinearizedJugEngine
 from nltiming.nonlinear_timing_model import NonLinearTimingModel
-from nltiming.sampling.numpyro import contribute_timing, record_physical
+from nltiming.sampling.numpyro import contribute_timing, record_physical_postprocess
 
 
 class _Host:
@@ -105,10 +105,9 @@ def test_multi_host_prefixes_and_cache_independence(monkeypatch):
     assert ntm.bind(host_a).space is not space_a_1
     assert ntm.bind(host_b).space is space_b_1
 
-    record_physical(ntm.bind(host_a), params_a, scope="timing")
-    record_physical(ntm.bind(host_b), params_b, scope="timing")
-    deterministic_names = {name for name, _ in deterministic_calls}
-    assert f"{host_a.name}_timing_F1_theta_native" in deterministic_names
-    assert f"{host_a.name}_timing_F1_theta_display" in deterministic_names
-    assert f"{host_b.name}_timing_F1_theta_native" in deterministic_names
-    assert f"{host_b.name}_timing_F1_theta_display" in deterministic_names
+    out_a = record_physical_postprocess(ntm.bind(host_a), params_a, scope="timing")
+    out_b = record_physical_postprocess(ntm.bind(host_b), params_b, scope="timing")
+    assert f"{host_a.name}_timing_F1_theta_native" in out_a
+    assert f"{host_a.name}_timing_F1_theta_display" in out_a
+    assert f"{host_b.name}_timing_F1_theta_native" in out_b
+    assert f"{host_b.name}_timing_F1_theta_display" in out_b
