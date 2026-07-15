@@ -17,7 +17,7 @@ reimplementation of it.
 | NLT math (ParameterSpace, bijectors, whitening, priors, partition) | **nltiming** |
 | Backend protocol + engine adapters (pint, libstempo, jug, vela) | **nltiming** |
 | Multi-PTA composite backend (session assembly over row slices) | **nltiming** |
-| Discovery + Enterprise frontends, sampler glue, artifacts | **nltiming** |
+| Discovery + Enterprise frontends, probabilistic model adapters and optional sampler recipes, artifacts | **nltiming** |
 | JAX / nonlinear timing-engine primitives | **JUG** |
 | Multi-PTA host, session construction, data combination | host (e.g. MetaPulsar) |
 | GP bases, `Phi` inference, spectra, correlated-noise likelihoods | **Discovery / Enterprise** |

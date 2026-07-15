@@ -1,4 +1,4 @@
-"""Slice-5 tests for record_physical timing deterministic output."""
+"""Slice-5 tests for record_physical_postprocess timing physical-value output."""
 
 import numpy as np
 import pytest
@@ -6,7 +6,7 @@ import pytest
 from nltiming.backends.base import LinearModel
 from nltiming.backends.jug import LinearizedJugEngine
 from nltiming.nonlinear_timing_model import NonLinearTimingModel
-from nltiming.sampling.numpyro import contribute_timing, record_physical
+from nltiming.sampling.numpyro import contribute_timing, record_physical_postprocess
 
 
 class _Host:
@@ -89,31 +89,31 @@ def _patch_numpyro(monkeypatch, sample_value):
     return calls
 
 
-def test_record_physical_timing_scope_emits_prefixed_theta_sites(host, monkeypatch):
+def test_record_physical_postprocess_timing_scope_returns_prefixed_theta_values(
+    host, monkeypatch
+):
     ntm = NonLinearTimingModel(
         engines="jug",
         transform="none",
         analytically_marginalize=["F0"],
         name="timing",
     )
-    calls = _patch_numpyro(monkeypatch, sample_value=np.array([0.25]))
+    _patch_numpyro(monkeypatch, sample_value=np.array([0.25]))
     params = contribute_timing(ntm.bind(host), {})
 
-    record_physical(ntm.bind(host), params, scope="timing")
+    out = record_physical_postprocess(ntm.bind(host), params, scope="timing")
 
-    det_names = [name for name, _ in calls["deterministic"]]
-    assert f"{host.name}_timing_F1_theta_native" in det_names
-    assert f"{host.name}_timing_F1_theta_display" in det_names
+    assert f"{host.name}_timing_F1_theta_native" in out
+    assert f"{host.name}_timing_F1_theta_display" in out
     expected_theta = ntm.bind(host).space.theta_from_delta(
         np.array([params[f"{host.name}_timing_F1"]])
     )
-    native_call = next(
-        v for n, v in calls["deterministic"] if n.endswith("_theta_native")
+    np.testing.assert_allclose(
+        out[f"{host.name}_timing_F1_theta_native"], expected_theta[0]
     )
-    np.testing.assert_allclose(native_call, expected_theta[0])
 
 
-def test_record_physical_scope_all_raises(host):
+def test_record_physical_postprocess_scope_all_raises(host):
     ntm = NonLinearTimingModel(
         engines="jug",
         transform="none",
@@ -121,10 +121,12 @@ def test_record_physical_scope_all_raises(host):
         name="timing",
     )
     with pytest.raises(NotImplementedError, match="scope='all'"):
-        record_physical(ntm.bind(host), {}, scope="all")
+        record_physical_postprocess(ntm.bind(host), {}, scope="all")
 
 
-def test_record_physical_does_not_change_density_calls(host, monkeypatch):
+def test_record_physical_postprocess_touches_no_numpyro_state(host, monkeypatch):
+    """record_physical_postprocess is pure post-processing: it must not call
+    numpyro.sample/factor/deterministic, so it works outside any trace."""
     ntm = NonLinearTimingModel(
         engines="jug",
         transform="none",
@@ -135,16 +137,18 @@ def test_record_physical_does_not_change_density_calls(host, monkeypatch):
     params = contribute_timing(ntm.bind(host), {})
     n_sample = len(calls["sample"])
     n_factor = len(calls["factor"])
+    n_deterministic = len(calls["deterministic"])
 
-    record_physical(ntm.bind(host), params, scope="timing")
+    out = record_physical_postprocess(ntm.bind(host), params, scope="timing")
 
     assert len(calls["sample"]) == n_sample
     assert len(calls["factor"]) == n_factor
-    assert len(calls["deterministic"]) == 2
+    assert len(calls["deterministic"]) == n_deterministic
+    assert len(out) == 2
 
 
-def test_record_physical_explicit_coord_handles_standardized_scalar_params(
-    host, monkeypatch
+def test_record_physical_postprocess_explicit_coord_handles_standardized_scalar_params(
+    host,
 ):
     ntm = NonLinearTimingModel(
         engines="jug",
@@ -152,25 +156,22 @@ def test_record_physical_explicit_coord_handles_standardized_scalar_params(
         analytically_marginalize=["F0"],
         name="timing",
     )
-    calls = _patch_numpyro(monkeypatch, sample_value=np.array([0.0]))
     x_value = 0.25
     params = {f"{host.name}_timing_F1": x_value}
 
-    record_physical(ntm.bind(host), params, scope="timing", coord="x")
+    out = record_physical_postprocess(ntm.bind(host), params, scope="timing", coord="x")
 
     space = ntm.bind(host).space
     delta = space.delta_from_coord(np.array([x_value], dtype=float), np, coord="x")
     expected_theta = space.theta_from_delta(delta)
-    det_names = [name for name, _ in calls["deterministic"]]
-    assert f"{host.name}_timing_F1_theta_native" in det_names
-    assert f"{host.name}_timing_F1_theta_display" in det_names
-    native_call = next(
-        v for n, v in calls["deterministic"] if n.endswith("_theta_native")
+    assert f"{host.name}_timing_F1_theta_native" in out
+    assert f"{host.name}_timing_F1_theta_display" in out
+    np.testing.assert_allclose(
+        out[f"{host.name}_timing_F1_theta_native"], expected_theta[0]
     )
-    np.testing.assert_allclose(native_call, expected_theta[0])
 
 
-def test_record_physical_implicit_coord_handles_standardized_contribute_output(
+def test_record_physical_postprocess_implicit_coord_handles_standardized_contribute_output(
     host, monkeypatch
 ):
     ntm = NonLinearTimingModel(
@@ -179,26 +180,24 @@ def test_record_physical_implicit_coord_handles_standardized_contribute_output(
         analytically_marginalize=["F0"],
         name="timing",
     )
-    calls = _patch_numpyro(monkeypatch, sample_value=np.array([0.2]))
+    _patch_numpyro(monkeypatch, sample_value=np.array([0.2]))
     params = contribute_timing(ntm.bind(host), {})
 
-    record_physical(ntm.bind(host), params, scope="timing")
+    out = record_physical_postprocess(ntm.bind(host), params, scope="timing")
 
     # contribute_timing injects backend-facing delta keys; implicit standardized
-    # record_physical should interpret those as delta, not as standardized x.
+    # record_physical_postprocess should interpret those as delta, not x.
     expected_theta = ntm.bind(host).space.theta_from_delta(
         np.array([params[f"{host.name}_timing_F1"]], dtype=float)
     )
-    det_names = [name for name, _ in calls["deterministic"]]
-    assert f"{host.name}_timing_F1_theta_native" in det_names
-    assert f"{host.name}_timing_F1_theta_display" in det_names
-    native_call = next(
-        v for n, v in calls["deterministic"] if n.endswith("_theta_native")
+    assert f"{host.name}_timing_F1_theta_native" in out
+    assert f"{host.name}_timing_F1_theta_display" in out
+    np.testing.assert_allclose(
+        out[f"{host.name}_timing_F1_theta_native"], expected_theta[0]
     )
-    np.testing.assert_allclose(native_call, expected_theta[0])
 
 
-def test_record_physical_invalid_coord_raises(host):
+def test_record_physical_postprocess_invalid_coord_raises(host):
     ntm = NonLinearTimingModel(
         engines="jug",
         transform="none",
@@ -206,4 +205,4 @@ def test_record_physical_invalid_coord_raises(host):
         name="timing",
     )
     with pytest.raises(ValueError, match="coord must be one of"):
-        record_physical(ntm.bind(host), {}, scope="timing", coord="invalid")
+        record_physical_postprocess(ntm.bind(host), {}, scope="timing", coord="invalid")

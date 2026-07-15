@@ -3,6 +3,7 @@
 import numpy as np
 import pytest
 
+import jax.numpy as jnp
 import jax.random as jr
 from numpyro import handlers
 
@@ -11,7 +12,7 @@ from nltiming.backends.jug import LinearizedJugEngine
 from nltiming.backends.pint import LinearizedPintEngine
 from nltiming.nonlinear_timing_model import NonLinearTimingModel
 from nltiming.whitening import normalized_basis
-from nltiming.sampling.numpyro import contribute_timing
+from nltiming.sampling.numpyro import _sample_timing_coord, contribute_timing
 from nltiming.partition import resolve_partition
 from nltiming.whitening import schur_delta_wls
 
@@ -488,7 +489,7 @@ def test_non_timing_params_and_timing_param_keys_are_plain_set_subtraction(host)
     assert ntm_all_marg.bind(host).non_timing_params(plain) == plain
 
 
-def test_contribute_timing_samples_joint_site_factors_prior_and_injects_delta(
+def test_contribute_timing_x_site_samples_and_injects_delta_deterministic(
     host, monkeypatch
 ):
     ntm = NonLinearTimingModel(
@@ -505,7 +506,28 @@ def test_contribute_timing_samples_joint_site_factors_prior_and_injects_delta(
     assert out["efac"] == 1.0
     assert f"{host.name}_timing_x" not in out
     assert calls["sample"][0][0] == f"{host.name}_timing_x"
-    assert calls["factor"][0][0] == f"{host.name}_timing_x_logprior"
+    # the x-coordinate MVN's own log_prob equals space.logprior_coord, so no
+    # second prior factor is added for this coord
+    assert calls["factor"] == []
+    assert calls["deterministic"][0][0] == f"{host.name}_timing_F1_delta"
+    np.testing.assert_allclose(
+        calls["deterministic"][0][1], out[f"{host.name}_timing_F1"]
+    )
+
+
+def test_contribute_timing_delta_coord_has_exactly_one_prior_factor(host, monkeypatch):
+    ntm = NonLinearTimingModel(
+        engines="jug",
+        transform="none",
+        analytically_marginalize=["F0", "DM"],
+        name="timing",
+    )
+    calls = _monkeypatch_numpyro(monkeypatch, sample_value=np.array([0.0]))
+
+    contribute_timing(ntm.bind(host), {})
+
+    assert len(calls["factor"]) == 1
+    assert calls["factor"][0][0] == f"{host.name}_timing_delta_logprior"
 
 
 def test_contribute_timing_noop_when_no_sampled(host, monkeypatch):
@@ -585,7 +607,7 @@ def test_autodiff_design_matrix_method_feeds_enterprise_gp_basis(host):
     )
 
 
-def test_contribute_timing_improper_uniform_site_has_vector_event_shape(host):
+def test_contribute_timing_x_site_has_vector_event_shape(host):
     ntm = NonLinearTimingModel(
         engines="jug",
         transform="standardized",
@@ -604,3 +626,154 @@ def test_contribute_timing_improper_uniform_site_has_vector_event_shape(host):
     site = trace[f"{host.name}_timing_x"]
     assert tuple(site["fn"].batch_shape) == ()
     assert tuple(site["fn"].event_shape) == (1,)
+
+
+def test_timing_coord_distribution_log_prob_matches_logprior_coord(host):
+    """The x/z coordinate distributions built by _sample_timing_coord must have
+    log_prob equal to space.logprior_coord, including normalization (§6.2) —
+    across diagonal standardization and non-diagonal whitening."""
+    cases = [("standardized", "x"), ("whitening", "x"), ("none", "z")]
+    for transform, coord in cases:
+        ntm = NonLinearTimingModel(
+            engines="jug",
+            transform=transform,
+            analytically_marginalize=["DM"],
+            name="timing",
+        )
+        binding = ntm.bind(host)
+
+        def model():
+            _sample_timing_coord(binding, coord=coord)
+
+        trace = handlers.trace(handlers.seed(model, jr.PRNGKey(0))).get_trace()
+        site_name = binding.coord_site_name(coord)
+        distribution = trace[site_name]["fn"]
+        q = trace[site_name]["value"]
+
+        got = float(distribution.log_prob(q))
+        expected = float(binding.space.logprior_coord(jnp.asarray(q), jnp, coord=coord))
+        assert np.isclose(got, expected, rtol=1e-6, atol=1e-8), (transform, coord)
+
+
+def test_timing_coord_x_and_z_add_no_extra_prior_factor(host, monkeypatch):
+    for transform, coord in [("standardized", "x"), ("whitening", "x"), ("none", "z")]:
+        ntm = NonLinearTimingModel(
+            engines="jug",
+            transform=transform,
+            analytically_marginalize=["DM"],
+            name="timing",
+        )
+        calls = _monkeypatch_numpyro(monkeypatch, sample_value=np.zeros(2))
+        _sample_timing_coord(ntm.bind(host), coord=coord)
+        assert calls["factor"] == [], (transform, coord)
+
+
+def _enterprise_pta(host, *, transform, analytically_marginalize):
+    from enterprise.signals import parameter, signal_base, white_signals
+
+    efac = parameter.Uniform(0.1, 5.0)
+    white = white_signals.MeasurementNoise(efac=efac)
+    ntm = NonLinearTimingModel(
+        engines="jug",
+        transform=transform,
+        analytically_marginalize=analytically_marginalize,
+        name="timing",
+    )
+    return signal_base.PTA([(white + ntm.enterprise_signal())(host)])
+
+
+@pytest.mark.parametrize(
+    ("transform", "analytically_marginalize"),
+    [
+        ("none", ["DM"]),
+        ("standardized", ["DM"]),
+        ("whitening", ["F0", "DM"]),  # ndim=1: size-1 block must stay a vector
+        ("whitening", ["DM"]),  # ndim=2, non-diagonal C from the host design matrix
+    ],
+)
+def test_enterprise_parameters_sample_and_evaluate_full_pta(
+    host, transform, analytically_marginalize
+):
+    """p.sample() works for every NLT Enterprise parameter in every transform
+    mode, over the complete PTA vector (noise + timing sampled jointly), and
+    dict/flat-vector evaluations agree."""
+    pta = _enterprise_pta(
+        host, transform=transform, analytically_marginalize=analytically_marginalize
+    )
+    x0 = np.hstack(
+        [np.asarray(p.sample(), dtype=float).reshape(-1) for p in pta.params]
+    )
+    assert x0.shape == (len(pta.param_names),)
+    assert np.isfinite(pta.get_lnprior(x0))
+    assert np.isfinite(pta.get_lnlikelihood(x0))
+
+    mapped = pta.map_params(x0)
+    assert pta.get_lnprior(x0) == pta.get_lnprior(mapped)
+    assert pta.get_lnlikelihood(x0) == pta.get_lnlikelihood(mapped)
+
+
+def test_scalar_timing_parameter_prior_draw_mode_is_component(host):
+    ntm = NonLinearTimingModel(
+        engines="jug",
+        transform="none",
+        analytically_marginalize=["DM"],
+        name="timing",
+    )
+    bound = ntm.enterprise_signal()(host)
+    (param,) = [p for p in bound.params if p.name.endswith("_timing_F1")]
+
+    assert param.size is None
+    assert param.prior_draw_mode == "component"
+    assert isinstance(param.sample(), float)
+
+
+def test_whitening_vector_parameter_is_joint_and_size_one_stays_a_vector(host):
+    """A one-dimensional full-whitening block remains a vector end to end
+    (acceptance criterion #5): size, sample(), and prior_draw_mode all agree
+    it is a length-1 array, not a bare scalar."""
+    ntm = NonLinearTimingModel(
+        engines="jug",
+        transform="whitening",
+        analytically_marginalize=["F0", "DM"],
+        name="timing",
+    )
+    bound = ntm.enterprise_signal()(host)
+    (param,) = [p for p in bound.params if p.name.endswith("_timing_x")]
+
+    assert param.size == 1
+    assert param.prior_draw_mode == "joint"
+
+    sample = param.sample()
+    assert isinstance(sample, np.ndarray)
+    assert sample.shape == (1,)
+
+
+def test_whitening_vector_sample_and_ppf_describe_the_same_distribution(host):
+    """PPF draws and direct sampler draws must describe the same distribution
+    (they compose through the same coord_from_cube map), and the declared
+    log density must be finite and consistent for both."""
+    from scipy import stats
+
+    ntm = NonLinearTimingModel(
+        engines="jug",
+        transform="whitening",
+        analytically_marginalize=["DM"],
+        name="timing",
+    )
+    bound = ntm.enterprise_signal()(host)
+    (param,) = [p for p in bound.params if p.name.endswith("_timing_x")]
+    assert param.size == 2
+
+    rng = np.random.default_rng(0)
+    n = 500
+    direct_samples = np.array([param.sample() for _ in range(n)])
+    ppf_samples = np.array(
+        [param.get_ppf(rng.uniform(1e-6, 1 - 1e-6, size=2)) for _ in range(n)]
+    )
+
+    for axis in range(2):
+        _, pvalue = stats.ks_2samp(direct_samples[:, axis], ppf_samples[:, axis])
+        assert pvalue > 0.01
+
+    assert np.isfinite(param.get_logpdf(direct_samples[0]))
+    assert np.isfinite(param.get_logpdf(ppf_samples[0]))

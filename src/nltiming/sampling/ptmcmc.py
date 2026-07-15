@@ -1,12 +1,15 @@
-"""PTMCMCSampler glue for nonlinear timing bindings.
+"""Sampler-neutral PTMCMC helpers, plus one optional timing-only recipe.
 
-Handles the sampler-vector ↔ likelihood-parameter mapping for both timing
-coordinate layouts (whitening joint site vs standardized scalar columns) and
-records the on-disk chain layout for the artifact sidecar.
-
-Works with an Enterprise ``PTA`` (``get_lnlikelihood``/``get_lnprior``); the
-same ``eval_params`` mapping applies to Discovery likelihoods driven by
-PTMCMC with fixed hyperparameters.
+``timing_param_names`` and ``chain_layout`` are sampler-neutral: they map the
+timing block's coordinate layout (whitening joint site vs standardized scalar
+columns) onto a sampler's flat parameter-name order — Enterprise's
+``pta.param_names`` for a normal full-PTA analysis, or a timing-only vector
+for :func:`timing_only_sampler`. ``eval_params``/:func:`timing_only_sampler`
+are an optional, experimental recipe that fixes every non-timing parameter
+and samples only the timing coordinates; they are not the standard Enterprise
+workflow, where a normal ``enterprise_extensions.sampler.setup_sampler``
+samples the complete PTA using the native Enterprise parameters from
+``ntm.enterprise_signal()`` (see the package README).
 """
 
 from __future__ import annotations
@@ -131,7 +134,7 @@ def chain_layout(
     return {"kind": "ptmcmc", "file": chain_file, "columns": columns}
 
 
-def sampler(
+def timing_only_sampler(
     pta,
     binding,
     outdir: str | Path,
@@ -141,7 +144,14 @@ def sampler(
     verbose: bool = True,
     **ptmcmc_kwargs: Any,
 ):
-    """Configured ``PTSampler`` over the timing block with fixed non-timing params.
+    """Configured ``PTSampler`` over ONLY the timing block; experimental recipe.
+
+    This fixes every non-timing parameter via ``fixed`` and samples only the
+    timing coordinates — it is not the standard Enterprise workflow, where a
+    normal ``enterprise_extensions.sampler.setup_sampler(pta, ...)`` samples
+    the complete PTA vector (noise and timing jointly) using the native
+    Enterprise parameters from ``ntm.enterprise_signal()``. Use this only for
+    timing-only experiments with all other parameters pinned.
 
     Returns the sampler; run it with
     ``pts.sample(p0=initial_point(binding), Niter=..., burn=...)``. The chain
