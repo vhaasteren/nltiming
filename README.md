@@ -61,6 +61,7 @@ constructing a likelihood:
 
 ```python
 from nltiming import TimingEvaluator
+from nltiming.space import ParameterSpace
 
 timing = TimingEvaluator.from_pulsar(
     pulsar,
@@ -73,6 +74,12 @@ evaluation = timing.evaluate({"F0": 1e-10}, frame="delta")
 scan = timing.scan("TASC", [-0.5, 0.0, 0.5], scale="PB")
 jacobian = timing.jacobian(method="autodiff")
 fit = timing.fit(["F0", "F1"])
+
+# Transformed-space (z) fit: prior-bijector-scaled Jacobian + weighted LSQ,
+# returning a TimingZFitResult with z_best, covariance, rank/singular values.
+space = ParameterSpace.build(theta_ref_mapping=timing.reference_exact)
+jacobian_z = timing.jacobian_z(space)
+zfit = timing.fit_z(space, ["F0", "F1"])
 ```
 
 All operations return immutable result objects. The evaluator does not mutate
@@ -96,8 +103,8 @@ tooling composes `nltiming` with those frontends rather than re-homing noise
 math here.
 
 Maintainer notes (ownership table, engineering caveats, upstream tracks) live
-in [`DESIGN_NOTES.md`](DESIGN_NOTES.md). The proposed interactive
-transformed-space (`z`) timing fit is described in
+in [`DESIGN_NOTES.md`](DESIGN_NOTES.md). The interactive transformed-space (`z`)
+timing fit (`fit_z`, `jacobian_z`, `TimingZFitResult`) is described in
 [`TRANSFORMED_SPACE_FIT.md`](TRANSFORMED_SPACE_FIT.md).
 
 ## Installation

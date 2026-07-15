@@ -16,6 +16,7 @@ import numpy as np
 
 from .partition import match_fitpars
 from .protocols import JaxTimingBackend
+from .space import ParameterSpace
 from .units import lookup_pint_param, normalize_param_name, units_map
 
 Frame = Literal["delta", "absolute"]
@@ -210,6 +211,45 @@ class TimingFitResult:
         object.__setattr__(self, "covariance", _readonly_array(self.covariance))
         object.__setattr__(
             self, "uncertainties", MappingProxyType(dict(self.uncertainties))
+        )
+
+
+@dataclass(frozen=True)
+class TimingZFitResult:
+    """Immutable result of a local weighted least-squares fit in z coordinates."""
+
+    parameters: tuple[str, ...]
+    initial: TimingEvaluation
+    best_fit: TimingEvaluation
+    z_initial: np.ndarray
+    z_best: np.ndarray
+    covariance: np.ndarray
+    covariance_coord: str
+    covariance_delta: np.ndarray
+    uncertainties: Mapping[str, float]
+    uncertainties_delta: Mapping[str, float]
+    rank: int
+    singular_values: np.ndarray
+    iterations: int
+    chi2: float
+
+    def __post_init__(self) -> None:
+        for field in (
+            "z_initial",
+            "z_best",
+            "covariance",
+            "covariance_delta",
+            "singular_values",
+        ):
+            object.__setattr__(self, field, _readonly_array(getattr(self, field)))
+        object.__setattr__(self, "covariance_coord", str(self.covariance_coord))
+        object.__setattr__(
+            self, "uncertainties", MappingProxyType(dict(self.uncertainties))
+        )
+        object.__setattr__(
+            self,
+            "uncertainties_delta",
+            MappingProxyType(dict(self.uncertainties_delta)),
         )
 
 
@@ -465,6 +505,180 @@ class TimingEvaluator:
             values=axis,
             evaluations=evaluations,
             toaerrs=np.asarray(self.pulsar.toaerrs, dtype=float),
+        )
+
+    def _resolve_space_parameters(
+        self, space: ParameterSpace, parameters: Sequence[str] | None
+    ) -> tuple[list[str], np.ndarray]:
+        if parameters is None:
+            selected = list(space.names)
+        else:
+            selected = []
+            for requested in parameters:
+                hits = [
+                    hit for hit in match_fitpars(self.pulsar, requested, space.names)
+                ]
+                if not hits and requested in space.names:
+                    hits = [requested]
+                for hit in hits:
+                    if hit not in selected:
+                        selected.append(hit)
+        if not selected:
+            raise ValueError("parameters matches no timing fitpars in ParameterSpace")
+        missing = [name for name in selected if name not in self._index]
+        if missing:
+            raise ValueError(
+                "ParameterSpace contains names absent from evaluator fitpars: "
+                f"{missing}"
+            )
+        space_index = {name: i for i, name in enumerate(space.names)}
+        space_indices = np.asarray([space_index[name] for name in selected], dtype=int)
+        return selected, space_indices
+
+    def _z_vector(
+        self,
+        space: ParameterSpace,
+        values: Mapping[str, float] | Sequence[float] | np.ndarray | None,
+    ) -> np.ndarray:
+        if values is None:
+            return np.zeros(space.ndim, dtype=float)
+        if isinstance(values, Mapping):
+            z = np.zeros(space.ndim, dtype=float)
+            space_index = {name: i for i, name in enumerate(space.names)}
+            for requested_name, value in values.items():
+                hits = [
+                    hit
+                    for hit in match_fitpars(
+                        self.pulsar, str(requested_name), space.names
+                    )
+                ]
+                if not hits and requested_name in space_index:
+                    hits = [str(requested_name)]
+                if not hits:
+                    raise KeyError(
+                        f"z parameter {requested_name!r} matches no ParameterSpace "
+                        f"name; available: {list(space.names)}"
+                    )
+                for hit in hits:
+                    z[space_index[hit]] = float(value)
+            return z
+        vector = np.asarray(values, dtype=float).reshape(-1)
+        if vector.shape != (space.ndim,):
+            raise ValueError(
+                f"z vector must have length {space.ndim}, got {vector.size}"
+            )
+        return vector.copy()
+
+    def _delta_from_space_z(self, space: ParameterSpace, z: np.ndarray) -> np.ndarray:
+        delta = np.zeros(len(self.fitpars), dtype=float)
+        transformed_delta = np.asarray(space.delta_from_z(z, np), dtype=float)
+        for i, name in enumerate(space.names):
+            if name not in self._index:
+                raise ValueError(
+                    "ParameterSpace contains names absent from evaluator fitpars: "
+                    f"{name!r}"
+                )
+            delta[self._index[name]] = transformed_delta[i]
+        return delta
+
+    def jacobian_z(
+        self,
+        space: ParameterSpace,
+        z: Mapping[str, float] | Sequence[float] | np.ndarray | None = None,
+        *,
+        method: JacobianMethod = "auto",
+    ) -> np.ndarray:
+        """Return ``d residual_delta / d z`` for the supplied ParameterSpace."""
+        z_vector = self._z_vector(space, z)
+        delta = self._delta_from_space_z(space, z_vector)
+        jacobian_at = None if method in {"reference", "analytic"} else delta
+        jacobian_delta = self.jacobian(jacobian_at, frame="delta", method=method)
+        timing_indices = np.asarray(
+            [self._index[name] for name in space.names], dtype=int
+        )
+        d_delta_d_z = np.asarray(
+            space.prior_bijector.jacobian_diag_delta_from_z(z_vector, np),
+            dtype=float,
+        )
+        return jacobian_delta[:, timing_indices] * d_delta_d_z[None, :]
+
+    def fit_z(
+        self,
+        space: ParameterSpace,
+        parameters: Sequence[str] | None = None,
+        *,
+        initial: Mapping[str, float] | Sequence[float] | np.ndarray | None = None,
+        toaerrs: np.ndarray | None = None,
+        jacobian_method: JacobianMethod = "auto",
+        iterations: int = 1,
+    ) -> TimingZFitResult:
+        """Run a fixed-iteration local weighted least-squares fit in z space."""
+        selected, space_indices = self._resolve_space_parameters(space, parameters)
+        errors = np.asarray(
+            self.pulsar.toaerrs if toaerrs is None else toaerrs, dtype=float
+        )
+        if errors.shape != np.asarray(self.pulsar.residuals).shape or np.any(
+            errors <= 0
+        ):
+            raise ValueError("toaerrs must be positive and match pulsar residuals")
+        iterations = int(iterations)
+        if iterations < 1:
+            raise ValueError("iterations must be >= 1")
+
+        z = self._z_vector(space, initial)
+        z_initial = z.copy()
+        initial_evaluation = self.evaluate(
+            self._delta_from_space_z(space, z), frame="delta"
+        )
+        for _ in range(iterations):
+            evaluation = self.evaluate(
+                self._delta_from_space_z(space, z), frame="delta"
+            )
+            jacobian = self.jacobian_z(space, z, method=jacobian_method)
+            weighted_jacobian = jacobian[:, space_indices] / errors[:, None]
+            weighted_residuals = evaluation.residuals / errors
+            step, *_ = np.linalg.lstsq(
+                weighted_jacobian, -weighted_residuals, rcond=None
+            )
+            z[space_indices] += step
+
+        best = self.evaluate(self._delta_from_space_z(space, z), frame="delta")
+        final_jacobian = self.jacobian_z(space, z, method=jacobian_method)[
+            :, space_indices
+        ]
+        weighted_final = final_jacobian / errors[:, None]
+        singular_values = np.linalg.svd(weighted_final, compute_uv=False)
+        eps = np.finfo(weighted_final.dtype).eps
+        rank_threshold = (
+            singular_values[0] * max(weighted_final.shape) * eps
+            if singular_values.size
+            else 0.0
+        )
+        rank = int(np.sum(singular_values > rank_threshold))
+        covariance_z = np.linalg.pinv(weighted_final.T @ weighted_final)
+        d_delta_d_z = np.asarray(
+            space.prior_bijector.jacobian_diag_delta_from_z(z, np),
+            dtype=float,
+        )[space_indices]
+        transform = np.diag(d_delta_d_z)
+        covariance_delta = transform @ covariance_z @ transform.T
+        uncertainty_z = np.sqrt(np.clip(np.diag(covariance_z), 0.0, None))
+        uncertainty_delta = np.sqrt(np.clip(np.diag(covariance_delta), 0.0, None))
+        return TimingZFitResult(
+            parameters=tuple(selected),
+            initial=initial_evaluation,
+            best_fit=best,
+            z_initial=z_initial,
+            z_best=z,
+            covariance=covariance_z,
+            covariance_coord="z",
+            covariance_delta=covariance_delta,
+            uncertainties=dict(zip(selected, uncertainty_z, strict=True)),
+            uncertainties_delta=dict(zip(selected, uncertainty_delta, strict=True)),
+            rank=int(rank),
+            singular_values=singular_values,
+            iterations=iterations,
+            chi2=best.white_chi2(errors),
         )
 
     def fit(

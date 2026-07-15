@@ -19,6 +19,7 @@ from .evaluator import (
     TimingParameter,
     TimingParameters,
     TimingScan,
+    TimingZFitResult,
 )
 from .protocols import (
     EnterprisePulsarLike,
@@ -57,4 +58,5 @@ __all__ = [
     "TimingParameter",
     "TimingParameters",
     "TimingScan",
+    "TimingZFitResult",
 ]
