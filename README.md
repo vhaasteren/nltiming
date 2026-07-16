@@ -9,19 +9,26 @@ linearizing around it), `nltiming` *numerically samples* a chosen subset of
 timing parameters inside the likelihood while the remaining linear nuisance
 parameters are analytically marginalized. The same model configuration drives
 both likelihood frontends and both sampler stacks (NumPyro NUTS via a
-JAX-capable timing engine, or PTMCMCSampler), and every run is decodable from
-small on-disk artifacts with no live model objects. Note: much of this was
-inspired by [Vela.jl](https://github.com/abhisrkckl/Vela.jl), and earlier work
-in TempoNest.
+JAX-capable timing engine, or PTMCMCSampler). Much of this was inspired by
+[Vela.jl](https://github.com/abhisrkckl/Vela.jl), and earlier work in TempoNest.
+
+Like Vela.jl, the timing model parameters are not sampled directly; due to high
+covariances and parameter scale differences, the sampler sees a transformed set
+of parameters in some latent space. The Vela.jl `"standardized"` parameter
+transformation is available where each parameter is transformed individually,
+and the `"whitening`" transformation is available that transforms the whole
+space simultaneously. When sampling with with `enterprise`/`PTMCMCSampler` this
+requires some extra scaffolding.
 
 ## Ownership: `nltiming` owns model semantics, not sampler execution
 
 `nltiming` supplies native objects at the two likelihood frontends:
 
 - **Discovery:** `sampling.numpyro.model(...)` returns an ordinary
-  zero-argument NumPyro model. Sample it with `sampling.numpyro.nuts` (a
-  convenience recipe), raw `numpyro.infer.NUTS`/`MCMC`, or Discovery's
-  `makesampler_nuts` — all three run the identical model.
+  zero-argument NumPyro model (with `.to_df` for decoded timing columns).
+  Sample it with `sampling.numpyro.nuts`, Discovery's
+  `makesampler_nuts` + `run_nuts_with_checkpoints`, or — as a power-user
+  option — raw `numpyro.infer.NUTS`/`MCMC`. All three run the identical model.
 - **Enterprise:** `ntm.enterprise_signal()` returns ordinary Enterprise
   `Parameter` objects (a joint vector parameter under full whitening).
   Sample the resulting `PTA` exactly like any other Enterprise analysis —
@@ -42,13 +49,20 @@ PTA-suffixed parameter names are matched by base name.
 
 ## Discovery workflows
 
-All three workflows below sample the exact same NumPyro model. Enable
+All three workflows below sample the **exact same** NumPyro model. Enable
 float64 **before** constructing the Discovery likelihood — JAX arrays
-already created as float32 stay float32:
+already created as float32 stay float32.
+
+### Shared setup
 
 ```python
+from pathlib import Path
+
 import jax
+import pandas as pd
 import discovery as ds
+import discovery.samplers.numpyro as ds_numpyro
+from numpyro.infer import init_to_value
 
 from nltiming import NonLinearTimingModel, priors, sampling
 
@@ -76,7 +90,20 @@ numpyro_model = sampling.numpyro.model(
 )
 ```
 
-### 1. `sampling.numpyro.nuts` — shortest safe path
+`numpyro_model` is an ordinary zero-argument NumPyro model. It also exposes
+`.to_df(samples)`, which decodes timing coordinates to physical columns.
+That is the only NLT-specific sampling seam: Discovery (and raw NumPyro)
+never reimplement the whitening transform.
+
+Do **not** sample the raw likelihood with Discovery's flat `makemodel`
+helper (`ds_numpyro.makemodel(likelihood.logL)`): it samples every
+`logL.params` entry as an independent `Uniform`, which cannot recover the
+joint whitening transform.
+
+### 1. `sampling.numpyro.nuts` — shortest path (no checkpointing)
+
+Opinionated convenience: builds a NumPyro `MCMC` with init-at-reference and
+sensible NUTS defaults. No Discovery I/O.
 
 ```python
 mcmc = sampling.numpyro.nuts(
@@ -93,45 +120,18 @@ mcmc = sampling.numpyro.nuts(
 mcmc.run(jax.random.PRNGKey(42))
 mcmc.print_summary()
 
-samples = mcmc.get_samples()
-posterior = mcmc.to_df()   # present because numpyro_model has .to_df
+posterior = mcmc.to_df()   # wired from numpyro_model.to_df
 ```
 
-`mcmc` is an ordinary `numpyro.infer.MCMC` instance; the wrapper only
-supplies opinionated defaults (init-at-reference, `target_accept=0.8`).
+### 2. Discovery checkpoint runner — recommended Discovery path
 
-### 2. Raw `numpyro.infer.NUTS`/`MCMC` — full control
-
-```python
-from numpyro.infer import MCMC, NUTS, init_to_value
-
-init = init_to_value(values=sampling.numpyro.timing_init_values(binding))
-
-kernel = NUTS(
-    numpyro_model,
-    dense_mass=True,
-    target_accept_prob=0.85,
-    max_tree_depth=10,
-    init_strategy=init,
-)
-mcmc = MCMC(
-    kernel,
-    num_warmup=1_000,
-    num_samples=2_000,
-    num_chains=4,
-    chain_method="parallel",
-    progress_bar=True,
-)
-mcmc.run(jax.random.PRNGKey(42))
-samples = mcmc.get_samples()
-posterior = numpyro_model.to_df(samples)
-```
-
-### 3. Discovery `makesampler_nuts` — Discovery's own checkpoint runner
+Use Discovery's own sampler factory and Feather checkpointing. No manual
+`sampler.to_df = ...` scaffolding: `makesampler_nuts` attaches
+`sampler.to_df` from `numpyro_model.to_df`, and
+`run_nuts_with_checkpoints` recovers that attachment if needed.
 
 ```python
-import discovery.samplers.numpyro as ds_numpyro
-from numpyro.infer import init_to_value
+outdir = Path("chains/J1909-3744")
 
 sampler = ds_numpyro.makesampler_nuts(
     numpyro_model,
@@ -140,41 +140,79 @@ sampler = ds_numpyro.makesampler_nuts(
     num_chains=4,
     dense_mass=True,
     target_accept_prob=0.85,
-    init_strategy=init_to_value(values=sampling.numpyro.timing_init_values(binding)),
+    init_strategy=init_to_value(
+        values=sampling.numpyro.timing_init_values(binding)
+    ),
 )
-sampler.run(jax.random.PRNGKey(42))
-posterior = sampler.to_df()   # works because the model now has .to_df
 
-ds_numpyro.run_nuts_with_checkpoints(
+# This runs the chain (do not also call sampler.run beforehand).
+posterior = ds_numpyro.run_nuts_with_checkpoints(
     sampler,
     num_samples_per_checkpoint=250,
     rng_key=jax.random.PRNGKey(42),
     outdir=outdir,
     resume=False,
 )
+
+# Equivalent on-disk read of the full chain (not sampler.get_samples(),
+# which is only the last checkpoint chunk):
+posterior = pd.read_feather(outdir / "numpyro-samples.feather")
 ```
 
-The Feather checkpoint contains decoded timing columns through `.to_df`. If
-an `NLTChainBundle`-readable NPZ is also wanted, write it explicitly from the
-latent site after sampling:
+The Feather file already contains decoded timing columns
+(`{prefix}_{fitpar}_theta_display`, etc.). For nonlinear timing, that is
+usually enough — no NLT sidecar required on the Discovery path.
+
+`sampling.numpyro.timing_init_values(binding)` is the one NLT helper used
+at sampler construction: it initializes the joint timing site at the
+par-file reference (zeros in sampling coordinates).
+
+### 3. Raw `numpyro.infer.NUTS`/`MCMC` — power-user option
+
+For nonlinear timing, prefer paths 1 or 2. Use raw NumPyro when you need
+full control over the kernel/MCMC and are **not** using Discovery's
+checkpoint runner.
+
+After `mcmc.run(...)`, NumPyro only gives you latent parameters via
+`mcmc.get_samples()` (the joint timing coordinate, plus any free noise
+sites). Paths 1 and 2 attach a convenience `mcmc.to_df()` /
+`sampler.to_df()` that turns those arrays into a DataFrame with physical
+timing columns. A bare `MCMC` does **not** get that method. Call the
+model's decoder instead — same function, same columns:
 
 ```python
-artifact = binding.write(
-    outdir,
-    frontend="discovery",
-    sampler="numpyro-nuts",
-    latent={"kind": "npz", "path": "discovery_x.npz", "key_name": "x"},
-)
-sampling.numpyro.save_samples(
-    outdir, sampler.get_samples(), binding, artifact=artifact, final=True
-)
+posterior = numpyro_model.to_df(mcmc.get_samples())
 ```
 
-Do **not** sample the raw likelihood with Discovery's flat `makemodel`
-helper (`ds_numpyro.makemodel(likelihood.logL)`): it samples every
-`logL.params` entry as an independent `Uniform`, which cannot recover the
-joint whitening transform. The correct seam is the complete NumPyro model
-above, which Discovery accepts directly.
+Full example:
+
+```python
+from numpyro.infer import MCMC, NUTS, init_to_value
+
+init = init_to_value(values=sampling.numpyro.timing_init_values(binding))
+
+mcmc = MCMC(
+    NUTS(
+        numpyro_model,
+        dense_mass=True,
+        target_accept_prob=0.85,
+        max_tree_depth=10,
+        init_strategy=init,
+    ),
+    num_warmup=1_000,
+    num_samples=2_000,
+    num_chains=4,
+    chain_method="parallel",
+    progress_bar=True,
+)
+mcmc.run(jax.random.PRNGKey(42))
+posterior = numpyro_model.to_df(mcmc.get_samples())
+```
+
+If you hand a raw `MCMC` to `run_nuts_with_checkpoints`, Discovery will
+attach `sampler.to_df` from `numpyro_model.to_df` automatically when the
+kernel exposes `.model`. Prefer `makesampler_nuts` anyway — it is the
+supported Discovery construction path.
 
 ## Enterprise workflow
 
