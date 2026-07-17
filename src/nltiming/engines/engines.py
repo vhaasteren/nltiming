@@ -1,4 +1,4 @@
-"""Backend engines for nonlinear timing residual deviations."""
+"""Engines for nonlinear timing residual deviations."""
 
 from __future__ import annotations
 
@@ -205,8 +205,8 @@ class Tempo2DeltaEngine:
         return linearized
 
 
-# Canonical timing names (Enterprise/libstempo fitpars) -> JUG backend aliases.
-_CANONICAL_TO_BACKEND_ALIASES: dict[str, tuple[str, ...]] = {
+# Canonical timing names (Enterprise/libstempo fitpars) -> JUG engine aliases.
+_CANONICAL_TO_ENGINE_ALIASES: dict[str, tuple[str, ...]] = {
     "RAJ": ("RAJ", "RA"),
     "DECJ": ("DECJ", "DEC"),
     "ELONG": ("ELONG", "LAMBDA", "RAJ", "RA"),
@@ -222,16 +222,16 @@ _CANONICAL_TO_BACKEND_ALIASES: dict[str, tuple[str, ...]] = {
 
 def infer_jug_param_mapping(
     canonical_names: Sequence[str],
-    backend_names: Sequence[str] | set[str],
+    engine_names: Sequence[str] | set[str],
 ) -> dict[str, str]:
-    """Map canonical fit parameter names to JUG backend keys when they differ."""
-    backend = set(backend_names)
+    """Map canonical fit parameter names to JUG engine keys when they differ."""
+    known = set(engine_names)
     mapping: dict[str, str] = {}
     for canon in canonical_names:
-        if canon in backend:
+        if canon in known:
             continue
-        for candidate in _CANONICAL_TO_BACKEND_ALIASES.get(canon, (canon,)):
-            if candidate in backend:
+        for candidate in _CANONICAL_TO_ENGINE_ALIASES.get(canon, (canon,)):
+            if candidate in known:
                 mapping[canon] = candidate
                 break
     return mapping
@@ -253,12 +253,12 @@ class JugDeltaEngine:
         Canonical parameter names used by higher-level partitioning logic.
         If omitted, defaults to ``param_names``.
     param_names
-        Backend parameter names accepted by ``residual_source`` overrides.
+        Engine parameter names accepted by ``residual_source`` overrides.
         If omitted, inferred from ``residual_source.params`` when available.
     param_mapping
-        Optional canonical-to-backend mapping for overrides.
+        Optional canonical-to-engine mapping for overrides.
     reference_params
-        Optional backend reference parameter values. If omitted, inferred from
+        Optional engine reference parameter values. If omitted, inferred from
         ``residual_source.params`` when available.
     subtract_tzr
         Forwarded to JUG session residual evaluation.
@@ -289,10 +289,10 @@ class JugDeltaEngine:
         self._isort = None if isort is None else np.asarray(isort, dtype=int)
         self._param_mapping = dict(param_mapping or {})
 
-        inferred_backend_names = self._infer_backend_param_names(
+        inferred_engine_names = self._infer_engine_param_names(
             residual_source, param_names
         )
-        self.param_names = list(inferred_backend_names)
+        self.param_names = list(inferred_engine_names)
 
         self.fitpars = list(fitpars) if fitpars is not None else list(self.param_names)
 
@@ -325,7 +325,7 @@ class JugDeltaEngine:
         )
 
     @staticmethod
-    def _infer_backend_param_names(
+    def _infer_engine_param_names(
         residual_source, param_names: list[str] | None
     ) -> list[str]:
         if param_names is not None:
@@ -397,7 +397,7 @@ class JugDeltaEngine:
             return residuals[self._isort]
         return residuals
 
-    def _canonical_to_backend(self, param_name: str) -> str:
+    def _canonical_to_engine(self, param_name: str) -> str:
         return self._param_mapping.get(param_name, param_name)
 
     def _build_absolute_overrides(
@@ -407,16 +407,16 @@ class JugDeltaEngine:
         for canonical_name, delta in delta_params.items():
             if float(delta) == 0.0:
                 continue
-            backend_name = self._canonical_to_backend(canonical_name)
-            if self.param_names and backend_name not in self.param_names:
-                raise KeyError(f"JUG backend has no parameter '{backend_name}'")
-            if backend_name not in self._reference_params:
+            engine_param = self._canonical_to_engine(canonical_name)
+            if self.param_names and engine_param not in self.param_names:
+                raise KeyError(f"JUG engine has no parameter '{engine_param}'")
+            if engine_param not in self._reference_params:
                 raise KeyError(
-                    f"Reference value is unavailable for backend parameter "
-                    f"'{backend_name}'."
+                    f"Reference value is unavailable for engine parameter "
+                    f"'{engine_param}'."
                 )
-            overrides[backend_name] = float(
-                self._reference_params[backend_name]
+            overrides[engine_param] = float(
+                self._reference_params[engine_param]
             ) + float(delta)
         return overrides
 

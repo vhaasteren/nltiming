@@ -14,8 +14,8 @@ from nltiming.whitening import (
 )
 
 
-def test_prior_block_fallback_marks_host_bound_cheat_priors():
-    block = PriorBlock.from_fitpars(["F0", "F1"], policy="fallback")
+def test_prior_block_wide_default_marks_pulsar_bound_cheat_priors():
+    block = PriorBlock.from_fitpars(["F0", "F1"], policy="wide_default")
     assert block.names == ("F0", "F1")
     assert block.source_labels()["F0"] == "cheat_wls"
     assert [prior.family for prior in block.priors] == ["cheat_wls", "cheat_wls"]
@@ -46,7 +46,7 @@ def test_prior_block_to_bijector_supports_uniform_and_normal():
     }
     block = PriorBlock.from_fitpars(
         ["F0", "A1"],
-        policy="fallback",
+        policy="wide_default",
         overrides=overrides,
         theta_ref={"F0": "1.0", "A1": "3.0"},
     )
@@ -121,7 +121,7 @@ def test_whitening_builders_change_coord_only_not_physical_prior():
     )
 
 
-class _WhiteningHost:
+class _WhiteningPulsar:
     fitpars = ("F0", "A1")
 
     @property
@@ -149,8 +149,8 @@ class _WhiteningHost:
         return np.array(["a", "a", "b", "b"])
 
 
-def test_diagonal_white_uses_host_partition_for_nonidentity_transform():
-    host = _WhiteningHost()
+def test_diagonal_white_uses_pulsar_partition_for_nonidentity_transform():
+    pulsar = _WhiteningPulsar()
     partition = PartitionResult(
         fitpars=("F0", "A1"),
         analytically_marginalized=("F0",),
@@ -165,19 +165,24 @@ def test_diagonal_white_uses_host_partition_for_nonidentity_transform():
         theta_ref={"A1": "0.0"},
     )
 
+    bijector = block.to_bijector()
     transform = diagonal_white(
-        pulsar=host,
+        pulsar=pulsar,
         partition=partition,
-        prior_bijector=block.to_bijector(),
+        prior_bijector=bijector,
     )
 
+    # Posterior whitening yields a non-identity scale (F_z + I differs from I),
+    # while the affine origin is the deterministic reference z(delta=0) (§4/§5.3),
+    # not the WLS point — for the symmetric normal prior here that is z=0.
+    reference_z = np.asarray(bijector.z_from_delta(np.zeros(1), np), dtype=float)
     assert transform.C.shape == (1, 1)
     assert not np.allclose(transform.C, np.eye(1))
-    assert not np.allclose(transform.z0, np.zeros(1))
+    np.testing.assert_allclose(transform.z0, reference_z)
 
 
 def test_fixed_hyperparameters_uses_serialized_white_noise_values():
-    host = _WhiteningHost()
+    pulsar = _WhiteningPulsar()
     partition = PartitionResult(
         fitpars=("F0", "A1"),
         analytically_marginalized=(),
@@ -186,9 +191,9 @@ def test_fixed_hyperparameters_uses_serialized_white_noise_values():
         idx_sampled=(0, 1),
     )
 
-    default = diagonal_white(pulsar=host, partition=partition)
+    default = diagonal_white(pulsar=pulsar, partition=partition)
     fixed = fixed_hyperparameters(
-        pulsar=host,
+        pulsar=pulsar,
         partition=partition,
         hyperparameters={"efac": {"a": 2.0, "b": 1.0}, "equad": 0.1},
     )
@@ -197,7 +202,7 @@ def test_fixed_hyperparameters_uses_serialized_white_noise_values():
     assert not np.allclose(fixed.C, default.C)
 
 
-class _DegenerateWhiteningHost:
+class _DegenerateWhiteningPulsar:
     fitpars = ("P1", "P2")
 
     @property
@@ -214,7 +219,7 @@ class _DegenerateWhiteningHost:
 
 
 def test_schur_delta_wls_raises_on_degenerate_fisher():
-    host = _DegenerateWhiteningHost()
+    pulsar = _DegenerateWhiteningPulsar()
     partition = PartitionResult(
         fitpars=("P1", "P2"),
         analytically_marginalized=(),
@@ -224,7 +229,7 @@ def test_schur_delta_wls_raises_on_degenerate_fisher():
     )
     with pytest.raises(ValueError, match="positive definite"):
         schur_delta_wls(
-            pulsar=host,
+            pulsar=pulsar,
             partition=partition,
             variance=np.ones(3, dtype=float),
         )

@@ -3,10 +3,10 @@
 import numpy as np
 import pytest
 
-from nltiming.backends.base import LinearModel
-from nltiming.backends.jug import LinearizedJugEngine
+from nltiming.engines.base import LinearModel
+from nltiming.engines.jug import LinearizedJugEngine
 from nltiming.nonlinear_timing_model import NonLinearTimingModel
-from nltiming.sampling.numpyro import contribute_timing, record_physical_postprocess
+from nltiming.sampling.numpyro import sample_timing, record_physical_postprocess
 
 
 class _Host:
@@ -19,8 +19,8 @@ class _Host:
         self._freqs = np.full(5, 1400.0)
         self._flags = {"pta": np.array(["demo"] * 5, dtype="U8")}
         self._backend_flags = np.array(["demo"] * 5, dtype="U8")
-        self._cache_token = "record-token"
-        model = LinearModel.from_host(
+        self._state_id = "record-token"
+        model = LinearModel.from_design(
             fitpars=self.fitpars,
             design=np.column_stack([np.ones(5), np.linspace(-0.5, 0.5, 5)]),
             theta_exact={"F0": "100.0", "F1": "1.0"},
@@ -55,18 +55,18 @@ class _Host:
     def backend_flags(self):
         return self._backend_flags
 
-    def cache_token(self):
-        return self._cache_token
+    def state_id(self):
+        return self._state_id
 
     def pint_model(self):
         return object()
 
-    def timing_backend(self, engines="jug", **kwargs):
+    def timing_engine(self, engines="jug", **kwargs):
         return self._backend
 
 
 @pytest.fixture
-def host():
+def pulsar():
     return _Host()
 
 
@@ -90,7 +90,7 @@ def _patch_numpyro(monkeypatch, sample_value):
 
 
 def test_record_physical_postprocess_timing_scope_returns_prefixed_theta_values(
-    host, monkeypatch
+    pulsar, monkeypatch
 ):
     ntm = NonLinearTimingModel(
         engines="jug",
@@ -99,21 +99,21 @@ def test_record_physical_postprocess_timing_scope_returns_prefixed_theta_values(
         name="timing",
     )
     _patch_numpyro(monkeypatch, sample_value=np.array([0.25]))
-    params = contribute_timing(ntm.bind(host), {})
+    params = sample_timing(ntm.for_pulsar(pulsar), {})
 
-    out = record_physical_postprocess(ntm.bind(host), params, scope="timing")
+    out = record_physical_postprocess(ntm.for_pulsar(pulsar), params, scope="timing")
 
-    assert f"{host.name}_timing_F1_theta_native" in out
-    assert f"{host.name}_timing_F1_theta_display" in out
-    expected_theta = ntm.bind(host).space.theta_from_delta(
-        np.array([params[f"{host.name}_timing_F1"]])
+    assert f"{pulsar.name}_timing_F1_theta_native" in out
+    assert f"{pulsar.name}_timing_F1_theta_display" in out
+    expected_theta = ntm.for_pulsar(pulsar).space.theta_from_delta(
+        np.array([params[f"{pulsar.name}_timing_F1"]])
     )
     np.testing.assert_allclose(
-        out[f"{host.name}_timing_F1_theta_native"], expected_theta[0]
+        out[f"{pulsar.name}_timing_F1_theta_native"], expected_theta[0]
     )
 
 
-def test_record_physical_postprocess_scope_all_raises(host):
+def test_record_physical_postprocess_scope_all_raises(pulsar):
     ntm = NonLinearTimingModel(
         engines="jug",
         transform="none",
@@ -121,10 +121,10 @@ def test_record_physical_postprocess_scope_all_raises(host):
         name="timing",
     )
     with pytest.raises(NotImplementedError, match="scope='all'"):
-        record_physical_postprocess(ntm.bind(host), {}, scope="all")
+        record_physical_postprocess(ntm.for_pulsar(pulsar), {}, scope="all")
 
 
-def test_record_physical_postprocess_touches_no_numpyro_state(host, monkeypatch):
+def test_record_physical_postprocess_touches_no_numpyro_state(pulsar, monkeypatch):
     """record_physical_postprocess is pure post-processing: it must not call
     numpyro.sample/factor/deterministic, so it works outside any trace."""
     ntm = NonLinearTimingModel(
@@ -134,12 +134,12 @@ def test_record_physical_postprocess_touches_no_numpyro_state(host, monkeypatch)
         name="timing",
     )
     calls = _patch_numpyro(monkeypatch, sample_value=np.array([0.1]))
-    params = contribute_timing(ntm.bind(host), {})
+    params = sample_timing(ntm.for_pulsar(pulsar), {})
     n_sample = len(calls["sample"])
     n_factor = len(calls["factor"])
     n_deterministic = len(calls["deterministic"])
 
-    out = record_physical_postprocess(ntm.bind(host), params, scope="timing")
+    out = record_physical_postprocess(ntm.for_pulsar(pulsar), params, scope="timing")
 
     assert len(calls["sample"]) == n_sample
     assert len(calls["factor"]) == n_factor
@@ -148,7 +148,7 @@ def test_record_physical_postprocess_touches_no_numpyro_state(host, monkeypatch)
 
 
 def test_record_physical_postprocess_explicit_coord_handles_standardized_scalar_params(
-    host,
+    pulsar,
 ):
     ntm = NonLinearTimingModel(
         engines="jug",
@@ -157,22 +157,24 @@ def test_record_physical_postprocess_explicit_coord_handles_standardized_scalar_
         name="timing",
     )
     x_value = 0.25
-    params = {f"{host.name}_timing_F1": x_value}
+    params = {f"{pulsar.name}_timing_F1": x_value}
 
-    out = record_physical_postprocess(ntm.bind(host), params, scope="timing", coord="x")
+    out = record_physical_postprocess(
+        ntm.for_pulsar(pulsar), params, scope="timing", coord="x"
+    )
 
-    space = ntm.bind(host).space
+    space = ntm.for_pulsar(pulsar).space
     delta = space.delta_from_coord(np.array([x_value], dtype=float), np, coord="x")
     expected_theta = space.theta_from_delta(delta)
-    assert f"{host.name}_timing_F1_theta_native" in out
-    assert f"{host.name}_timing_F1_theta_display" in out
+    assert f"{pulsar.name}_timing_F1_theta_native" in out
+    assert f"{pulsar.name}_timing_F1_theta_display" in out
     np.testing.assert_allclose(
-        out[f"{host.name}_timing_F1_theta_native"], expected_theta[0]
+        out[f"{pulsar.name}_timing_F1_theta_native"], expected_theta[0]
     )
 
 
 def test_record_physical_postprocess_implicit_coord_handles_standardized_contribute_output(
-    host, monkeypatch
+    pulsar, monkeypatch
 ):
     ntm = NonLinearTimingModel(
         engines="jug",
@@ -181,23 +183,23 @@ def test_record_physical_postprocess_implicit_coord_handles_standardized_contrib
         name="timing",
     )
     _patch_numpyro(monkeypatch, sample_value=np.array([0.2]))
-    params = contribute_timing(ntm.bind(host), {})
+    params = sample_timing(ntm.for_pulsar(pulsar), {})
 
-    out = record_physical_postprocess(ntm.bind(host), params, scope="timing")
+    out = record_physical_postprocess(ntm.for_pulsar(pulsar), params, scope="timing")
 
-    # contribute_timing injects backend-facing delta keys; implicit standardized
+    # sample_timing injects engine-facing delta keys; implicit standardized
     # record_physical_postprocess should interpret those as delta, not x.
-    expected_theta = ntm.bind(host).space.theta_from_delta(
-        np.array([params[f"{host.name}_timing_F1"]], dtype=float)
+    expected_theta = ntm.for_pulsar(pulsar).space.theta_from_delta(
+        np.array([params[f"{pulsar.name}_timing_F1"]], dtype=float)
     )
-    assert f"{host.name}_timing_F1_theta_native" in out
-    assert f"{host.name}_timing_F1_theta_display" in out
+    assert f"{pulsar.name}_timing_F1_theta_native" in out
+    assert f"{pulsar.name}_timing_F1_theta_display" in out
     np.testing.assert_allclose(
-        out[f"{host.name}_timing_F1_theta_native"], expected_theta[0]
+        out[f"{pulsar.name}_timing_F1_theta_native"], expected_theta[0]
     )
 
 
-def test_record_physical_postprocess_invalid_coord_raises(host):
+def test_record_physical_postprocess_invalid_coord_raises(pulsar):
     ntm = NonLinearTimingModel(
         engines="jug",
         transform="none",
@@ -205,4 +207,6 @@ def test_record_physical_postprocess_invalid_coord_raises(host):
         name="timing",
     )
     with pytest.raises(ValueError, match="coord must be one of"):
-        record_physical_postprocess(ntm.bind(host), {}, scope="timing", coord="invalid")
+        record_physical_postprocess(
+            ntm.for_pulsar(pulsar), {}, scope="timing", coord="invalid"
+        )

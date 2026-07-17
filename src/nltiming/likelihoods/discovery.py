@@ -1,4 +1,4 @@
-"""Discovery likelihood-frontend adapter for nonlinear timing.
+"""Discovery likelihood interface for nonlinear timing.
 
 This module builds Discovery-native likelihood signals from a bound
 ``NonLinearTimingModel`` pulsar: an optional improper GP for analytically
@@ -7,10 +7,10 @@ numerically sampled block.
 
 Priors
 ------
-Discovery delay keys carry timing-backend-native ``delta_theta`` values; this module
+Discovery delay keys carry timing-engine-native ``delta_theta`` values; this module
 does **not** attach timing priors to the likelihood. Sampled-parameter priors
 live in ``ParameterSpace`` (from ``NonLinearTimingModel.space``) and are
-added separately—for example via ``contribute_timing``, which evaluates
+added separately—for example via ``sample_timing``, which evaluates
 ``space.logprior_coord`` as a NumPyro factor.
 
 With ``prior_policy="fallback"``, unresolved sampled priors use the reference-stack
@@ -28,7 +28,7 @@ from typing import Callable
 import numpy as np
 
 from nltiming.partition import PartitionResult
-from nltiming.protocols import JaxTimingBackend
+from nltiming.protocols import JaxTimingEngine
 
 
 def _sample_key(pulsar_name: str, name: str, fitpar: str) -> str:
@@ -38,7 +38,7 @@ def _sample_key(pulsar_name: str, name: str, fitpar: str) -> str:
 def _build_delay_callable(
     *,
     pulsar,
-    backend: JaxTimingBackend,
+    engine: JaxTimingEngine,
     partition: PartitionResult,
     name: str,
 ) -> Callable[[dict[str, object]], object]:
@@ -61,14 +61,14 @@ def _build_delay_callable(
             full_delta = full_delta.at[col].set(delta_sampled[i])
 
         # Discovery uses detres = residuals - delay, so delay = -delta_residual.
-        return -backend.residual_delta_jax(full_delta)
+        return -engine.residual_delta_jax(full_delta)
 
     delay.params = list(keys)
     return delay
 
 
 def discovery_signals(
-    *, pulsar, space, backend, partition: PartitionResult, name: str, design_matrix=None
+    *, pulsar, space, engine, partition: PartitionResult, name: str, design_matrix=None
 ) -> list:
     """Return Discovery-native timing signals: GP (optional) + nonlinear delay.
 
@@ -79,11 +79,11 @@ def discovery_signals(
     space
         ``ParameterSpace`` for the sampled block. Passed for API symmetry with
         ``NonLinearTimingModel.discovery_signals``; delay keys already use
-        backend-native ``delta_theta``, so the likelihood path here does not
+        engine-native ``delta_theta``, so the likelihood path here does not
         consume ``space`` directly. Priors from ``space`` are applied outside
         this builder (see module docstring).
-    backend
-        JAX-capable timing backend used to evaluate ``residual_delta_jax``.
+    engine
+        JAX-capable timing engine used to evaluate ``residual_delta_jax``.
     partition
         Numerically sampled vs analytically marginalized fit-parameter partition in pulsar
         column order.
@@ -106,7 +106,7 @@ def discovery_signals(
     """
     from discovery import signals as discovery_signals
 
-    _ = space  # Discovery delay keys are already backend-facing delta_theta values.
+    _ = space  # Discovery delay keys are already engine-facing delta_theta values.
 
     if tuple(partition.fitpars) != tuple(pulsar.fitpars):
         raise ValueError(
@@ -138,15 +138,15 @@ def discovery_signals(
     if not partition.sampled:
         return signals
 
-    if not isinstance(backend, JaxTimingBackend):
+    if not isinstance(engine, JaxTimingEngine):
         raise ValueError(
-            "discovery_signals requires a JAX-capable backend when nonlinear delay is emitted"
+            "discovery_signals requires a JAX-capable engine when nonlinear delay is emitted"
         )
 
     signals.append(
         _build_delay_callable(
             pulsar=pulsar,
-            backend=backend,
+            engine=engine,
             partition=partition,
             name=name,
         )

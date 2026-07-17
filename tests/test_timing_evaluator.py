@@ -55,7 +55,7 @@ class NonlinearJaxBackend(LinearJaxBackend):
         return linear + curved
 
 
-class EvaluatorHost:
+class EvaluatorPulsar:
     name = "J1234+5678"
     fitpars = ["F0", "F1"]
 
@@ -72,20 +72,20 @@ class EvaluatorHost:
     def pint_model(self):
         return None
 
-    def timing_backend(self, engines="jug", **kwargs):
+    def timing_engine(self, engines="jug", **kwargs):
         return self._backend
 
     def timing_parameter_mapping(self):
         return {"F0": {"pta_a": "F0"}, "F1": {"pta_a": "F1"}}
 
 
-class NonlinearEvaluatorHost(EvaluatorHost):
+class NonlinearEvaluatorPulsar(EvaluatorPulsar):
     def __init__(self):
         super().__init__()
         self._backend = NonlinearJaxBackend(self.Mmat)
 
 
-class RankDeficientEvaluatorHost(EvaluatorHost):
+class RankDeficientEvaluatorPulsar(EvaluatorPulsar):
     def __init__(self):
         super().__init__()
         self.Mmat = np.asarray(
@@ -96,7 +96,7 @@ class RankDeficientEvaluatorHost(EvaluatorHost):
 
 
 def test_evaluate_partial_delta_and_absolute_mapping():
-    timing = TimingEvaluator(EvaluatorHost())
+    timing = TimingEvaluator(EvaluatorPulsar())
 
     delta = timing.evaluate({"F0": 0.25})
     absolute = timing.evaluate({"F0": 10.25}, frame="absolute")
@@ -110,7 +110,7 @@ def test_evaluate_partial_delta_and_absolute_mapping():
 
 
 def test_capabilities_and_autodiff_jacobian():
-    timing = TimingEvaluator(EvaluatorHost())
+    timing = TimingEvaluator(EvaluatorPulsar())
 
     assert timing.capabilities.jax
     assert timing.capabilities.autodiff_jacobian
@@ -124,7 +124,7 @@ def test_capabilities_and_autodiff_jacobian():
 
 
 def test_scan_exposes_residual_and_white_statistics():
-    timing = TimingEvaluator(EvaluatorHost())
+    timing = TimingEvaluator(EvaluatorPulsar())
     scan = timing.scan("F0", [-0.2, 0.0, 0.2])
 
     assert scan.residuals.shape == (3, 4)
@@ -135,9 +135,9 @@ def test_scan_exposes_residual_and_white_statistics():
 
 
 def test_fit_is_immutable_and_recovers_linear_solution():
-    host = EvaluatorHost()
-    original = host.residuals.copy()
-    timing = TimingEvaluator(host)
+    pulsar = EvaluatorPulsar()
+    original = pulsar.residuals.copy()
+    timing = TimingEvaluator(pulsar)
 
     supplied_initial = np.zeros(2)
     result = timing.fit(
@@ -147,7 +147,7 @@ def test_fit_is_immutable_and_recovers_linear_solution():
     assert result.converged
     np.testing.assert_allclose(result.best_fit.delta, [-0.2, 0.05], atol=1e-12)
     np.testing.assert_allclose(result.best_fit.residuals, 0.0, atol=1e-12)
-    np.testing.assert_allclose(host.residuals, original)
+    np.testing.assert_allclose(pulsar.residuals, original)
     np.testing.assert_allclose(supplied_initial, 0.0)
     assert result.covariance.shape == (2, 2)
     assert not result.best_fit.delta.flags.writeable
@@ -157,7 +157,7 @@ def test_fit_is_immutable_and_recovers_linear_solution():
 
 
 def test_jacobian_z_scales_physical_columns_by_prior_derivative():
-    timing = TimingEvaluator(EvaluatorHost())
+    timing = TimingEvaluator(EvaluatorPulsar())
     space = ParameterSpace.build(
         theta_ref_mapping=timing.reference_exact,
         prior_bijector=PriorBijector.from_normal(
@@ -176,8 +176,8 @@ def test_jacobian_z_scales_physical_columns_by_prior_derivative():
 
 
 def test_fit_z_recovers_linear_solution_and_covariances():
-    host = EvaluatorHost()
-    timing = TimingEvaluator(host)
+    pulsar = EvaluatorPulsar()
+    timing = TimingEvaluator(pulsar)
     space = ParameterSpace.build(
         theta_ref_mapping=timing.reference_exact,
         prior_bijector=PriorBijector.from_normal(
@@ -188,7 +188,7 @@ def test_fit_z_recovers_linear_solution_and_covariances():
     )
 
     result = timing.fit_z(space, jacobian_method="reference")
-    expected_weighted_jacobian = host.Mmat * np.array([2.0, 0.5])[None, :]
+    expected_weighted_jacobian = pulsar.Mmat * np.array([2.0, 0.5])[None, :]
     expected_covariance_z = np.linalg.pinv(
         expected_weighted_jacobian.T @ expected_weighted_jacobian
     )
@@ -213,7 +213,7 @@ def test_fit_z_recovers_linear_solution_and_covariances():
 
 
 def test_fit_z_can_fit_subset_without_moving_other_space_axes():
-    timing = TimingEvaluator(EvaluatorHost())
+    timing = TimingEvaluator(EvaluatorPulsar())
     space = ParameterSpace.build(
         theta_ref_mapping=timing.reference_exact,
         prior_bijector=PriorBijector.from_normal(
@@ -237,7 +237,7 @@ def test_fit_z_can_fit_subset_without_moving_other_space_axes():
 
 
 def test_fit_z_reports_rank_and_singular_values_from_final_jacobian():
-    timing = TimingEvaluator(NonlinearEvaluatorHost())
+    timing = TimingEvaluator(NonlinearEvaluatorPulsar())
     space = ParameterSpace.build(theta_ref_mapping=timing.reference_exact)
 
     result = timing.fit_z(space, jacobian_method="autodiff")
@@ -261,7 +261,7 @@ def test_fit_z_reports_rank_and_singular_values_from_final_jacobian():
 
 
 def test_fit_z_rank_deficient_covariance_and_fixed_iteration_count(monkeypatch):
-    timing = TimingEvaluator(RankDeficientEvaluatorHost())
+    timing = TimingEvaluator(RankDeficientEvaluatorPulsar())
     space = ParameterSpace.build(theta_ref_mapping=timing.reference_exact)
     calls = 0
     original_lstsq = np.linalg.lstsq
@@ -282,7 +282,7 @@ def test_fit_z_rank_deficient_covariance_and_fixed_iteration_count(monkeypatch):
 
 
 def test_unknown_parameter_and_wrong_vector_shape_are_clear():
-    timing = TimingEvaluator(EvaluatorHost())
+    timing = TimingEvaluator(EvaluatorPulsar())
     with pytest.raises(KeyError, match="matches no fitpar"):
         timing.evaluate({"NOPE": 1.0})
     with pytest.raises(ValueError, match="length 2"):

@@ -9,8 +9,8 @@ correlated-noise likelihoods, GUI/revision/provenance concepts.
 
 `nltiming` already owns a physically meaningful, prior-transformed timing
 coordinate system (`z`), and it already exposes an interactive, engine-neutral
-timing facade. Today those two capabilities do not meet: the transformed
-coordinate lives only on the *sampling* path, and the interactive facade can
+timing API. Today those two capabilities do not meet: the transformed
+coordinate lives only on the *sampling* path, and the interactive timing API can
 only fit in physical coordinates with diagonal white errors.
 
 Downstream tools that live **outside** `nltiming` — interactive fast timing
@@ -24,8 +24,8 @@ MetaPulsar-side `feature_flexible_fit.md` design note) — need two things from
 
 Providing these keeps the noise-model and GP machinery out of `nltiming` (it
 stays with Discovery/Enterprise and the downstream `flexfit` module) while
-giving those consumers a single, correct timing seam to build on. This proposal
-covers exactly that seam.
+giving those consumers a single, correct timing integration point to build on. This proposal
+covers exactly that integration point.
 
 ## Current state
 
@@ -34,7 +34,7 @@ covers exactly that seam.
   `z_from_x` / `coord_from_delta` / `logjacobian` / ...) and `PriorBijector`
   (`src/nltiming/bijectors.py`, incl. `jacobian_diag_delta_from_z`) implement
   the per-axis probability-integral transform. They are constructed by
-  `NonLinearTimingModel` / `TimingBinding` for the NUTS and PTMCMC frontends.
+  `NonLinearTimingModel` / `TimingContext` for the NUTS and PTMCMC likelihood interfaces.
 
 - **`TimingEvaluator` is physical-only.** `src/nltiming/evaluator.py` builds no
   `ParameterSpace`/`PriorBijector`. Its `Frame` is `Literal["delta",
@@ -56,7 +56,7 @@ covers exactly that seam.
 2. A linear least-squares local timing fit expressed in `z`, with its full
    local covariance.
 3. A residual-evaluation fidelity tier recorded on evaluations and fits.
-4. A documented, validated prior-transform contract for the coordinate map.
+4. A documented, validated prior-transform specification for the coordinate map.
 5. A README/`UPSTREAM_INTEGRATION.md` statement pinning the charter boundary.
 
 **Non-goals**
@@ -65,7 +65,7 @@ covers exactly that seam.
   power-law or free-spectrum projection. Those belong to Discovery/Enterprise
   and the downstream `flexfit` consumer, never here.
 - No correlated-noise or generalized-least-squares likelihood; the interactive
-  fit stays diagonal-white, matching the existing `fit` contract.
+  fit stays diagonal-white, matching the existing `fit` specification.
 - No GUI, revision, caching, or provenance concepts.
 
 ## Proposed changes
@@ -79,8 +79,8 @@ of `T` directly, assembled as the product of the two owned factors:
 J_z = (d residual_delta / d delta_theta) @ diag(d delta_theta / d z)
 ```
 
-The first factor is the existing backend Jacobian (`autodiff` for a
-JAX-capable backend, otherwise the reference design matrix or a
+The first factor is the existing engine Jacobian (`autodiff` for a
+JAX-capable engine, otherwise the reference design matrix or a
 finite-difference fallback). The second is
 `PriorBijector.jacobian_diag_delta_from_z`, evaluated in NumPy/SciPy outside
 any JAX trace. Concretely:
@@ -101,11 +101,11 @@ the matrix product `J_delta @ d_delta_d_z` with a full transform Jacobian.
 - return it alongside a small capability/fidelity descriptor:
   `{method: "autodiff" | "analytic" | "finite-difference", tier: <T0..T4>}`;
 - the evaluator needs a `PriorBijector`/`ParameterSpace` to do this — see
-  "Wiring" below.
+  "Setup" below.
 
 This lets a downstream fast-fit build its timing basis block from one call
 instead of re-deriving the transform, and keeps the guarantee that JUG (or any
-autodiff backend) never has to trace through a SciPy prior.
+autodiff engine) never has to trace through a SciPy prior.
 
 ### 2. Linear least-squares `z`-space local fit
 
@@ -123,7 +123,7 @@ and solve
 min_step || N^(-1/2) (r + J_z step) ||^2.
 ```
 
-For the current diagonal-white contract, `N = diag(toaerrs**2)`. The core can
+For the current diagonal-white specification, `N = diag(toaerrs**2)`. The core can
 therefore use the same stable least-squares pattern as the existing physical
 fit:
 
@@ -138,7 +138,7 @@ One solve should be the default. An optional small, **fixed** number of
 relinearizations can repeat exactly this operation at the updated `z`. That
 keeps execution predictable, makes each iteration cheap, and avoids making
 damping, trust-region policy, or convergence heuristics part of the first
-implementation. The nonlinear timing backend is still reevaluated between
+implementation. The nonlinear timing engine is still reevaluated between
 steps; "linear" describes each local solve, not the timing model globally.
 
 The fit itself is not bounded. A proper continuous prior maps its physical
@@ -177,7 +177,7 @@ D = np.diag(space.prior_bijector.jacobian_diag_delta_from_z(z_best, np)[indices]
 covariance_delta = D @ covariance_z @ D.T
 ```
 
-The default solve is likelihood-only, matching the existing `fit` contract.
+The default solve is likelihood-only, matching the existing `fit` specification.
 An explicitly requested prior-aware/MAP variant can later use the transformed
 standard-normal prior: add `I` to the normal matrix and `z[indices]` to the
 gradient. That is regularization, not a bound, and should be reported
@@ -200,9 +200,9 @@ Record the residual-evaluation tier (the T0-T4 vocabulary documented in
 caller enforce escalation-at-acceptance: a proposed state that moved far in an
 astrometric / binary / phase-connection direction can be re-evaluated at a
 higher tier before it is trusted. `TimingCapabilities` should advertise which
-tiers the resolved backend can produce.
+tiers the resolved engine can produce.
 
-### 4. Documented prior-transform contract
+### 4. Documented prior-transform specification
 
 Promote the prior-transform map to a documented, validated public surface:
 
@@ -211,7 +211,7 @@ Promote the prior-transform map to a documented, validated public surface:
 - define the accepted-prior protocols:
 
   ```python
-  class ScalarPrior(Protocol):       # minimal contract
+  class ScalarPrior(Protocol):       # minimal required methods
       def cdf(self, value: np.ndarray) -> np.ndarray: ...
       def ppf(self, u: np.ndarray) -> np.ndarray: ...
       def logpdf(self, value: np.ndarray) -> np.ndarray: ...
@@ -242,20 +242,20 @@ provides the timing block (`J_z`), the prior transform, and the interactive
 `z`-space fit; it does **not** own GP bases, `Phi` inference, spectra, or
 correlated-noise likelihoods. This keeps the placement decision from reopening.
 
-## Wiring
+## Setup
 
 `TimingEvaluator` currently constructs no `ParameterSpace`. Changes 1-2 need
 one. Two coherent options, not mutually exclusive:
 
-- **Drive it from `TimingBinding`.** `NonLinearTimingModel.bind(pulsar)` already
+- **Drive it from `TimingContext`.** `NonLinearTimingModel.for_pulsar(pulsar)` already
   owns priors + `ParameterSpace` bound to a pulsar. The `z`-frame Jacobian and
-  `z`-space fit fit naturally as binding methods (or an evaluator obtained from
-  the binding), so the priors that define `z` are exactly those already
+  `z`-space fit fit naturally as context methods (or an evaluator obtained from
+  the context), so the priors that define `z` are exactly those already
   configured for sampling. **Recommended as the primary path** — it keeps one
   source of truth for the coordinate.
 - **Optional `space=` on the evaluator.** Let `TimingEvaluator` accept an
   optional `ParameterSpace`/`PriorBijector` (or a `priors=` spec it builds one
-  from) for callers that use the interactive facade directly without a binding.
+  from) for callers that use the interactive timing API directly without a context.
 
 Physical-`delta` behavior is unchanged when no space is supplied; the `z`
 capabilities simply become available once one is.
@@ -263,11 +263,11 @@ capabilities simply become available once one is.
 ## API sketch
 
 ```python
-# via the binding (recommended)
-binding = ntm.bind(pulsar)
+# via the context (recommended)
+ctx = ntm.for_pulsar(pulsar)
 
-Jz, info = binding.jacobian(coord="z", method="auto")   # info: {method, tier}
-fit = binding.fit(
+Jz, info = ctx.jacobian(coord="z", method="auto")   # info: {method, tier}
+fit = ctx.fit(
     ["F0", "F1", "PB", "TASC"],
     coord="z",
     iterations=1,              # fixed solve count; >1 relinearizes each time
@@ -286,7 +286,7 @@ The names are illustrative; the exact surface is chosen during implementation.
   improper / PDF-only / discrete / singular / multivariate priors.
 - **`J_z` composition:** compare `J_z` against a finite-difference of
   `residual_delta` w.r.t. `z`; check `autodiff` vs `reference` agreement within
-  each backend's fidelity claim.
+  each engine's fidelity claim.
 - **`z`-space fit:** recover injected parameters on a simulated pulsar; verify
   one-step behavior against a direct weighted `np.linalg.lstsq`; confirm a
   fixed number of relinearizations performs exactly that many solves; confirm
@@ -307,4 +307,4 @@ MetaPulsar-side `feature_flexible_fit.md`. The flexible-`Phi` GP fit ("Piece B")
 — is deliberately **not** part of `nltiming`; it consumes `J_z` and the
 `z`-space fit from here and lives in a downstream headless module. Implementing
 this proposal unblocks that consumer without importing any GP, spectrum, or
-frontend-noise machinery into `nltiming`.
+likelihood interface-noise machinery into `nltiming`.

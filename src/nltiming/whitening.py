@@ -171,11 +171,143 @@ def _linear_transform_from_wls(
     prior_bijector,
     mode: str,
 ) -> WhiteningLinear:
+    """Historical WLS-centered likelihood-only transform (§4.3).
+
+    Retained only for reproducing the pinned production commit; it centers on
+    the unconstrained WLS point and whitens ``F_z`` alone. It is not the
+    future default (see :func:`posterior_linear_transform`).
+    """
     z0, covariance_z = _z_space_wls(wls, prior_bijector)
     return WhiteningLinear(
         C=_linear_from_z_covariance(covariance_z, mode=mode),
         z0=z0,
     )
+
+
+# Interior guard for a proposed local-posterior center in z coordinates. The
+# PIT delta<->z maps clip the CDF at 1e-12, so |z| ~ 7.03 is the support edge;
+# 6.0 keeps a smooth margin inside it (§4.1/§4.2).
+_Z_GUARD = 6.0
+
+
+def _reference_z_and_jac(prior_bijector, ndim: int) -> tuple[np.ndarray, np.ndarray]:
+    """Expansion point ``z_e = z(delta=0)`` and ``d(delta)/d(z)`` diag there.
+
+    The PIT Jacobian is evaluated at the deterministic reference, never at a
+    WLS point (§4.3: evaluating it at the WLS solution is what drives J1640 PIT
+    coordinates to clipping boundaries and magnifies ``C``). With no prior
+    bijector the sampled coordinate is delta itself (identity PIT): ``z_e`` is
+    the origin and the Jacobian is unity.
+    """
+    if prior_bijector is None:
+        return np.zeros(ndim, dtype=float), np.ones(ndim, dtype=float)
+    z_e = np.asarray(
+        prior_bijector.z_from_delta(np.zeros(ndim, dtype=float), np), dtype=float
+    )
+    jac = np.asarray(prior_bijector.jacobian_diag_delta_from_z(z_e, np), dtype=float)
+    if np.any(~np.isfinite(jac)) or np.any(jac <= 0.0):
+        raise ValueError(
+            "Invalid prior bijector Jacobian at the expansion point while "
+            "building the posterior whitening transform"
+        )
+    return z_e, jac
+
+
+def _fisher_z(fisher_delta: np.ndarray, jac: np.ndarray) -> np.ndarray:
+    """Map a delta-space Fisher to z coordinates: ``F_z = J_e^T F_delta J_e``."""
+    scale = jac[:, None] * jac[None, :]
+    return np.asarray(fisher_delta, dtype=float) * scale
+
+
+def _guarded_local_center(
+    z_e: np.ndarray,
+    fisher_z: np.ndarray,
+    posterior_precision: np.ndarray,
+    score_delta: np.ndarray,
+    jac: np.ndarray,
+) -> tuple[np.ndarray, bool]:
+    """Damped local-posterior Newton origin with a smooth interior guard.
+
+    ``score_delta`` is ``g_delta = d(-log L)/d(delta)`` at the reference. In z,
+    ``g_L = J_e^T g_delta`` and the negative-log-posterior gradient at ``z_e``
+    is ``g_L + z_e`` (standard-normal PIT prior), giving the local Newton step
+    ``q_MAP = -(F_z + I)^-1 (g_L + z_e)`` (§4.2). The raw center ``z_e+q_MAP``
+    is passed through ``z_max * tanh(z / z_max)`` so it can never leave PIT
+    support; the caller records whether the guard engaged.
+    """
+    g_L = np.asarray(jac, dtype=float) * np.asarray(score_delta, dtype=float)
+    grad_u = g_L + z_e
+    cf = _cho_factor_pd(
+        posterior_precision, context="Local-posterior Newton metric (F_z + I)"
+    )
+    q_map = -sl.cho_solve(cf, grad_u)
+    raw = z_e + q_map
+    guarded = _Z_GUARD * np.tanh(raw / _Z_GUARD)
+    engaged = bool(np.any(np.abs(raw) > np.abs(guarded) + 1e-12))
+    return guarded, engaged
+
+
+def posterior_linear_transform(
+    fisher_delta: np.ndarray,
+    *,
+    prior_bijector,
+    mode: str,
+    score_delta: np.ndarray | None = None,
+    origin: str = "reference",
+) -> tuple[WhiteningLinear, dict]:
+    """Build the posterior whitening transform ``CC^T = (F_z + I)^-1`` (§5.3).
+
+    ``F_z = J_e^T F_delta J_e`` is the local Fisher in the standard-normal PIT
+    coordinate; adding ``I`` is the exact prior curvature, not a numerical
+    floor. For ``mode='whitening'`` the lower-triangular ``C`` satisfies
+    ``C^T (F_z + I) C = I``; for ``mode='standardized'`` ``C`` is the diagonal
+    of posterior marginal scales. The affine origin ``z0`` defaults to the
+    reference expansion point; ``origin='local_posterior'`` (which needs a
+    ``score_delta``) uses a guarded single damped Newton step instead.
+
+    Returns the transform and a diagnostics dict (expansion point, origin
+    policy, whether the interior guard engaged).
+    """
+    fisher_delta = np.asarray(fisher_delta, dtype=float)
+    ndim = fisher_delta.shape[0]
+    z_e, jac = _reference_z_and_jac(prior_bijector, ndim)
+    fisher_z = _fisher_z(fisher_delta, jac)
+    posterior_precision = fisher_z + np.eye(ndim, dtype=float)
+    cf = _cho_factor_pd(
+        posterior_precision, context="Posterior whitening metric (F_z + I)"
+    )
+    covariance_z = sl.cho_solve(cf, np.eye(ndim, dtype=float))
+    C = _linear_from_z_covariance(covariance_z, mode=mode)
+
+    if origin not in {"reference", "auto", "local_posterior"}:
+        raise ValueError(f"Unsupported whitening origin: {origin}")
+    resolved_origin = origin
+    if origin == "auto":
+        resolved_origin = "local_posterior" if score_delta is not None else "reference"
+    if resolved_origin == "local_posterior" and score_delta is None:
+        raise ValueError(
+            "origin='local_posterior' requires a score_delta (the likelihood "
+            "gradient of -log L at the reference)"
+        )
+
+    guard_engaged = False
+    if resolved_origin == "local_posterior":
+        z0, guard_engaged = _guarded_local_center(
+            z_e,
+            fisher_z,
+            posterior_precision,
+            np.asarray(score_delta, dtype=float),
+            jac,
+        )
+    else:
+        z0 = z_e
+
+    diagnostics = {
+        "expansion_point": "reference",
+        "origin": resolved_origin,
+        "guard_engaged": guard_engaged,
+    }
+    return WhiteningLinear(C=C, z0=np.asarray(z0, dtype=float)), diagnostics
 
 
 def diagonal_white(
@@ -186,8 +318,14 @@ def diagonal_white(
     prior_bijector=None,
     mode: str = "whitening",
     design_matrix: np.ndarray | None = None,
+    origin: str = "reference",
 ) -> WhiteningLinear:
-    """Default diagonal-white Fisher/WLS preconditioner."""
+    """Default TOA-errors reference posterior preconditioner (§5.1 class 1).
+
+    Builds the posterior whitening metric ``CC^T = (F_z + I)^-1`` from the
+    diagonal ``toaerrs**2`` reference Fisher. This is only an approximate
+    preconditioner for a correlated/marginalized likelihood (§5.1).
+    """
     if pulsar is None or partition is None:
         if ndim is None:
             raise ValueError("ndim is required when pulsar/partition are not provided")
@@ -203,11 +341,13 @@ def diagonal_white(
         variance=variance,
         design_matrix=design_matrix,
     )
-    return _linear_transform_from_wls(
-        wls,
+    linear, _ = posterior_linear_transform(
+        wls.fisher,
         prior_bijector=prior_bijector,
         mode=mode,
+        origin=origin,
     )
+    return linear
 
 
 def _resolve_noise_value(value, labels: np.ndarray, default: float) -> np.ndarray:
@@ -267,8 +407,10 @@ def fixed_hyperparameters(
         variance=variance,
         design_matrix=design_matrix,
     )
-    return _linear_transform_from_wls(
-        wls,
+    linear, _ = posterior_linear_transform(
+        wls.fisher,
         prior_bijector=prior_bijector,
         mode=mode,
+        origin="reference",
     )
+    return linear

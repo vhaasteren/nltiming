@@ -1,4 +1,4 @@
-"""Per-session Vela.jl (pyvela) timing engine adapter.
+"""Per-PTA Vela.jl (pyvela) timing engine.
 
 Vela evaluates residuals through ``SPNTA.time_residuals`` on its internal
 (raw) parameter vector; ``scale_factors`` map PINT-unit values to raw units
@@ -7,8 +7,8 @@ Vela's float64 storage conventions entirely: the F0 big/small split and the
 epoch-from-PEPOCH offsets are additive constants that cancel, so a native
 PINT-unit delta scales directly into a raw-vector delta.
 
-Not JAX-capable: use with the Enterprise/PTMCMC frontend or for cross-engine
-validation; NUTS needs a JAX backend (JUG).
+Not JAX-capable: use with the Enterprise/PTMCMC likelihood interface or for cross-engine
+validation; NUTS needs a JAX engine (JUG).
 """
 
 from __future__ import annotations
@@ -117,16 +117,16 @@ class VelaDeltaEngine:
 
 
 class VelaEngine:
-    """Native Vela.jl residual-delta adapter.
+    """Native Vela.jl residual-deltan engine.
 
     Nonlinear residual deltas come from ``VelaDeltaEngine``; the design matrix
-    and reference theta metadata are served from the host-derived
-    ``LinearModel`` so the composite pulsar backend uses the same canonical
-    columns as the host design matrix. Fit parameters Vela cannot evaluate
+    and reference theta metadata are served from the pulsar-derived
+    ``LinearModel`` so the composite pulsar engine uses the same canonical
+    columns as the pulsar design matrix. Fit parameters Vela cannot evaluate
     natively are routed to the exact-linear path.
     """
 
-    backend_name = "vela"
+    engine_name = "vela"
 
     def __init__(
         self,
@@ -154,7 +154,7 @@ class VelaEngine:
         )
 
     @classmethod
-    def from_session(
+    def from_contribution(
         cls,
         spnta: Any,
         *,
@@ -164,7 +164,7 @@ class VelaEngine:
         phase_mean_mode: str | None = "weighted",
         weights: np.ndarray | None = None,
     ) -> "VelaEngine":
-        """Build a native Vela engine from an already-created ``SPNTA``."""
+        """Build a native Velan engine from an already-created ``SPNTA``."""
         engine = VelaDeltaEngine(
             spnta, isort=isort, phase_mean_mode=phase_mean_mode, weights=weights
         )
@@ -174,11 +174,11 @@ class VelaEngine:
         native_fitpars: list[str] = []
         exact_linear: list[str] = []
         for name in tuple(linear_model.fitpars):
-            backend_name = mapping.get(name, name)
-            if is_exact_linear_param(backend_name):
+            engine_param = mapping.get(name, name)
+            if is_exact_linear_param(engine_param):
                 exact_linear.append(name)
                 continue
-            if backend_name not in settable:
+            if engine_param not in settable:
                 exact_linear.append(name)
                 continue
             native_fitpars.append(name)
@@ -210,13 +210,13 @@ class VelaEngine:
         weights: np.ndarray | None = None,
         spnta_kwargs: Mapping[str, Any] | None = None,
     ) -> "VelaEngine":
-        """Build a native Vela engine directly from par/tim files."""
+        """Build a native Velan engine directly from par/tim files."""
         from pyvela import SPNTA
 
         kwargs: dict[str, Any] = {"center_epochs": False, "check": False}
         kwargs.update(dict(spnta_kwargs or {}))
         spnta = SPNTA(str(_ensure_par_uncertainties(par_file)), str(tim_file), **kwargs)
-        return cls.from_session(
+        return cls.from_contribution(
             spnta,
             linear_model=linear_model,
             param_mapping=param_mapping,

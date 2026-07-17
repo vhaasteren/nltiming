@@ -1,11 +1,11 @@
-"""Slice-5 tests for multi-host timing component binding."""
+"""Slice-5 tests for multi-pulsar timing component ctx."""
 
 import numpy as np
 
-from nltiming.backends.base import LinearModel
-from nltiming.backends.jug import LinearizedJugEngine
+from nltiming.engines.base import LinearModel
+from nltiming.engines.jug import LinearizedJugEngine
 from nltiming.nonlinear_timing_model import NonLinearTimingModel
-from nltiming.sampling.numpyro import contribute_timing, record_physical_postprocess
+from nltiming.sampling.numpyro import sample_timing, record_physical_postprocess
 
 
 class _Host:
@@ -18,8 +18,8 @@ class _Host:
         self._freqs = np.full(4, 1400.0)
         self._flags = {"pta": np.array(["demo"] * 4, dtype="U8")}
         self._backend_flags = np.array(["demo"] * 4, dtype="U8")
-        self._cache_token = token
-        model = LinearModel.from_host(
+        self._state_id = token
+        model = LinearModel.from_design(
             fitpars=self.fitpars,
             design=np.column_stack([np.ones(4), np.linspace(-0.5, 0.5, 4)]),
             theta_exact={"F0": "100.0", "F1": "1.0"},
@@ -54,17 +54,17 @@ class _Host:
     def backend_flags(self):
         return self._backend_flags
 
-    def cache_token(self):
-        return self._cache_token
+    def state_id(self):
+        return self._state_id
 
     def pint_model(self):
         return object()
 
-    def timing_backend(self, engines="jug", **kwargs):
+    def timing_engine(self, engines="jug", **kwargs):
         return self._backend
 
 
-def test_multi_host_prefixes_and_cache_independence(monkeypatch):
+def test_multi_pulsar_prefixes_and_cache_independence(monkeypatch):
     host_a = _Host("J0001+0001", "tok-a")
     host_b = _Host("J0002+0002", "tok-b")
     ntm = NonLinearTimingModel(
@@ -87,26 +87,30 @@ def test_multi_host_prefixes_and_cache_independence(monkeypatch):
         lambda name, value: deterministic_calls.append((name, value)),
     )
 
-    params_a = contribute_timing(ntm.bind(host_a), {"efac": 1.0})
-    params_b = contribute_timing(ntm.bind(host_b), {"efac": 1.0})
+    params_a = sample_timing(ntm.for_pulsar(host_a), {"efac": 1.0})
+    params_b = sample_timing(ntm.for_pulsar(host_b), {"efac": 1.0})
 
     assert f"{host_a.name}_timing_F1" in params_a
     assert f"{host_b.name}_timing_F1" not in params_a
     assert f"{host_b.name}_timing_F1" in params_b
     assert f"{host_a.name}_timing_F1" not in params_b
 
-    space_a_1 = ntm.bind(host_a).space
-    space_b_1 = ntm.bind(host_b).space
+    space_a_1 = ntm.for_pulsar(host_a).space
+    space_b_1 = ntm.for_pulsar(host_b).space
     assert space_a_1 is not space_b_1
-    assert ntm.bind(host_a).space is space_a_1
-    assert ntm.bind(host_b).space is space_b_1
+    assert ntm.for_pulsar(host_a).space is space_a_1
+    assert ntm.for_pulsar(host_b).space is space_b_1
 
-    host_a._cache_token = "tok-a-updated"
-    assert ntm.bind(host_a).space is not space_a_1
-    assert ntm.bind(host_b).space is space_b_1
+    host_a._state_id = "tok-a-updated"
+    assert ntm.for_pulsar(host_a).space is not space_a_1
+    assert ntm.for_pulsar(host_b).space is space_b_1
 
-    out_a = record_physical_postprocess(ntm.bind(host_a), params_a, scope="timing")
-    out_b = record_physical_postprocess(ntm.bind(host_b), params_b, scope="timing")
+    out_a = record_physical_postprocess(
+        ntm.for_pulsar(host_a), params_a, scope="timing"
+    )
+    out_b = record_physical_postprocess(
+        ntm.for_pulsar(host_b), params_b, scope="timing"
+    )
     assert f"{host_a.name}_timing_F1_theta_native" in out_a
     assert f"{host_a.name}_timing_F1_theta_display" in out_a
     assert f"{host_b.name}_timing_F1_theta_native" in out_b

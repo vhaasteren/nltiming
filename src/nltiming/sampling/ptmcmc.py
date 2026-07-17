@@ -23,7 +23,7 @@ CHAIN_FILENAME = "chain_1.txt"
 
 
 def eval_params(
-    binding,
+    ctx,
     vec: np.ndarray,
     *,
     fixed: Mapping[str, float] | None = None,
@@ -41,26 +41,24 @@ def eval_params(
         if isinstance(value, (int, float))
     }
     x = np.asarray(vec, dtype=float).reshape(-1)
-    if x.size != len(binding.sampled):
-        raise ValueError(
-            f"expected vector of length {len(binding.sampled)}, got {x.size}"
-        )
-    if not binding.sampled:
+    if x.size != len(ctx.sampled):
+        raise ValueError(f"expected vector of length {len(ctx.sampled)}, got {x.size}")
+    if not ctx.sampled:
         return params
-    if binding.model.transform == "standardized":
-        for i, key in enumerate(binding.delay_keys):
+    if ctx.model.transform == "standardized":
+        for i, key in enumerate(ctx.delay_keys):
             params[key] = float(x[i])
     else:
-        params[binding.coord_site_name()] = x
+        params[ctx.latent_name_for_coord()] = x
     return params
 
 
-def initial_point(binding) -> np.ndarray:
+def initial_point(ctx) -> np.ndarray:
     """Reference initial point: zero in sampling coordinates."""
-    return np.zeros(len(binding.sampled), dtype=float)
+    return np.zeros(len(ctx.sampled), dtype=float)
 
 
-def initial_cov(binding, *, nsamples: int = 2000, seed: int = 0) -> np.ndarray:
+def initial_cov(ctx, *, nsamples: int = 2000, seed: int = 0) -> np.ndarray:
     """Proposal covariance from the WLS covariance, in sampling coordinates.
 
     The default coordinate transforms rescale axes but do not rotate away
@@ -72,14 +70,14 @@ def initial_cov(binding, *, nsamples: int = 2000, seed: int = 0) -> np.ndarray:
     """
     from ..whitening import schur_delta_wls
 
-    ndim = len(binding.sampled)
+    ndim = len(ctx.sampled)
     if ndim == 0:
-        raise ValueError("binding has no sampled timing parameters")
+        raise ValueError("ctx has no sampled timing parameters")
     wls = schur_delta_wls(
-        pulsar=binding.pulsar,
-        partition=binding.partition,
-        variance=np.asarray(binding.pulsar.toaerrs, dtype=float) ** 2,
-        design_matrix=binding.design_matrix,
+        pulsar=ctx.pulsar,
+        partition=ctx.partition,
+        variance=np.asarray(ctx.pulsar.toaerrs, dtype=float) ** 2,
+        design_matrix=ctx.design_matrix,
     )
     rng = np.random.default_rng(seed)
     draws = rng.multivariate_normal(
@@ -88,7 +86,7 @@ def initial_cov(binding, *, nsamples: int = 2000, seed: int = 0) -> np.ndarray:
     coords = np.stack(
         [
             np.asarray(
-                binding.space.coord_from_delta(delta, np, coord=binding.coord),
+                ctx.space.coord_from_delta(delta, np, coord=ctx.coord),
                 dtype=float,
             )
             for delta in draws
@@ -100,31 +98,31 @@ def initial_cov(binding, *, nsamples: int = 2000, seed: int = 0) -> np.ndarray:
     return cov
 
 
-def timing_param_names(binding) -> tuple[str, ...]:
+def timing_param_names(ctx) -> tuple[str, ...]:
     """Sampler-visible timing parameter names in vector order."""
-    if not binding.sampled:
+    if not ctx.sampled:
         return tuple()
-    if binding.model.transform == "standardized":
-        return tuple(binding.delay_keys)
-    site = binding.coord_site_name()
-    return tuple(f"{site}_{i}" for i in range(len(binding.sampled)))
+    if ctx.model.transform == "standardized":
+        return tuple(ctx.delay_keys)
+    site = ctx.latent_name_for_coord()
+    return tuple(f"{site}_{i}" for i in range(len(ctx.sampled)))
 
 
 def chain_layout(
-    binding,
+    ctx,
     param_names: Sequence[str],
     *,
     chain_file: str = CHAIN_FILENAME,
 ) -> dict[str, Any]:
-    """Sidecar ``chain_layout`` spec locating timing columns in a PTMCMC chain.
+    """Run-metadata ``chain_layout`` spec locating timing columns in a PTMCMC chain.
 
     ``param_names`` is the sampler's parameter-name order (for a
-    timing-only run, ``timing_param_names(binding)``; for an Enterprise PTA
+    timing-only run, ``timing_param_names(ctx)``; for an Enterprise PTA
     with free noise, ``pta.param_names``).
     """
     names = list(param_names)
     columns = []
-    for key in timing_param_names(binding):
+    for key in timing_param_names(ctx):
         try:
             columns.append(names.index(key))
         except ValueError as exc:
@@ -136,7 +134,7 @@ def chain_layout(
 
 def timing_only_sampler(
     pta,
-    binding,
+    ctx,
     outdir: str | Path,
     *,
     fixed: Mapping[str, float] | None = None,
@@ -154,7 +152,7 @@ def timing_only_sampler(
     timing-only experiments with all other parameters pinned.
 
     Returns the sampler; run it with
-    ``pts.sample(p0=initial_point(binding), Niter=..., burn=...)``. The chain
+    ``pts.sample(p0=initial_point(ctx), Niter=..., burn=...)``. The chain
     lands in ``outdir/chain_1.txt`` (PTMCMC layout: ndim columns + lnpost,
     lnlik, accept, pt-accept). The default proposal covariance is
     :func:`initial_cov` — the WLS covariance mapped into sampling coordinates —
@@ -163,14 +161,14 @@ def timing_only_sampler(
     """
     from PTMCMCSampler.PTMCMCSampler import PTSampler
 
-    ndim = len(binding.sampled)
+    ndim = len(ctx.sampled)
     if ndim == 0:
-        raise ValueError("binding has no sampled timing parameters")
+        raise ValueError("ctx has no sampled timing parameters")
     if cov is None:
-        cov = initial_cov(binding)
+        cov = initial_cov(ctx)
 
     def _params(vec: np.ndarray) -> dict[str, Any]:
-        return eval_params(binding, vec, fixed=fixed)
+        return eval_params(ctx, vec, fixed=fixed)
 
     outdir = Path(outdir)
     outdir.mkdir(parents=True, exist_ok=True)

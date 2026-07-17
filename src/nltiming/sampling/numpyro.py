@@ -1,14 +1,14 @@
-"""NumPyro model adapter for nonlinear timing bindings.
+"""NumPyro model helpers for nonlinear timing contexts.
 
 Owns everything NumPyro-specific: the joint timing sample site and its
-density (:func:`contribute_timing`, via the private coordinate-distribution
+density (:func:`sample_timing`, via the private coordinate-distribution
 builder :func:`_sample_timing_coord`), physical value post-processing
 (:func:`record_physical_postprocess`), the standard Discovery model closure
 (:func:`model`), and an optional NUTS convenience recipe with
 init-at-reference (:func:`nuts`).
 
-All functions take a :class:`~nltiming.nonlinear_timing_model.TimingBinding`
-(from ``NonLinearTimingModel.bind``); none of this leaks into the model config.
+All functions take a :class:`~nltiming.nonlinear_timing_model.TimingContext`
+(from ``NonLinearTimingModel.for_pulsar``); none of this leaks into the model config.
 Sampler construction (NUTS/MCMC) is an opinionated convenience, not the
 canonical integration path — see the module README for the native NumPyro and
 Discovery ``makesampler_nuts`` workflows.
@@ -40,33 +40,86 @@ def ensure_x64() -> None:
         )
 
 
-def _sample_timing_coord(binding, *, coord: str | None = None):
+def _static_pullback_distribution_cls():
+    """Build (once) the JAX-safe static timing pullback distribution class.
+
+    Defined lazily so importing ``nltiming`` never requires numpyro/JAX. The
+    class implements the exact pullback of ``z ~ N(0, I)`` under the affine map
+    ``z = C x + z0`` — ``log p(x) = -1/2 ||C x + z0||^2 + log|det C| + const`` —
+    **without** forming ``C.T @ C`` (which squares ``cond(C)``; the pinned
+    production commit did exactly that, §3). ``C`` is lower triangular, so
+    ``sample`` maps a standard-normal draw back with one triangular solve.
+    """
+    import jax
+    import jax.numpy as jnp
+    from jax.scipy.linalg import solve_triangular
+    from numpyro.distributions import Distribution, constraints
+
+    class StaticTimingPullback(Distribution):
+        arg_constraints: dict = {}
+        support = constraints.real_vector
+        reparametrized_params: list = []
+
+        def __init__(self, C, z0, logabsdet, *, validate_args=None):
+            self._C = jnp.asarray(C)
+            self._z0 = jnp.asarray(z0)
+            self._logabsdet = jnp.asarray(logabsdet)
+            self._ndim = int(self._C.shape[-1])
+            super().__init__(
+                batch_shape=(),
+                event_shape=(self._ndim,),
+                validate_args=validate_args,
+            )
+
+        def sample(self, key, sample_shape=()):
+            eps = jax.random.normal(
+                key, tuple(sample_shape) + self.event_shape, dtype=self._C.dtype
+            )
+            rhs = eps - self._z0
+
+            def _solve(vec):
+                return solve_triangular(self._C, vec, lower=True)
+
+            flat = rhs.reshape((-1, self._ndim))
+            solved = jax.vmap(_solve)(flat)
+            return solved.reshape(rhs.shape)
+
+        def log_prob(self, value):
+            z = jnp.matmul(value, jnp.swapaxes(self._C, -1, -2)) + self._z0
+            quad = jnp.sum(z * z, axis=-1)
+            norm = 0.5 * self._ndim * jnp.log(2.0 * jnp.pi)
+            return -0.5 * quad - norm + self._logabsdet
+
+    return StaticTimingPullback
+
+
+def _sample_timing_coord(ctx, *, coord: str | None = None):
     """Sample the joint timing site with a distribution matching ``coord``.
 
-    ``x`` and ``z`` use proper NumPyro distributions whose ``log_prob``
-    already equals ``space.logprior_coord`` (including normalization), so
-    they must not add a second prior factor. ``delta`` has no closed-form
-    NumPyro distribution (an unbounded physical prior is not a location-scale
-    family in general), so it samples an ``ImproperUniform`` placeholder and
-    adds the physical-prior density as an explicit factor.
+    ``x`` uses a custom static pullback distribution (:func:`
+    _static_pullback_distribution_cls`) whose ``log_prob`` equals
+    ``space.logprior_coord`` exactly but never builds ``C.T @ C``; ``z`` uses a
+    standard normal; both carry their own normalized ``log_prob`` and must not
+    add a second prior factor. ``delta`` has no closed-form NumPyro
+    distribution (an unbounded physical prior is not a location-scale family in
+    general), so it samples an ``ImproperUniform`` placeholder and adds the
+    physical-prior density as an explicit factor.
     """
     import jax.numpy as jnp
     import numpyro
     from numpyro import distributions as dist
     from numpyro.distributions import constraints
 
-    coord = binding.coord if coord is None else coord
-    site = binding.coord_site_name(coord)
-    ndim = len(binding.sampled)
+    coord = ctx.coord if coord is None else coord
+    site = ctx.latent_name_for_coord(coord)
+    ndim = len(ctx.sampled)
 
     if coord == "x":
-        C = jnp.asarray(binding.space.linear.C)
-        z0 = jnp.asarray(binding.space.linear.z0)
-        loc = jnp.linalg.solve(C, -z0)
-        precision = C.T @ C
-        return numpyro.sample(
-            site, dist.MultivariateNormal(loc=loc, precision_matrix=precision)
-        )
+        C = jnp.asarray(ctx.space.linear.C)
+        z0 = jnp.asarray(ctx.space.linear.z0)
+        logabsdet = jnp.asarray(ctx.space.linear.logabsdet)
+        pullback = _static_pullback_distribution_cls()
+        return numpyro.sample(site, pullback(C, z0, logabsdet))
 
     if coord == "z":
         return numpyro.sample(site, dist.Normal(0.0, 1.0).expand((ndim,)).to_event(1))
@@ -74,51 +127,51 @@ def _sample_timing_coord(binding, *, coord: str | None = None):
     if coord == "delta":
         q = numpyro.sample(site, dist.ImproperUniform(constraints.real, (), (ndim,)))
         numpyro.factor(
-            f"{site}_logprior", binding.space.logprior_coord(q, jnp, coord="delta")
+            f"{site}_logprior", ctx.space.logprior_coord(q, jnp, coord="delta")
         )
         return q
 
     raise ValueError(f"Unsupported coord: {coord}")
 
 
-def contribute_timing(
-    binding,
+def sample_timing(
+    ctx,
     params: Mapping[str, Any],
     *,
     coord: str | None = None,
 ) -> Mapping[str, Any]:
     """Sample the joint timing site and inject per-parameter delta values.
 
-    Adds one timing sample site (``binding.coord_site_name()``) whose density
+    Adds one timing sample site (``ctx.latent_name_for_coord()``) whose density
     matches ``coord`` (see :func:`_sample_timing_coord`), one JAX-safe
-    ``numpyro.deterministic`` per sampled parameter carrying its backend-native
+    ``numpyro.deterministic`` per sampled parameter carrying its engine-native
     offset (``{prefix}_{fitpar}_delta``), and returns ``params`` extended with
-    those same backend-facing delta keys (``{pulsar}_{model}_{fitpar}``) for
+    those same engine-facing delta keys (``{pulsar}_{model}_{fitpar}``) for
     the likelihood.
     """
-    sampled = binding.partition.sampled
+    sampled = ctx.partition.sampled
     if not sampled:
         return params
 
-    coord = binding.coord if coord is None else coord
+    coord = ctx.coord if coord is None else coord
     if coord not in {"delta", "z", "x"}:
         raise ValueError(f"Unsupported coord: {coord}")
 
     import jax.numpy as jnp
     import numpyro
 
-    q = _sample_timing_coord(binding, coord=coord)
-    delta = binding.space.delta_from_coord(q, jnp, coord=coord)
+    q = _sample_timing_coord(ctx, coord=coord)
+    delta = ctx.space.delta_from_coord(q, jnp, coord=coord)
 
     out = dict(params)
     for i, name in enumerate(sampled):
-        numpyro.deterministic(f"{binding.prefix}_{name}_delta", delta[i])
-        out[f"{binding.prefix}_{name}"] = delta[i]
+        numpyro.deterministic(f"{ctx.name_stem}_{name}_delta", delta[i])
+        out[f"{ctx.name_stem}_{name}"] = delta[i]
     return out
 
 
 def record_physical_postprocess(
-    binding,
+    ctx,
     params: Mapping[str, Any],
     *,
     scope: str = "timing",
@@ -136,33 +189,31 @@ def record_physical_postprocess(
     if coord is not None and coord not in {"delta", "z", "x"}:
         raise ValueError("coord must be one of {'delta', 'z', 'x'}")
     if coord is None:
-        coord = binding.coord
+        coord = ctx.coord
 
     if scope == "all":
         raise NotImplementedError("scope='all' is deferred")
     if scope != "timing":
         raise ValueError("scope must be one of {'timing', 'all'}")
 
-    sampled = binding.partition.sampled
+    sampled = ctx.partition.sampled
     if not sampled:
         return {}
 
-    delta = binding.delta_from_params(
+    delta = ctx.delta_from_params(
         params,
         coord=coord,
         coord_explicit=coord_was_explicit,
     )
-    prefix = binding.prefix
-    theta_native = binding.space.to_physical(
-        delta[None, :], units="native", coord="delta"
-    )
-    theta_display = binding.space.to_physical(
+    name_stem = ctx.name_stem
+    theta_native = ctx.space.to_physical(delta[None, :], units="native", coord="delta")
+    theta_display = ctx.space.to_physical(
         delta[None, :], units="display", coord="delta"
     )
     out: dict[str, Any] = {}
     for name in sampled:
-        out[f"{prefix}_{name}_theta_native"] = theta_native[name][0]
-        out[f"{prefix}_{name}_theta_display"] = theta_display[name][0]
+        out[f"{name_stem}_{name}_theta_native"] = theta_native[name][0]
+        out[f"{name_stem}_{name}_theta_display"] = theta_display[name][0]
     return out
 
 
@@ -174,7 +225,7 @@ def _flatten_chain_major(arr: np.ndarray, *, grouped: bool, n_rows: int) -> np.n
     return arr
 
 
-def samples_to_frame(samples: Mapping[str, Any], binding):
+def samples_to_frame(samples: Mapping[str, Any], ctx):
     """Flatten NumPyro samples into a DataFrame and append exact timing decodes.
 
     Accepts both ordinary ``(draw, ...)`` and grouped ``(chain, draw, ...)``
@@ -186,7 +237,7 @@ def samples_to_frame(samples: Mapping[str, Any], binding):
 
     - scalar non-timing sites: unchanged (e.g. ``red_noise_gamma``);
     - vector non-timing sites: ``site[0]``, ``site[1]``, ...;
-    - latent timing columns: ``{coord_site_name()}[0]``, ``[1]``, ...;
+    - latent timing columns: ``{latent_name_for_coord()}[0]``, ``[1]``, ...;
     - timing offsets: ``{prefix}_{fitpar}_delta``;
     - exact native/display values: ``{prefix}_{fitpar}_theta_{native,display}``,
       always recomputed through ``ParameterSpace.to_physical`` — never trusted
@@ -203,7 +254,7 @@ def samples_to_frame(samples: Mapping[str, Any], binding):
             "(pip install nltiming[discovery])"
         ) from exc
 
-    site = binding.coord_site_name()
+    site = ctx.latent_name_for_coord()
     if site not in samples:
         raise KeyError(f"{site!r} (joint timing site) not found in samples")
     timing = np.asarray(samples[site], dtype=float)
@@ -227,13 +278,13 @@ def samples_to_frame(samples: Mapping[str, Any], binding):
             for i in range(flat.shape[1]):
                 columns[f"{name}[{i}]"] = flat[:, i]
 
-    delta_keys = [f"{binding.prefix}_{name}_delta" for name in binding.sampled]
+    delta_keys = [f"{ctx.name_stem}_{name}_delta" for name in ctx.sampled]
     if all(key in samples for key in delta_keys):
         delta = np.stack([columns[key] for key in delta_keys], axis=1)
     else:
         delta = np.stack(
             [
-                np.asarray(binding.space.delta_from_coord(row, np, coord=binding.coord))
+                np.asarray(ctx.space.delta_from_coord(row, np, coord=ctx.coord))
                 for row in timing
             ],
             axis=0,
@@ -241,18 +292,18 @@ def samples_to_frame(samples: Mapping[str, Any], binding):
         for i, key in enumerate(delta_keys):
             columns[key] = delta[:, i]
 
-    theta_native = binding.space.to_physical(delta, units="native", coord="delta")
-    theta_display = binding.space.to_physical(delta, units="display", coord="delta")
-    for name in binding.sampled:
-        columns[f"{binding.prefix}_{name}_theta_native"] = theta_native[name]
-        columns[f"{binding.prefix}_{name}_theta_display"] = theta_display[name]
+    theta_native = ctx.space.to_physical(delta, units="native", coord="delta")
+    theta_display = ctx.space.to_physical(delta, units="display", coord="delta")
+    for name in ctx.sampled:
+        columns[f"{ctx.name_stem}_{name}_theta_native"] = theta_native[name]
+        columns[f"{ctx.name_stem}_{name}_theta_display"] = theta_display[name]
 
     return pd.DataFrame(columns)
 
 
 def model(
     likelihood,
-    binding,
+    ctx,
     *,
     priors: Mapping[str, Any] | None = None,
     fixed: Mapping[str, float] | None = None,
@@ -261,22 +312,22 @@ def model(
 
     Non-timing likelihood parameters are sampled from uniform priors resolved
     via ``discovery.prior.getprior_uniform(par, priors)``, unless pinned in
-    ``fixed``. Timing parameters enter through :func:`contribute_timing`.
+    ``fixed``. Timing parameters enter through :func:`sample_timing`.
 
     Args:
         likelihood: Discovery ``PulsarLikelihood`` (or anything exposing
             ``logL`` with a ``params`` attribute).
-        binding: ``TimingBinding`` for the pulsar in the likelihood.
+        ctx: ``TimingContext`` for the pulsar in the likelihood.
         priors: prior overrides / noise dictionary for non-timing parameters.
         fixed: parameter values held constant (not sampled).
 
     Raises:
         ValueError: ``likelihood.logL.params`` has duplicate names, is missing
-            a ``binding.delay_keys`` entry (binding and likelihood were not
+            a ``ctx.delay_keys`` entry (ctx and likelihood were not
             assembled together), contains the joint latent site
-            (``binding.coord_site_name()`` — Discovery consumes the derived
+            (``ctx.latent_name_for_coord()`` — Discovery consumes the derived
             delay keys, never the latent coordinate), or ``fixed`` pins a
-            timing parameter (owned by the binding, not the caller).
+            timing parameter (owned by the ctx, not the caller).
         TypeError: a ``fixed`` value is not numeric.
     """
     import numpyro
@@ -288,26 +339,26 @@ def model(
     if dupes:
         raise ValueError(f"duplicate likelihood parameter names: {dupes}")
 
-    site_name = binding.coord_site_name()
+    site_name = ctx.latent_name_for_coord()
     if site_name in logL_params:
         raise ValueError(
             f"{site_name!r} is the joint latent timing site and must not "
             "appear in likelihood.logL.params; Discovery consumes the "
             "derived delay keys, not the latent coordinate"
         )
-    missing_delay_keys = [key for key in binding.delay_keys if key not in logL_params]
+    missing_delay_keys = [key for key in ctx.delay_keys if key not in logL_params]
     if missing_delay_keys:
         raise ValueError(
-            "binding and likelihood were not assembled together: "
+            "ctx and likelihood were not assembled together: "
             f"missing delay keys in likelihood.logL.params: {missing_delay_keys}"
         )
 
-    timing_keys = set(binding.timing_param_keys())
+    timing_keys = set(ctx.timing_param_keys())
     fixed_in = dict(fixed or {})
     bad_timing_fixed = sorted(timing_keys & fixed_in.keys())
     if bad_timing_fixed:
         raise ValueError(
-            f"fixed cannot pin timing parameters (owned by the binding): {bad_timing_fixed}"
+            f"fixed cannot pin timing parameters (owned by the ctx): {bad_timing_fixed}"
         )
     fixed_params: dict[str, float] = {}
     for key, value in fixed_in.items():
@@ -319,7 +370,7 @@ def model(
 
     priordict = dict(priors or {})
     free = [
-        par for par in binding.non_timing_params(logL_params) if par not in fixed_params
+        par for par in ctx.non_timing_params(logL_params) if par not in fixed_params
     ]
     if free:
         from discovery import prior as ds_prior
@@ -330,25 +381,25 @@ def model(
         params = dict(fixed_params)
         for par in free:
             params[par] = numpyro.sample(par, dist.Uniform(*bounds[par]))
-        numpyro.factor("ll", likelihood.logL(contribute_timing(binding, params)))
+        numpyro.factor("ll", likelihood.logL(sample_timing(ctx, params)))
 
-    nlt_model.to_df = lambda samples: samples_to_frame(samples, binding)
+    nlt_model.to_df = lambda samples: samples_to_frame(samples, ctx)
     return nlt_model
 
 
-def timing_init_values(binding) -> dict[str, Any]:
+def timing_init_values(ctx) -> dict[str, Any]:
     """Init-at-reference values for the joint timing site (zero coordinates)."""
-    ndim = len(binding.sampled)
+    ndim = len(ctx.sampled)
     if not ndim:
         return {}
     import jax.numpy as jnp
 
-    return {binding.coord_site_name(): jnp.zeros((ndim,), dtype=jnp.float64)}
+    return {ctx.latent_name_for_coord(): jnp.zeros((ndim,), dtype=jnp.float64)}
 
 
 def nuts(
     model_fn: Callable[[], None],
-    binding,
+    ctx,
     *,
     num_warmup: int = 1000,
     num_samples: int = 1000,
@@ -365,7 +416,7 @@ def nuts(
 
     This is an opinionated convenience recipe, not the canonical integration
     path (see the module docstring). Timing coordinates initialize at the
-    backend reference (zero in sampling coordinates) unless ``init_strategy``
+    engine reference (zero in sampling coordinates) unless ``init_strategy``
     is given explicitly, in which case it wins outright. Run the returned
     object with ``mcmc.run(jax.random.PRNGKey(seed))``.
 
@@ -377,7 +428,7 @@ def nuts(
     from numpyro.infer import MCMC, NUTS, init_to_value
 
     if init_strategy is None:
-        init_strategy = init_to_value(values=timing_init_values(binding))
+        init_strategy = init_to_value(values=timing_init_values(ctx))
 
     kernel = NUTS(
         model_fn,
@@ -400,9 +451,9 @@ def nuts(
     return mcmc
 
 
-def timing_draws(samples: Mapping[str, Any], binding) -> np.ndarray:
+def timing_draws(samples: Mapping[str, Any], ctx) -> np.ndarray:
     """Extract flattened joint-site draws ``(n_draws, ndim)`` from MCMC samples."""
-    x = np.asarray(samples[binding.coord_site_name()], dtype=float)
+    x = np.asarray(samples[ctx.latent_name_for_coord()], dtype=float)
     if x.ndim == 3:
         x = x.reshape(-1, x.shape[-1])
     return x
@@ -411,23 +462,23 @@ def timing_draws(samples: Mapping[str, Any], binding) -> np.ndarray:
 def save_samples(
     run_dir,
     samples: Mapping[str, Any],
-    binding,
+    ctx,
     *,
-    artifact,
+    manifest,
     final: bool,
     n_target: int | None = None,
 ):
     """Decode timing draws and write a Discovery checkpoint/final npz.
 
     Thin public wrapper around :func:`timing_draws` and
-    ``nltiming.artifacts.save_discovery_checkpoint``. Performs no sampling and
-    does not depend on an ``MCMC`` object. ``artifact`` is the ``NLTBinding``
-    returned by ``binding.write(...)``, which must be written before the
-    first sample so the sidecar always precedes data.
+    ``nltiming.run_io.save_discovery_checkpoint``. Performs no sampling and
+    does not depend on an ``MCMC`` object. ``manifest`` is the ``RunManifest``
+    returned by ``ctx.write(...)``, which must be written before the
+    first sample so the run metadata always precedes data.
     """
-    from ..artifacts import save_discovery_checkpoint
+    from ..run_io import save_discovery_checkpoint
 
-    x = timing_draws(samples, binding)
+    x = timing_draws(samples, ctx)
     return save_discovery_checkpoint(
-        run_dir, x, artifact, final=final, n_target=n_target
+        run_dir, x, manifest, final=final, n_target=n_target
     )

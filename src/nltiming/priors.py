@@ -12,7 +12,7 @@ from .bijectors import AxisPrior, PriorBijector
 from .pint_compat import resolve_parameter_alias
 from .precision import ExactNativeRef
 
-PriorPolicy = Literal["fallback", "strict", "explicit"]
+PriorPolicy = Literal["wide_default", "strict", "explicit"]
 PriorFrame = Literal["absolute", "delta"]
 ABSOLUTE_FORMING_FAMILIES = frozenset({"log_uniform"})
 _SCALE_SUPPORTED_FAMILIES = frozenset({"uniform", "normal", "truncated_normal"})
@@ -20,7 +20,7 @@ _SCALE_SUPPORTED_FAMILIES = frozenset({"uniform", "normal", "truncated_normal"})
 
 @dataclass(frozen=True)
 class PriorOverrideSpec:
-    """User-declared prior override before pulsar binding."""
+    """User-declared prior override before resolving for a pulsar."""
 
     prior: AxisPrior
     frame: PriorFrame = "absolute"
@@ -29,7 +29,7 @@ class PriorOverrideSpec:
 
 @dataclass(frozen=True)
 class PriorBuildContext:
-    """Bind-time context for materializing prior overrides."""
+    """Pulsar-bound context for resolving prior overrides."""
 
     refs: Mapping[str, str]
     fitpars: tuple[str, ...]
@@ -38,9 +38,9 @@ class PriorBuildContext:
 
 def validate_prior_policy(policy: str) -> PriorPolicy:
     """Validate the configured prior policy."""
-    if policy not in {"fallback", "strict", "explicit"}:
+    if policy not in {"wide_default", "strict", "explicit"}:
         raise ValueError(
-            "prior_policy must be one of {'fallback', 'strict', 'explicit'}"
+            "prior_policy must be one of {'wide_default', 'strict', 'explicit'}"
         )
     return policy  # type: ignore[return-value]
 
@@ -125,10 +125,10 @@ def truncated_normal(
 def delta_uniform(
     lower: float, upper: float, *, scale: str | None = None
 ) -> PriorOverrideSpec:
-    """Uniform prior on offsets from the backend reference (delta frame).
+    """Uniform prior on offsets from the engine reference (delta frame).
 
     With ``scale="PB"`` the bounds are multiplied by that parameter's reference
-    value at bind time (e.g. a TASC window of ±half an orbit).
+    value at for_pulsar time (e.g. a TASC window of ±half an orbit).
     """
     return uniform(lower, upper, frame="delta", scale=scale)
 
@@ -136,7 +136,7 @@ def delta_uniform(
 def delta_normal(
     mean: float, std: float, *, scale: str | None = None
 ) -> PriorOverrideSpec:
-    """Normal prior on offsets from the backend reference (delta frame)."""
+    """Normal prior on offsets from the engine reference (delta frame)."""
     return normal(mean, std, frame="delta", scale=scale)
 
 
@@ -214,7 +214,7 @@ def _scale_factor(ctx: PriorBuildContext, scale: str) -> float:
     canonical = resolve_parameter_alias(scale)
     if canonical not in ctx.refs:
         raise ValueError(
-            f"Prior scale parameter '{scale}' is missing from backend references"
+            f"Prior scale parameter '{scale}' is missing from engine references"
         )
     if canonical not in ctx.fitpars:
         raise ValueError(
@@ -290,7 +290,7 @@ def _to_delta_prior(prior: AxisPrior, ref_str: str) -> AxisPrior:
     raise ValueError(f"Unsupported prior family: {prior.family}")
 
 
-def materialize_prior_override(
+def resolve_prior_override(
     param_name: str,
     spec: PriorOverrideSpec,
     ctx: PriorBuildContext,
@@ -301,7 +301,7 @@ def materialize_prior_override(
         raise ValueError(f"Prior override targets non-sampled parameter '{param_name}'")
     if canonical not in ctx.refs:
         raise ValueError(
-            f"Prior override parameter '{param_name}' is missing from backend references"
+            f"Prior override parameter '{param_name}' is missing from engine references"
         )
 
     prior = spec.prior
@@ -338,14 +338,14 @@ class PriorBlock:
         cls,
         fitpars: list[str] | tuple[str, ...],
         *,
-        policy: PriorPolicy = "fallback",
+        policy: PriorPolicy = "wide_default",
         overrides: dict[str, AxisPrior] | None = None,
         overrides_in_delta: bool = False,
         named_defaults: dict[str, AxisPrior] | None = None,
         theta_ref: ExactNativeRef | dict[str, str | float | int] | None = None,
         pint_model=None,
     ) -> "PriorBlock":
-        """Resolve priors for fit parameters from overrides/PINT/fallback policy."""
+        """Resolve priors for fit parameters from overrides/PINT/wide-default policy."""
         policy = validate_prior_policy(policy)
         overrides = overrides or {}
         named_defaults = named_defaults or {}
@@ -419,7 +419,7 @@ class PriorBlock:
         for name, prior in zip(self.names, self.priors, strict=True):
             if prior.family == "cheat_wls":
                 raise ValueError(
-                    "cheat_wls fallback priors require pulsar-bound resolution before "
+                    "cheat_wls wide-default priors require pulsar-bound resolution before "
                     "building a PriorBijector"
                 )
             if name in critical and prior.family in ABSOLUTE_FORMING_FAMILIES:

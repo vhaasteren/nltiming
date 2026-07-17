@@ -1,24 +1,24 @@
-"""Slice-3 tests for per-session timing backends and validators."""
+"""Slice-3 tests for per-PTA timing engines and validators."""
 
 import numpy as np
 import pytest
 
-from nltiming.backends.base import (
+from nltiming.engines.base import (
     LinearModel,
     is_exact_linear_param,
-    validate_backend_shapes,
-    validate_backend_zero_delta,
+    validate_engine_shapes,
+    validate_engine_zero_delta,
     zero_delta_tolerance,
 )
-from nltiming.backends.jug import (
+from nltiming.engines.jug import (
     JugEngine,
     LinearizedJugEngine,
 )
-from nltiming.backends.pint import (
+from nltiming.engines.pint import (
     PintEngine,
     LinearizedPintEngine,
 )
-from nltiming.backends.tempo2 import (
+from nltiming.engines.tempo2 import (
     LibstempoEngine,
     LinearizedLibstempoEngine,
 )
@@ -101,68 +101,68 @@ def _linear_model():
         dtype=float,
     )
     theta_exact = {"F0": "1234.567890123456789", "F1": "-1.0e-15"}
-    return LinearModel.from_host(
+    return LinearModel.from_design(
         fitpars=fitpars, design=design, theta_exact=theta_exact
     )
 
 
-def _assert_linear_tangent(backend):
+def _assert_linear_tangent(engine):
     delta = np.array([0.2, -0.5], dtype=float)
     np.testing.assert_allclose(
-        backend.residual_delta(delta),
-        backend.design_matrix() @ delta,
+        engine.residual_delta(delta),
+        engine.design_matrix() @ delta,
         atol=1e-12,
     )
-    validate_backend_zero_delta(backend)
-    validate_backend_shapes(backend)
+    validate_engine_zero_delta(engine)
+    validate_engine_shapes(engine)
 
 
-def test_pint_backend_linear_contract():
-    backend = LinearizedPintEngine.from_linear_model(_linear_model())
-    _assert_linear_tangent(backend)
-    assert backend.fitpars == ("F0", "F1")
-    assert set(backend.reference_theta_exact()) == {"F0", "F1"}
+def test_pint_engine_linear_contract():
+    engine = LinearizedPintEngine.from_linear_model(_linear_model())
+    _assert_linear_tangent(engine)
+    assert engine.fitpars == ("F0", "F1")
+    assert set(engine.reference_theta_exact()) == {"F0", "F1"}
 
 
-def test_tempo2_backend_linear_contract():
-    backend = LinearizedLibstempoEngine.from_linear_model(_linear_model())
-    _assert_linear_tangent(backend)
-    assert backend.fitpars == ("F0", "F1")
+def test_tempo2_engine_linear_contract():
+    engine = LinearizedLibstempoEngine.from_linear_model(_linear_model())
+    _assert_linear_tangent(engine)
+    assert engine.fitpars == ("F0", "F1")
 
 
-def test_jug_backend_jax_surface_and_precision_metadata():
-    backend = LinearizedJugEngine.from_linear_model(
+def test_jug_engine_jax_surface_and_precision_metadata():
+    engine = LinearizedJugEngine.from_linear_model(
         _linear_model(),
         compatibility="tempo2",
         precision_critical=frozenset({"F0"}),
     )
-    _assert_linear_tangent(backend)
-    assert backend.compatibility == "tempo2"
-    assert backend.precision_critical_fitpars() == frozenset({"F0"})
+    _assert_linear_tangent(engine)
+    assert engine.compatibility == "tempo2"
+    assert engine.precision_critical_fitpars() == frozenset({"F0"})
 
     jnp = __import__("jax.numpy", fromlist=["*"])
     delta = jnp.asarray([0.1, 0.3], dtype=jnp.float64)
     np.testing.assert_allclose(
-        np.asarray(backend.residual_delta_jax(delta)),
-        backend.design_matrix() @ np.asarray(delta),
+        np.asarray(engine.residual_delta_jax(delta)),
+        engine.design_matrix() @ np.asarray(delta),
         atol=1e-12,
     )
 
 
-def test_native_backends_wrap_engines_with_host_metadata():
+def test_native_engines_wrap_engines_with_pulsar_metadata():
     model = _linear_model()
-    backends = [
+    engines = [
         PintEngine(engine=_FakeDeltaEngine(), linear_model=model),
         LibstempoEngine(engine=_FakeDeltaEngine(), linear_model=model),
         JugEngine(state=_FakeJaxState(), linear_model=model),
     ]
-    for backend in backends:
-        _assert_linear_tangent(backend)
-        assert backend.reference_theta_exact()["F0"] == "1234.567890123456789"
+    for engine in engines:
+        _assert_linear_tangent(engine)
+        assert engine.reference_theta_exact()["F0"] == "1234.567890123456789"
 
 
-def test_jug_backend_adds_exact_linear_to_numpy_and_jax_paths():
-    model = LinearModel.from_host(
+def test_jug_engine_adds_exact_linear_to_numpy_and_jax_paths():
+    model = LinearModel.from_design(
         fitpars=("PB", "Offset"),
         design=np.array(
             [
@@ -185,25 +185,25 @@ def test_jug_backend_adds_exact_linear_to_numpy_and_jax_paths():
         return jnp.asarray(model.design[:, :1]) @ jnp.asarray(delta)
 
     state.residual_delta_jax = residual_delta_jax
-    backend = JugEngine(state=state, linear_model=model)
-    backend._jug_indices = (0,)
-    backend._jug_fitpars = ("PB",)
-    backend._exact_linear_indices = (1,)
-    backend._exact_linear_fitpars = frozenset({"Offset"})
+    engine = JugEngine(state=state, linear_model=model)
+    engine._jug_indices = (0,)
+    engine._jug_fitpars = ("PB",)
+    engine._exact_linear_indices = (1,)
+    engine._exact_linear_fitpars = frozenset({"Offset"})
 
     delta = np.array([0.5, -0.25], dtype=float)
     expected = model.design @ delta
-    np.testing.assert_allclose(backend.residual_delta(delta), expected)
+    np.testing.assert_allclose(engine.residual_delta(delta), expected)
 
     jnp = __import__("jax.numpy", fromlist=["*"])
     np.testing.assert_allclose(
-        np.asarray(backend.residual_delta_jax(jnp.asarray(delta))),
+        np.asarray(engine.residual_delta_jax(jnp.asarray(delta))),
         expected,
     )
 
 
-def test_jug_backend_converts_astrometry_fit_units_to_native():
-    """RAJ/DECJ deltas are scaled from host fit units to JUG native radians.
+def test_jug_engine_converts_astrometry_fit_units_to_native():
+    """RAJ/DECJ deltas are scaled from pulsar fit units to JUG native radians.
 
     ``MetaPulsar.Mmat`` carries RAJ in hourangle and DECJ in degrees, while the
     frozen ``JaxTimingState`` is native (radians). Without the conversion the
@@ -216,7 +216,7 @@ def test_jug_backend_converts_astrometry_fit_units_to_native():
     from jug.utils.units import native_to_fit_value
 
     fitpars = ("RAJ", "DECJ", "F0")
-    host_design = np.array(
+    pulsar_design = np.array(
         [
             [2.0, 1.0, 0.5],
             [3.0, -1.0, 1.0],
@@ -225,15 +225,15 @@ def test_jug_backend_converts_astrometry_fit_units_to_native():
         ],
         dtype=float,
     )
-    model = LinearModel.from_host(
+    model = LinearModel.from_design(
         fitpars=fitpars,
-        design=host_design,
+        design=pulsar_design,
         theta_exact={"RAJ": "0.0", "DECJ": "0.0", "F0": "100.0"},
     )
     # Native state: same physical derivative, re-expressed per column in native
     # units (host_col * fit_per_native), acting linearly on the native delta.
     scale = np.array([native_to_fit_value(name, 1.0) for name in fitpars])
-    native_design = host_design * scale
+    native_design = pulsar_design * scale
 
     class _NativeState:
         design_matrix = native_design
@@ -246,19 +246,19 @@ def test_jug_backend_converts_astrometry_fit_units_to_native():
         def residual_delta_jax(self, delta):
             return jnp.asarray(native_design) @ jnp.asarray(delta)
 
-    backend = JugEngine(state=_NativeState(), linear_model=model)
+    engine = JugEngine(state=_NativeState(), linear_model=model)
     fit_delta = np.array([7.0e-8, 5.0e-7, 1.0e-9], dtype=float)
-    expected = host_design @ fit_delta
+    expected = pulsar_design @ fit_delta
 
-    np.testing.assert_allclose(backend.residual_delta(fit_delta), expected, rtol=1e-12)
+    np.testing.assert_allclose(engine.residual_delta(fit_delta), expected, rtol=1e-12)
     np.testing.assert_allclose(
-        np.asarray(backend.residual_delta_jax(jnp.asarray(fit_delta))),
+        np.asarray(engine.residual_delta_jax(jnp.asarray(fit_delta))),
         expected,
         rtol=1e-12,
     )
-    # linearized_design_matrix is served in host fit units too (native / scale).
+    # linearized_design_matrix is served in pulsar fit units too (native / scale).
     np.testing.assert_allclose(
-        backend.linearized_design_matrix(), host_design, rtol=1e-12
+        engine.linearized_design_matrix(), pulsar_design, rtol=1e-12
     )
 
 
@@ -271,8 +271,8 @@ def test_exact_linear_policy_does_not_capture_spin_frequency_params():
     assert is_exact_linear_param("JUMP1")
 
 
-def test_libstempo_backend_routes_jump_through_exact_linear_design_column():
-    model = LinearModel.from_host(
+def test_libstempo_engine_routes_jump_through_exact_linear_design_column():
+    model = LinearModel.from_design(
         fitpars=("PB", "JUMP"),
         design=np.array(
             [
@@ -284,22 +284,22 @@ def test_libstempo_backend_routes_jump_through_exact_linear_design_column():
         ),
         theta_exact={"PB": "1.0", "JUMP": "0.0"},
     )
-    engine = _StrictTempo2Engine()
-    backend = LibstempoEngine(
-        engine=engine,
+    strict = _StrictTempo2Engine()
+    engine = LibstempoEngine(
+        engine=strict,
         linear_model=model,
         native_fitpars=("PB",),
         exact_linear_fitpars=frozenset({"JUMP"}),
     )
 
     delta = np.array([0.25, -0.5], dtype=float)
-    np.testing.assert_allclose(backend.residual_delta(delta), model.design @ delta)
-    assert engine.calls == [{"PB": 0.25}]
-    assert backend.exact_linear_fitpars() == frozenset({"JUMP"})
+    np.testing.assert_allclose(engine.residual_delta(delta), model.design @ delta)
+    assert strict.calls == [{"PB": 0.25}]
+    assert engine.exact_linear_fitpars() == frozenset({"JUMP"})
 
 
-def test_libstempo_from_session_marks_unsettable_jump_exact_linear():
-    model = LinearModel.from_host(
+def test_libstempo_from_contribution_marks_unsettable_jump_exact_linear():
+    model = LinearModel.from_design(
         fitpars=("PB", "JUMP"),
         design=np.array(
             [
@@ -311,11 +311,13 @@ def test_libstempo_from_session_marks_unsettable_jump_exact_linear():
         ),
         theta_exact={"PB": "1.0", "JUMP": "0.0"},
     )
-    backend = LibstempoEngine.from_session(_FakeLTPulsarWithJump(), linear_model=model)
+    engine = LibstempoEngine.from_contribution(
+        _FakeLTPulsarWithJump(), linear_model=model
+    )
 
-    assert backend.exact_linear_fitpars() == frozenset({"JUMP"})
+    assert engine.exact_linear_fitpars() == frozenset({"JUMP"})
     np.testing.assert_allclose(
-        backend.residual_delta(np.array([0.0, 0.5], dtype=float)),
+        engine.residual_delta(np.array([0.0, 0.5], dtype=float)),
         model.design[:, 1] * 0.5,
     )
 
@@ -333,18 +335,18 @@ class _OffsetZeroDeltaBackend:
 
 
 def test_zero_delta_tolerance_is_strict_for_jug_tempo2():
-    backend = _OffsetZeroDeltaBackend(compatibility="tempo2", offset_sec=2.7e-8)
-    assert zero_delta_tolerance(backend, 1e-9) == 1e-9
+    engine = _OffsetZeroDeltaBackend(compatibility="tempo2", offset_sec=2.7e-8)
+    assert zero_delta_tolerance(engine, 1e-9) == 1e-9
     with pytest.raises(ValueError, match="residual_delta\\(0\\)"):
-        validate_backend_zero_delta(backend, tol=1e-9)
+        validate_engine_zero_delta(engine, tol=1e-9)
 
     strict = _OffsetZeroDeltaBackend(compatibility="pint", offset_sec=2.7e-8)
     assert zero_delta_tolerance(strict, 1e-9) == 1e-9
     with pytest.raises(ValueError, match="residual_delta\\(0\\)"):
-        validate_backend_zero_delta(strict, tol=1e-9)
+        validate_engine_zero_delta(strict, tol=1e-9)
 
 
 def test_zero_delta_tolerance_fails_large_jug_tempo2_offset():
-    backend = _OffsetZeroDeltaBackend(compatibility="tempo2", offset_sec=1e-3)
+    engine = _OffsetZeroDeltaBackend(compatibility="tempo2", offset_sec=1e-3)
     with pytest.raises(ValueError, match="residual_delta\\(0\\)"):
-        validate_backend_zero_delta(backend, tol=1e-9)
+        validate_engine_zero_delta(engine, tol=1e-9)

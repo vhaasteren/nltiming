@@ -28,12 +28,12 @@ def test_prior_override_warn_skips_unknown_fitpar():
 
     pulsar = _Pulsar()
     partition = resolve_partition(pulsar, analytically_marginalize=[])
-    backend = _StubBackend()
+    engine = _StubBackend()
 
     with warnings.catch_warnings(record=True) as caught:
         warnings.simplefilter("always")
         resolved = ntm._resolve_prior_overrides(
-            pulsar=pulsar, backend=backend, partition=partition
+            pulsar=pulsar, engine=engine, partition=partition
         )
 
     assert resolved == {}
@@ -53,9 +53,7 @@ def test_prior_override_strict_raises_unknown_fitpar():
 
     pulsar = _Pulsar()
     partition = resolve_partition(pulsar, analytically_marginalize=[])
-    backend = _StubBackend()
+    engine = _StubBackend()
 
     with pytest.raises(ValueError, match="unknown fit parameters"):
-        ntm._resolve_prior_overrides(
-            pulsar=pulsar, backend=backend, partition=partition
-        )
+        ntm._resolve_prior_overrides(pulsar=pulsar, engine=engine, partition=partition)

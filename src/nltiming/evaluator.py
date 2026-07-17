@@ -1,6 +1,6 @@
 """Engine-independent interactive timing-model evaluation.
 
-This module turns the low-level :class:`~nltiming.protocols.TimingBackend`
+This module turns the low-level :class:`~nltiming.protocols.TimingEngine`
 vector contract into a mapping-oriented, immutable user API. It deliberately
 does not mutate pulsars, timing sessions, TOAs, or par files.
 """
@@ -15,7 +15,7 @@ from typing import Any, Literal, cast
 import numpy as np
 
 from .partition import match_fitpars
-from .protocols import JaxTimingBackend
+from .protocols import JaxTimingEngine
 from .space import ParameterSpace
 from .units import lookup_pint_param, normalize_param_name, units_map
 
@@ -32,7 +32,7 @@ def _readonly_array(values: Any, *, dtype: Any = float) -> np.ndarray:
 
 @dataclass(frozen=True)
 class TimingParameter:
-    """Metadata for one canonical timing-backend axis."""
+    """Metadata for one canonical timing-engine axis."""
 
     name: str
     base_name: str
@@ -254,7 +254,7 @@ class TimingZFitResult:
 
 
 class TimingEvaluator:
-    """Mapping-oriented interactive facade over a pulsar timing backend."""
+    """Mapping-oriented interactive API over a pulsar timing engine."""
 
     def __init__(
         self,
@@ -262,19 +262,19 @@ class TimingEvaluator:
         *,
         engines: str | Mapping[str, str] = "jug",
         prefer_jax: bool = True,
-        **backend_kwargs: Any,
+        **engine_kwargs: Any,
     ):
         self.pulsar = pulsar
         self.engines = engines
         self.prefer_jax = bool(prefer_jax)
-        self.backend_kwargs = dict(backend_kwargs)
-        self.backend = pulsar.timing_backend(engines, **self.backend_kwargs)
-        self.fitpars = tuple(self.backend.fitpars)
+        self.engine_kwargs = dict(engine_kwargs)
+        self.engine = pulsar.timing_engine(engines, **self.engine_kwargs)
+        self.fitpars = tuple(self.engine.fitpars)
         self._index = {name: i for i, name in enumerate(self.fitpars)}
-        self._reference_exact = dict(self.backend.reference_theta_exact())
-        self._reference = np.asarray(self.backend.reference_theta(), dtype=float)
+        self._reference_exact = dict(self.engine.reference_theta_exact())
+        self._reference = np.asarray(self.engine.reference_theta(), dtype=float)
         if self._reference.shape != (len(self.fitpars),):
-            raise ValueError("backend reference_theta shape does not match fitpars")
+            raise ValueError("engine reference_theta shape does not match fitpars")
         self.parameters = TimingParameters(self._build_parameters())
         self.capabilities = self._build_capabilities()
 
@@ -326,17 +326,17 @@ class TimingEvaluator:
         return tuple(parameters)
 
     def _build_capabilities(self) -> TimingCapabilities:
-        sessions = getattr(self.backend, "_sessions", ())
+        sessions = getattr(self.engine, "_sessions", ())
         session_engines = {
             str(session.name): str(
-                getattr(session.backend, "backend_name", type(session.backend).__name__)
+                getattr(session.engine, "backend_name", type(session.engine).__name__)
             )
             for session in sessions
         }
         if not session_engines:
             session_engines = {
                 str(getattr(self.pulsar, "name", "pulsar")): str(
-                    getattr(self.backend, "backend_name", type(self.backend).__name__)
+                    getattr(self.engine, "backend_name", type(self.engine).__name__)
                 )
             }
         exact_linear = sorted(
@@ -347,10 +347,10 @@ class TimingEvaluator:
             }
         )
         return TimingCapabilities(
-            nonlinear=hasattr(self.backend, "residual_delta"),
-            jax=isinstance(self.backend, JaxTimingBackend),
-            autodiff_jacobian=isinstance(self.backend, JaxTimingBackend),
-            reference_jacobian=hasattr(self.backend, "design_matrix"),
+            nonlinear=hasattr(self.engine, "residual_delta"),
+            jax=isinstance(self.engine, JaxTimingEngine),
+            autodiff_jacobian=isinstance(self.engine, JaxTimingEngine),
+            reference_jacobian=hasattr(self.engine, "design_matrix"),
             session_engines=session_engines,
             exact_linear=tuple(exact_linear),
         )
@@ -409,17 +409,17 @@ class TimingEvaluator:
         """Evaluate residuals at a partial or complete timing parameter point."""
         delta = self.delta_vector(values, frame=frame)
         use_jax = self.prefer_jax if use_jax is None else bool(use_jax)
-        jax_fn = getattr(self.backend, "residual_delta_jax", None)
+        jax_fn = getattr(self.engine, "residual_delta_jax", None)
         if use_jax and jax_fn is not None:
             from .sampling.numpyro import ensure_x64
 
             ensure_x64()
             residual_delta = np.asarray(jax_fn(delta), dtype=float)
         else:
-            residual_delta = np.asarray(self.backend.residual_delta(delta), dtype=float)
+            residual_delta = np.asarray(self.engine.residual_delta(delta), dtype=float)
         reference_residuals = np.asarray(self.pulsar.residuals, dtype=float)
         if residual_delta.shape != reference_residuals.shape:
-            raise ValueError("backend residual shape does not match pulsar residuals")
+            raise ValueError("engine residual shape does not match pulsar residuals")
         return TimingEvaluation(
             fitpars=self.fitpars,
             theta=self._reference + delta,
@@ -444,13 +444,13 @@ class TimingEvaluator:
                     f"method={method!r} only provides the reference-point matrix; "
                     "use method='autodiff' for an arbitrary point"
                 )
-            return np.asarray(self.backend.design_matrix(), dtype=float)
+            return np.asarray(self.engine.design_matrix(), dtype=float)
         if method != "autodiff":
             raise ValueError(
                 "method must be 'auto', 'reference', 'analytic', or 'autodiff'"
             )
-        if not isinstance(self.backend, JaxTimingBackend):
-            raise ValueError("autodiff requires a JAX-capable timing backend")
+        if not isinstance(self.engine, JaxTimingEngine):
+            raise ValueError("autodiff requires a JAX-capable timing engine")
         from .sampling.numpyro import ensure_x64
 
         ensure_x64()
@@ -459,7 +459,7 @@ class TimingEvaluator:
 
         delta = self.delta_vector(at, frame=frame)
         return np.asarray(
-            jax.jacfwd(self.backend.residual_delta_jax)(jnp.asarray(delta)),
+            jax.jacfwd(self.engine.residual_delta_jax)(jnp.asarray(delta)),
             dtype=float,
         )
 
@@ -695,7 +695,7 @@ class TimingEvaluator:
         """Run an immutable local weighted Gauss-Newton timing fit.
 
         This intentionally uses only diagonal TOA uncertainties. Correlated
-        noise and generalized likelihood fits remain frontend responsibilities.
+        noise and generalized likelihood fits remain likelihood-interface responsibilities.
         """
         selected: list[str] = []
         for requested in parameters:

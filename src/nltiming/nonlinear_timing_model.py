@@ -1,17 +1,26 @@
-"""Nonlinear timing model configuration and pulsar binding."""
+"""Nonlinear timing model configuration and pulsar timing context."""
 
 from __future__ import annotations
 
 import hashlib
 import json
 import warnings
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Any, Literal, Mapping, Sequence
 
 import numpy as np
 
 from . import priors as prior_specs
 from .bijectors import AxisPrior, WhiteningLinear
+from .metric import (
+    LocalPosteriorMetric,
+    StaticTransportRecord,
+    WhiteningConfig,
+    frozen_white_metric,
+    identity_transport_record,
+    static_transport_record,
+    toa_errors_metric,
+)
 from .partition import (
     PartitionResult,
     fitpar_suffixes,
@@ -24,14 +33,14 @@ from .priors import (
     PriorFrame,
     PriorOverrideSpec,
     PriorPolicy,
-    materialize_prior_override,
+    resolve_prior_override,
     store_prior_override,
     validate_prior_policy,
 )
 from .space import ParameterSpace, default_coord_for_transform
 from .units import lookup_pint_param, native_physical_bounds, to_native
-from .whitening import diagonal_white, fixed_hyperparameters, schur_delta_wls
-from .backends import normalize_engines
+from .whitening import posterior_linear_transform, schur_delta_wls
+from .engines import normalize_engines
 
 _TRANSFORMS = {"none", "standardized", "whitening"}
 _DESIGN_MATRIX_METHODS = {"analytic", "autodiff"}
@@ -47,12 +56,12 @@ def _normalize_design_matrix_method(method: str) -> str:
     return normalized
 
 
-def _timing_design_matrix(pulsar, backend, *, method: str) -> np.ndarray:
+def _timing_design_matrix(pulsar, engine, *, method: str) -> np.ndarray:
     if method == "autodiff":
-        matrix_fn = getattr(backend, "linearized_design_matrix", None)
+        matrix_fn = getattr(engine, "linearized_design_matrix", None)
         if matrix_fn is None:
             raise ValueError(
-                "design_matrix_method='autodiff' requires a backend that exposes "
+                "design_matrix_method='autodiff' requires an engine that exposes "
                 "linearized_design_matrix()."
             )
         return np.asarray(matrix_fn(), dtype=float)
@@ -64,28 +73,113 @@ def _stable_json(value: object) -> str:
 
 
 @dataclass(frozen=True, eq=False)
-class TimingBinding:
+class TimingContext:
     """Pulsar-bound nonlinear timing context resolved from model config.
 
-    Produced by :meth:`NonLinearTimingModel.bind`; owns every pulsar-bound
-    query (sampled partition, priors, parameter space, frontend signals,
-    artifact snapshots). The model itself stays pure configuration.
+    Produced by :meth:`NonLinearTimingModel.for_pulsar`; owns every pulsar-bound
+    query (sampled partition, priors, parameter space, likelihood signals,
+    run-metadata snapshots). The model itself stays pure configuration.
     """
 
     model: "NonLinearTimingModel"
     pulsar: Any
-    backend: Any
+    engine: Any
     partition: PartitionResult
     prior_block: PriorBlock
     space: ParameterSpace
     coord: str
-    site_name: str
+    latent_name: str
     delay_keys: tuple[str, ...]
     design_matrix: np.ndarray
+    metric: LocalPosteriorMetric | None = None
+    transport: StaticTransportRecord | None = None
 
     @property
-    def prefix(self) -> str:
-        """Site/deterministic name prefix: ``{pulsar}_{model.name}``."""
+    def conditioned(self) -> bool:
+        """Whether an affine transport has been finalized on this context (§5.2)."""
+        return self.transport is not None
+
+    def _require_conditioned(self, what: str) -> None:
+        if not self.conditioned:
+            raise ValueError(
+                f"{what} requires a conditioned TimingContext; call "
+                "ctx.with_transport(metric) (or NonLinearTimingModel.for_pulsar "
+                "with condition=True) first (§5.2)."
+            )
+
+    def default_metric(self) -> LocalPosteriorMetric:
+        """Build the default reference-noise metric from the whitening config.
+
+        Class 1 ``toa_errors`` is buildable from the pulsar alone; other
+        provenance classes must be supplied explicitly by a likelihood
+        interface (§5.1).
+        """
+        return self.model._default_metric(self)
+
+    def with_transport(
+        self, metric: LocalPosteriorMetric | None = None
+    ) -> "TimingContext":
+        """Return a new, conditioned context finalized on ``metric`` (§5.2).
+
+        Finalize-once and immutable: raises on an already-conditioned context,
+        validates the metric's sampled order/dimension, builds the posterior
+        ``(C, c)``, and folds the metric provenance into the transport record.
+        ``metric=None`` is only valid for ``transform='none'`` (an identity
+        transport that computes no reference-noise Fisher).
+        """
+        if self.conditioned:
+            raise ValueError(
+                "TimingContext is already conditioned; conditioning is "
+                "finalize-once. Build a fresh unconditioned context to "
+                "re-condition (§5.2)."
+            )
+        if metric is None:
+            if self.model.transform != "none":
+                raise ValueError(
+                    "with_transport requires a LocalPosteriorMetric unless "
+                    "transform='none'"
+                )
+            linear = WhiteningLinear.identity(len(self.sampled))
+            new_space = ParameterSpace(
+                names=self.space.names,
+                theta_ref=self.space.theta_ref,
+                prior_bijector=self.space.prior_bijector,
+                linear=linear,
+                transform=self.model.transform,
+                pint_model=self.space.pint_model,
+            )
+            transport = identity_transport_record(linear, coordinate=self.coord)
+            return replace(self, space=new_space, metric=None, transport=transport)
+        if tuple(metric.sampled) != tuple(self.sampled):
+            raise ValueError(
+                "metric sampled parameters "
+                f"{tuple(metric.sampled)} do not match context sampled "
+                f"{tuple(self.sampled)} (order and dimension must agree)"
+            )
+        linear, guard_engaged = self.model._linear_from_metric(
+            metric, self.space.prior_bijector
+        )
+        new_space = ParameterSpace(
+            names=self.space.names,
+            theta_ref=self.space.theta_ref,
+            prior_bijector=self.space.prior_bijector,
+            linear=linear,
+            transform=self.model.transform,
+            pint_model=self.space.pint_model,
+        )
+        transport = static_transport_record(
+            linear,
+            metric=metric,
+            coordinate=self.coord,
+            origin=self.model.whitening.origin,
+            expansion_point=self.model.whitening.expansion_point,
+            guard_engaged=guard_engaged,
+        )
+        return replace(self, space=new_space, metric=metric, transport=transport)
+
+    @property
+    def name_stem(self) -> str:
+        """Name stem for latent/derived parameters: ``{pulsar}_{model.name}``."""
         return f"{self.pulsar.name}_{self.model.name}"
 
     @property
@@ -103,27 +197,32 @@ class TimingBinding:
     def timing_param_keys(self) -> tuple[str, ...]:
         if not self.partition.sampled:
             return tuple()
-        return (self.site_name, *self.delay_keys)
+        return (self.latent_name, *self.delay_keys)
 
     def non_timing_params(self, params: Sequence[str]) -> tuple[str, ...]:
         owned = set(self.timing_param_keys())
         return tuple(name for name in params if name not in owned)
 
-    def coord_site_name(self, coord: str | None = None) -> str:
+    def latent_name_for_coord(self, coord: str | None = None) -> str:
         default = default_coord_for_transform(self.model.transform)
         coord = default if coord is None else coord
         if coord not in {"delta", "z", "x"}:
             raise ValueError(f"Unsupported coord: {coord}")
         if coord == default:
-            return self.site_name
-        return f"{self.prefix}_{coord}"
+            return self.latent_name
+        return f"{self.name_stem}_{coord}"
 
     def fingerprint(self) -> str:
-        """Identity of decoder + frontend config + pulsar/model state."""
+        """Identity of decoder + likelihood config + pulsar/model state.
+
+        For a conditioned context the metric-source and transport digests are
+        folded in, so re-conditioning with a different reference-noise/metric
+        changes the identity (§5.2, §7.4).
+        """
         payload = {
             "config": self.model._config_fingerprint(),
             "pulsar_state": self.model._pulsar_state_fingerprint(
-                self.pulsar, self.backend
+                self.pulsar, self.engine
             ),
             "space": self.space.fingerprint(),
             "transform": self.model.transform,
@@ -131,6 +230,10 @@ class TimingBinding:
             "sampled": list(self.sampled),
             "engines": sorted(self.model.engines.items()),
             "design_matrix_method": self.model.design_matrix_method,
+            "metric_source": None if self.metric is None else self.metric.fingerprint(),
+            "transport": (
+                None if self.transport is None else self.transport.fingerprint()
+            ),
         }
         return (
             "sha256:"
@@ -138,12 +241,12 @@ class TimingBinding:
         )
 
     def discovery_signals(self) -> list:
-        from .frontends.discovery import discovery_signals
+        from .likelihoods.discovery import discovery_signals
 
         return discovery_signals(
             pulsar=self.pulsar,
             space=self.space,
-            backend=self.backend,
+            engine=self.engine,
             partition=self.partition,
             name=self.model.name,
             design_matrix=self.design_matrix,
@@ -158,7 +261,7 @@ class TimingBinding:
     ) -> np.ndarray:
         """Extract sampled delta-theta values from a sampler parameter mapping.
 
-        Accepts either the joint coordinate site (``coord_site_name``), the
+        Accepts either the joint coordinate site (``latent_name_for_coord``), the
         per-parameter delay keys, or Enterprise standardized scalar columns.
         """
         sampled = self.partition.sampled
@@ -169,10 +272,10 @@ class TimingBinding:
             raise ValueError("coord must be one of {'delta', 'z', 'x'}")
         coord = self.coord if coord is None else coord
 
-        site_name = self.coord_site_name(coord)
+        latent_name = self.latent_name_for_coord(coord)
 
-        if site_name in params:
-            q = np.asarray(params[site_name], dtype=float)
+        if latent_name in params:
+            q = np.asarray(params[latent_name], dtype=float)
             return np.asarray(
                 self.space.delta_from_coord(q, np, coord=coord), dtype=float
             )
@@ -192,7 +295,7 @@ class TimingBinding:
             and all(key in params for key in self.delay_keys)
         ):
             values = np.asarray([params[key] for key in self.delay_keys], dtype=float)
-            # Implicit default coord corresponds to contribute_timing outputs
+            # Implicit default coord corresponds to sample_timing outputs
             # where delay keys already carry delta values.
             if not coord_explicit:
                 return values
@@ -206,47 +309,54 @@ class TimingBinding:
             "timing coordinates"
         )
 
-    def artifact(
+    def run_manifest(
         self,
         *,
-        frontend: str,
+        likelihood: str,
         sampler: str,
         scenario: str | None = None,
         latent: dict[str, Any] | None = None,
         checkpoint: dict[str, Any] | None = None,
         chain_layout: dict[str, Any] | None = None,
         git_commit: str | None = None,
+        dynamic_transport=None,
     ):
-        """Snapshot this binding as a write-side ``NLTBinding`` artifact."""
-        from .artifacts import build_binding
+        """Build the write-side ``RunManifest`` snapshot for this context.
 
-        return build_binding(
+        Pass ``dynamic_transport`` (a ``DynamicTransportRecord``) for a joint
+        full-basis run; its section replaces the static transport (§7.3).
+        """
+        self._require_conditioned("building a run manifest")
+        from .run_io import build_run_manifest
+
+        return build_run_manifest(
             self,
-            frontend=frontend,
+            likelihood=likelihood,
             sampler=sampler,
             scenario=scenario,
             latent=latent,
             checkpoint=checkpoint,
             chain_layout=chain_layout,
             git_commit=git_commit,
+            dynamic_transport=dynamic_transport,
         )
 
     def write(self, run_dir, **kwargs):
-        """Build the artifact and write sidecar + parameter space to ``run_dir``.
+        """Build the run manifest and write run metadata + parameter space to ``run_dir``.
 
-        Returns the written ``NLTBinding`` (needed for checkpoint helpers).
+        Returns the written ``RunManifest`` (needed for checkpoint helpers).
         """
-        binding = self.artifact(**kwargs)
-        binding.write(run_dir)
-        return binding
+        manifest = self.run_manifest(**kwargs)
+        manifest.write(run_dir)
+        return manifest
 
 
 class NonLinearTimingModel:
-    """Nonlinear timing model configuration and likelihood-frontend glue.
+    """Nonlinear timing model configuration and likelihood-interface glue.
 
-    Binds to a ``PulsarInterface`` at call time. Does not own noise models or samplers;
-    the user assembles Enterprise/Discovery likelihood frontends and runs their chosen
-    sampler.
+    Resolves against a ``TimingPulsar`` at call time. Does not own noise models or
+    samplers; the user assembles Enterprise/Discovery likelihood interfaces and runs
+    their chosen sampler.
     """
 
     def __init__(
@@ -260,10 +370,10 @@ class NonLinearTimingModel:
         sample: str | Sequence[str] | None = None,
         analytically_marginalize: str | Sequence[str] | None = "default",
         priors: Mapping[str, PriorOverrideSpec] | None = None,
-        prior_policy: PriorPolicy = "fallback",
+        prior_policy: PriorPolicy = "wide_default",
         prior_override_policy: Literal["warn", "strict"] = "warn",
         cheat_prior_scale: float = 50.0,
-        whitening_config: Mapping[str, Any] | None = None,
+        whitening: WhiteningConfig | None = None,
         name: str = "nonlinear_timing_model",
     ):
         if transform not in _TRANSFORMS:
@@ -301,12 +411,15 @@ class NonLinearTimingModel:
         self.analytically_marginalize = analytically_marginalize
         self.prior_policy = validate_prior_policy(prior_policy)
         self.cheat_prior_scale = float(cheat_prior_scale)
-        self.whitening_config = (
-            None if whitening_config is None else dict(whitening_config)
-        )
+        if whitening is not None and not isinstance(whitening, WhiteningConfig):
+            raise TypeError(
+                "whitening must be a WhiteningConfig (see nltiming.metric); "
+                "the stringly-typed whitening_config dict was removed (§5.1)"
+            )
+        self.whitening = whitening if whitening is not None else WhiteningConfig()
         self.name = name
         self._prior_overrides: dict[str, PriorOverrideSpec] = {}
-        self._resolved_cache: dict[str, TimingBinding] = {}
+        self._resolved_cache: dict[str, TimingContext] = {}
         for prior_name, spec in dict(priors or {}).items():
             if not isinstance(spec, PriorOverrideSpec):
                 raise TypeError(
@@ -329,7 +442,7 @@ class NonLinearTimingModel:
         """Resolved JUG tempo2 session options; ``None`` for JUG-free configs.
 
         Resolution imports ``jug.timing`` lazily so that libstempo/PINT-only
-        configurations construct and bind without JUG installed.
+        configurations construct and resolve for a pulsar without JUG installed.
         """
         if not self._uses_jug():
             return None
@@ -352,9 +465,9 @@ class NonLinearTimingModel:
     ) -> None:
         """Set or override one sampled-parameter prior.
 
-        frame='absolute': bounds are native/physical values converted to delta at bind time.
-        frame='delta': bounds are offsets from the bound parameter's backend reference.
-        scale: optional fitpar name; multiplies bounds by that parameter's backend ref
+        frame='absolute': bounds are native/physical values converted to delta when resolved for a pulsar.
+        frame='delta': bounds are offsets from the parameter's engine reference.
+        scale: optional fitpar name; multiplies bounds by that parameter's engine ref
                (delta frame only).
         """
         if kind == "normal":
@@ -408,7 +521,7 @@ class NonLinearTimingModel:
             prior_policy=self.prior_policy,
             prior_override_policy=self.prior_override_policy,
             cheat_prior_scale=self.cheat_prior_scale,
-            whitening_config=self.whitening_config,
+            whitening=self.whitening,
             name=self.name,
         )
         other._prior_overrides = dict(self._prior_overrides)
@@ -428,7 +541,7 @@ class NonLinearTimingModel:
             "prior_policy": self.prior_policy,
             "prior_override_policy": self.prior_override_policy,
             "cheat_prior_scale": self.cheat_prior_scale,
-            "whitening_config": self.whitening_config,
+            "whitening": self.whitening.as_dict(),
             "name": self.name,
             "prior_overrides": {
                 key: {
@@ -446,7 +559,7 @@ class NonLinearTimingModel:
             return None
         return str(self.tempo2_native)
 
-    def _timing_backend_kwargs(self) -> dict[str, Any]:
+    def _timing_engine_kwargs(self) -> dict[str, Any]:
         return {
             "tempo2_native": self.tempo2_native,
             "tempo2_jug_options": self.tempo2_jug_options,
@@ -455,11 +568,11 @@ class NonLinearTimingModel:
             "subtract_tzr": False,
         }
 
-    def _backend_for_pulsar(self, pulsar):
-        return pulsar.timing_backend(
+    def _engine_for_pulsar(self, pulsar):
+        return pulsar.timing_engine(
             self.engines,
             design_matrix_method=self.design_matrix_method,
-            **self._timing_backend_kwargs(),
+            **self._timing_engine_kwargs(),
         )
 
     def _partition(self, pulsar) -> PartitionResult:
@@ -473,7 +586,7 @@ class NonLinearTimingModel:
         self,
         *,
         pulsar,
-        backend,
+        engine,
         partition: PartitionResult,
     ) -> dict[str, AxisPrior]:
         """Materialize stored override specs into delta-space AxisPrior values.
@@ -519,8 +632,8 @@ class NonLinearTimingModel:
                 stacklevel=3,
             )
 
-        ref_exact = backend.reference_theta_exact()
-        ctx = PriorBuildContext(
+        ref_exact = engine.reference_theta_exact()
+        prior_ctx = PriorBuildContext(
             refs=ref_exact,
             fitpars=partition.fitpars,
             sampled=partition.sampled,
@@ -531,7 +644,9 @@ class NonLinearTimingModel:
                 if target not in sampled_set:
                     continue
                 target_spec = self._spec_for_target(pulsar, spec, target, partition)
-                resolved[target] = materialize_prior_override(target, target_spec, ctx)
+                resolved[target] = resolve_prior_override(
+                    target, target_spec, prior_ctx
+                )
         return resolved
 
     def _spec_for_target(
@@ -571,11 +686,11 @@ class NonLinearTimingModel:
         self,
         *,
         pulsar,
-        backend,
+        engine,
         partition: PartitionResult,
         design_matrix: np.ndarray,
     ) -> PriorBlock:
-        ref_exact = backend.reference_theta_exact()
+        ref_exact = engine.reference_theta_exact()
         sampled_refs = {
             name: ref_exact[name] for name in partition.sampled if name in ref_exact
         }
@@ -589,7 +704,7 @@ class NonLinearTimingModel:
             policy=self.prior_policy,
             overrides=self._resolve_prior_overrides(
                 pulsar=pulsar,
-                backend=backend,
+                engine=engine,
                 partition=partition,
             ),
             overrides_in_delta=True,
@@ -681,58 +796,56 @@ class NonLinearTimingModel:
             names=block.names, priors=tuple(priors), sources=block.sources
         )
 
-    def _linear_transform(
-        self,
-        *,
-        pulsar,
-        partition,
-        prior_bijector,
-        design_matrix: np.ndarray,
-    ) -> WhiteningLinear:
-        ndim = len(partition.sampled)
+    def _default_metric(self, ctx: "TimingContext") -> LocalPosteriorMetric:
+        """Build the reference-noise metric named by the whitening config.
+
+        Only class 1 (``toa_errors``) and class 2 (``frozen_white``, which needs
+        no external kernel) are auto-buildable; an assembled-likelihood metric
+        must be supplied by the likelihood interface (§5.1).
+        """
+        reference_noise = self.whitening.reference_noise
+        if reference_noise == "toa_errors":
+            return toa_errors_metric(
+                pulsar=ctx.pulsar,
+                partition=ctx.partition,
+                design_matrix=ctx.design_matrix,
+            )
+        if reference_noise == "frozen_white":
+            return frozen_white_metric(
+                pulsar=ctx.pulsar,
+                partition=ctx.partition,
+                design_matrix=ctx.design_matrix,
+            )
+        raise ValueError(
+            f"reference_noise={reference_noise!r} has no built-in default metric; "
+            "supply a LocalPosteriorMetric via ctx.with_transport(...) from the "
+            "likelihood interface (§5.1)."
+        )
+
+    def _linear_from_metric(
+        self, metric: LocalPosteriorMetric, prior_bijector
+    ) -> tuple[WhiteningLinear, bool]:
+        """Posterior whitening ``(C, c)`` from a metric; returns guard flag."""
+        ndim = len(metric.sampled)
         if self.transform == "none":
-            return WhiteningLinear.identity(ndim)
+            return WhiteningLinear.identity(ndim), False
+        linear, diagnostics = posterior_linear_transform(
+            metric.fisher_delta,
+            prior_bijector=prior_bijector,
+            mode=self.transform,
+            score_delta=metric.score_delta,
+            origin=self.whitening.origin,
+        )
+        return linear, bool(diagnostics["guard_engaged"])
 
-        cfg = self.whitening_config
-        if cfg is None:
-            return diagonal_white(
-                pulsar=pulsar,
-                partition=partition,
-                prior_bijector=prior_bijector,
-                mode=self.transform,
-                design_matrix=design_matrix,
-            )
-
-        cfg = dict(cfg)
-        builder = cfg.pop("name", "diagonal_white")
-        if builder == "diagonal_white":
-            return diagonal_white(
-                pulsar=pulsar,
-                partition=partition,
-                prior_bijector=prior_bijector,
-                mode=self.transform,
-                design_matrix=design_matrix,
-                **cfg,
-            )
-        if builder == "fixed_hyperparameters":
-            return fixed_hyperparameters(
-                pulsar=pulsar,
-                partition=partition,
-                prior_bijector=prior_bijector,
-                mode=self.transform,
-                design_matrix=design_matrix,
-                **cfg,
-            )
-        raise ValueError(f"Unsupported whitening builder: {builder}")
-
-    def _pulsar_state_fingerprint(self, pulsar, backend) -> str:
+    def _pulsar_state_fingerprint(self, pulsar, engine) -> str:
         token = None
-        if hasattr(pulsar, "cache_token"):
-            token = pulsar.cache_token()
+        if hasattr(pulsar, "state_id"):
+            token = pulsar.state_id()
         if token is not None:
             return f"token:{token}"
         design = np.asarray(pulsar.Mmat, dtype=float)
-        refs = backend.reference_theta_exact()
+        refs = engine.reference_theta_exact()
         payload = {
             "fitpars": tuple(pulsar.fitpars),
             "n_toa": int(len(pulsar.toas)),
@@ -743,78 +856,94 @@ class NonLinearTimingModel:
         }
         return hashlib.sha256(_stable_json(payload).encode("utf-8")).hexdigest()
 
-    def _resolved_cache_key(self, pulsar, backend) -> str:
+    def _resolved_cache_key(self, pulsar, engine, *, condition: bool) -> str:
         pulsar_id = f"{id(pulsar)}:{getattr(pulsar, 'name', 'unknown')}"
         return "|".join(
             [
                 pulsar_id,
+                "conditioned" if condition else "base",
                 self._config_fingerprint(),
-                self._pulsar_state_fingerprint(pulsar, backend),
+                self._pulsar_state_fingerprint(pulsar, engine),
             ]
         )
 
-    def bind(self, pulsar) -> TimingBinding:
-        """Resolve this model config against a pulsar (cached per state)."""
-        backend = self._backend_for_pulsar(pulsar)
-        key = self._resolved_cache_key(pulsar, backend)
-        if key in self._resolved_cache:
-            return self._resolved_cache[key]
-
+    def _unconditioned_for_pulsar(self, pulsar, engine) -> TimingContext:
+        """Build the unconditioned base context (identity transport, §5.2)."""
         partition = self._partition(pulsar)
         design_matrix = _timing_design_matrix(
             pulsar,
-            backend,
+            engine,
             method=self.design_matrix_method,
         )
         prior_block = self._build_prior_block(
             pulsar=pulsar,
-            backend=backend,
+            engine=engine,
             partition=partition,
             design_matrix=design_matrix,
         )
         prior_bijector = prior_block.to_bijector(
             precision_critical_fitpars=getattr(
-                backend, "precision_critical_fitpars", lambda: frozenset()
+                engine, "precision_critical_fitpars", lambda: frozenset()
             )()
         )
-        linear = self._linear_transform(
-            pulsar=pulsar,
-            partition=partition,
-            prior_bijector=prior_bijector,
-            design_matrix=design_matrix,
-        )
-        ref_exact = backend.reference_theta_exact()
+        ref_exact = engine.reference_theta_exact()
         sampled_ref_exact = {name: ref_exact[name] for name in partition.sampled}
+        # Unconditioned: the linear layer is identity until with_transport runs.
         space = ParameterSpace.build(
             sampled_ref_exact,
             prior_bijector=prior_bijector,
             transform=self.transform,
-            linear_transform=linear,
+            linear_transform=WhiteningLinear.identity(len(partition.sampled)),
             pint_model=pulsar.pint_model(),
         )
         coord = default_coord_for_transform(self.transform)
-        resolved = TimingBinding(
+        return TimingContext(
             model=self,
             pulsar=pulsar,
-            backend=backend,
+            engine=engine,
             partition=partition,
             prior_block=prior_block,
             space=space,
             coord=coord,
-            site_name=f"{pulsar.name}_{self.name}_{coord}",
+            latent_name=f"{pulsar.name}_{self.name}_{coord}",
             delay_keys=tuple(
                 f"{pulsar.name}_{self.name}_{name}" for name in partition.sampled
             ),
             design_matrix=design_matrix,
         )
+
+    def for_pulsar(self, pulsar, *, condition: bool = True) -> TimingContext:
+        """Resolve this model config against a pulsar (cached per state).
+
+        With ``condition=True`` (the default) the returned context is
+        conditioned with the whitening config's default reference-noise metric —
+        the common path, honest about being an approximate preconditioner when
+        the reference noise is ``toa_errors``. With ``condition=False`` the
+        unconditioned base is returned so a likelihood interface can supply its
+        own :class:`LocalPosteriorMetric` via ``ctx.with_transport(metric)``
+        (§5.2, §8.6).
+        """
+        engine = self._engine_for_pulsar(pulsar)
+        key = self._resolved_cache_key(pulsar, engine, condition=condition)
+        if key in self._resolved_cache:
+            return self._resolved_cache[key]
+
+        base = self._unconditioned_for_pulsar(pulsar, engine)
+        if condition:
+            # transform='none' is an identity map; skip the reference-noise
+            # Fisher entirely (it is unused and could be singular).
+            metric = None if self.transform == "none" else base.default_metric()
+            resolved = base.with_transport(metric)
+        else:
+            resolved = base
         self._resolved_cache[key] = resolved
         return resolved
 
     def enterprise_signal(self):
-        from .frontends.enterprise import enterprise_signal
+        from .likelihoods.enterprise import enterprise_signal
 
         return enterprise_signal(
-            binding_fn=self.bind,
+            ctx_fn=self.for_pulsar,
             name=self.name,
             transform=self.transform,
         )

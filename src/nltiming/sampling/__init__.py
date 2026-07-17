@@ -1,4 +1,4 @@
-"""Sampler-facing glue over a ``TimingBinding``.
+"""Sampler-facing glue over a ``TimingContext``.
 
 - ``numpyro``: NumPyro/Discovery model builder, NUTS setup, timing sites.
 - ``ptmcmc``: PTMCMCSampler setup for Enterprise (or Discovery) likelihoods.

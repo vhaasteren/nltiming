@@ -4,11 +4,11 @@ import pytest
 from nltiming import (
     EnterprisePulsarLike,
     EphemerisExtras,
-    JaxTimingBackend,
+    JaxTimingEngine,
     NonLinearTimingModel,
     ParameterSpace,
-    TimingBackend,
-    PulsarInterface,
+    TimingEngine,
+    TimingPulsar,
 )
 
 
@@ -16,10 +16,10 @@ def test_timing_subpackage_exports():
     assert NonLinearTimingModel is not None
     assert ParameterSpace is not None
     assert EnterprisePulsarLike is not None
-    assert PulsarInterface is not None
-    assert JaxTimingBackend is not None
+    assert TimingPulsar is not None
+    assert JaxTimingEngine is not None
     assert EphemerisExtras is not None
-    assert TimingBackend is not None
+    assert TimingEngine is not None
 
 
 def test_timing_imports_and_constructs_without_jug():

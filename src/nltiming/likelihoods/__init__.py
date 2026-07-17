@@ -1,4 +1,4 @@
-"""Thin likelihood-frontend adapters for Discovery and Enterprise.
+"""Thin likelihood interfaces for Discovery and Enterprise.
 
 ``discovery_signals`` and ``enterprise_signal`` translate a bound
 ``NonLinearTimingModel`` (partition, ``ParameterSpace``, priors) into

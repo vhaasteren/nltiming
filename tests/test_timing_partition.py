@@ -27,7 +27,7 @@ class _FakeModel:
         }
 
 
-class _FakeHost:
+class _FakePulsar:
     def __init__(self):
         self.fitpars = (
             "RAJ",
@@ -50,8 +50,8 @@ class _FakeHost:
 
 
 def test_default_partition_uses_pint_components():
-    host = _FakeHost()
-    analytically_marginalized = default_analytically_marginalized_fitpars(host)
+    pulsar = _FakePulsar()
+    analytically_marginalized = default_analytically_marginalized_fitpars(pulsar)
     assert analytically_marginalized == (
         "RAJ",
         "DECJ",
@@ -65,8 +65,8 @@ def test_default_partition_uses_pint_components():
 
 
 def test_resolve_partition_default_and_indices():
-    host = _FakeHost()
-    part = resolve_partition(host, analytically_marginalize="default")
+    pulsar = _FakePulsar()
+    part = resolve_partition(pulsar, analytically_marginalize="default")
     assert part.analytically_marginalized == (
         "RAJ",
         "DECJ",
@@ -83,8 +83,8 @@ def test_resolve_partition_default_and_indices():
 
 
 def test_resolve_partition_explicit_list():
-    host = _FakeHost()
-    part = resolve_partition(host, analytically_marginalize=["F0", "PB"])
+    pulsar = _FakePulsar()
+    part = resolve_partition(pulsar, analytically_marginalize=["F0", "PB"])
     assert part.analytically_marginalized == ("F0", "PB")
     assert part.sampled == (
         "RAJ",
@@ -101,20 +101,20 @@ def test_resolve_partition_explicit_list():
 
 
 def test_resolve_partition_none_analytically_marginalized():
-    host = _FakeHost()
-    part = resolve_partition(host, analytically_marginalize=None)
+    pulsar = _FakePulsar()
+    part = resolve_partition(pulsar, analytically_marginalize=None)
     assert part.analytically_marginalized == ()
-    assert part.sampled == host.fitpars
+    assert part.sampled == pulsar.fitpars
 
 
 def test_resolve_partition_unknown_and_duplicate_errors():
-    host = _FakeHost()
+    pulsar = _FakePulsar()
     with pytest.raises(ValueError, match="Unknown fit parameters"):
-        resolve_partition(host, analytically_marginalize=["DOES_NOT_EXIST"])
+        resolve_partition(pulsar, analytically_marginalize=["DOES_NOT_EXIST"])
     with pytest.raises(ValueError, match="Duplicate entries"):
-        resolve_partition(host, analytically_marginalize=["F0", "F0"])
+        resolve_partition(pulsar, analytically_marginalize=["F0", "F0"])
     with pytest.raises(ValueError, match="analytically_marginalize must be"):
-        resolve_partition(host, analytically_marginalize="F0")
+        resolve_partition(pulsar, analytically_marginalize="F0")
 
 
 class _FakeCompositeModel:
@@ -130,8 +130,8 @@ class _FakeCompositeModel:
         }
 
 
-class _FakeCompositeHost:
-    """Composite host with PTA-suffixed fitpars and a base-name mapping."""
+class _FakeCompositePulsar:
+    """Composite pulsar with PTA-suffixed fitpars and a base-name mapping."""
 
     def __init__(self, *, with_mapping: bool = True):
         bases = (
@@ -162,14 +162,14 @@ class _FakeCompositeHost:
         return self._model
 
 
-def test_default_analytically_marginalizes_linear_block_on_suffixed_composite_host():
+def test_default_analytically_marginalizes_linear_block_on_suffixed_composite_pulsar():
     """Regression: PTA-suffixed names must still map to canonical categories.
 
     The binary params plus the explicit Offset stay sampled; every discovered
     linear nuisance family (astrometry/spindown/DMX/JUMP) is analytically marginalized.
     """
-    host = _FakeCompositeHost()
-    part = resolve_partition(host, analytically_marginalize="default")
+    pulsar = _FakeCompositePulsar()
+    part = resolve_partition(pulsar, analytically_marginalize="default")
     assert part.sampled == (
         "PMRA_ng5",
         "PMDEC_ng5",
@@ -188,8 +188,8 @@ def test_default_analytically_marginalizes_linear_block_on_suffixed_composite_ho
 
 
 def test_default_astrometry_samples_kinematics_and_marginalizes_position():
-    host = _FakeHost()
-    part = resolve_partition(host, analytically_marginalize="default")
+    pulsar = _FakePulsar()
+    part = resolve_partition(pulsar, analytically_marginalize="default")
 
     assert "RAJ" in part.analytically_marginalized
     assert "DECJ" in part.analytically_marginalized
@@ -199,6 +199,6 @@ def test_default_astrometry_samples_kinematics_and_marginalizes_position():
 
 def test_default_guard_raises_when_suffix_mapping_unavailable():
     """If name matching silently fails, refuse to sample every timing param."""
-    host = _FakeCompositeHost(with_mapping=False)
+    pulsar = _FakeCompositePulsar(with_mapping=False)
     with pytest.raises(ValueError, match="empty analytically marginalized set"):
-        resolve_partition(host, analytically_marginalize="default")
+        resolve_partition(pulsar, analytically_marginalize="default")

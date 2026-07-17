@@ -1,4 +1,4 @@
-"""Cross-frontend parity gate (proposal §14.5, acceptance criterion #9).
+"""Cross-likelihood agreement gate (proposal §14.5, acceptance criterion #9).
 
 For a small deterministic fixture, Discovery's transformed NumPyro log
 density and Enterprise's flat-vector likelihood + prior must describe the
@@ -20,9 +20,9 @@ import jax.numpy as jnp
 import jax.random as jr
 from numpyro import handlers
 
-from nltiming.backends.base import LinearModel
-from nltiming.backends.jug import LinearizedJugEngine
-from nltiming.backends.pint import LinearizedPintEngine
+from nltiming.engines.base import LinearModel
+from nltiming.engines.jug import LinearizedJugEngine
+from nltiming.engines.pint import LinearizedPintEngine
 from nltiming.nonlinear_timing_model import NonLinearTimingModel
 from nltiming.sampling import numpyro as nlt_numpyro
 
@@ -36,7 +36,7 @@ from enterprise.signals import parameter, signal_base, white_signals  # noqa: E4
 class _Pulsar:
     """Small deterministic fixture: a real (linear) JAX-backed timing model
     usable by both the Discovery and Enterprise frontends via the same
-    TimingBinding."""
+    TimingContext."""
 
     def __init__(self):
         self.name = "J0000+0000"
@@ -47,7 +47,7 @@ class _Pulsar:
         self._freqs = np.full(8, 1400.0, dtype=float)
         self._flags = {"pta": np.array(["demo"] * 8, dtype="U8")}
         self._backend_flags = np.array(["demo"] * 8, dtype="U8")
-        self._cache_token = "parity-token"
+        self._state_id = "agreement-token"
         design = np.array(
             [
                 [1.0, 0.0, 0.2],
@@ -62,7 +62,7 @@ class _Pulsar:
             dtype=float,
         )
         self._design = design
-        model = LinearModel.from_host(
+        model = LinearModel.from_design(
             fitpars=self.fitpars,
             design=design,
             theta_exact={"F0": "10.0", "F1": "1.0", "DM": "5.0"},
@@ -98,20 +98,20 @@ class _Pulsar:
     def backend_flags(self):
         return self._backend_flags
 
-    def cache_token(self):
-        return self._cache_token
+    def state_id(self):
+        return self._state_id
 
     def pint_model(self):
         return object()
 
-    def timing_backend(self, engines="jug", **kwargs):
+    def timing_engine(self, engines="jug", **kwargs):
         if isinstance(engines, dict) and engines.get("pint") == "pint":
             return self._pint_backend
         return self._jug_backend
 
 
 @pytest.fixture
-def host():
+def pulsar():
     return _Pulsar()
 
 
@@ -122,28 +122,28 @@ _OFFSETS = {"none": 1e-9, "standardized": 0.05, "whitening": 0.05}
 
 
 @pytest.mark.parametrize("transform", ["none", "standardized", "whitening"])
-def test_discovery_and_enterprise_log_density_differences_agree(host, transform):
-    noisedict = {f"{host.name}_efac": 1.0, f"{host.name}_log10_t2equad": -8.0}
+def test_discovery_and_enterprise_log_density_differences_agree(pulsar, transform):
+    noisedict = {f"{pulsar.name}_efac": 1.0, f"{pulsar.name}_log10_t2equad": -8.0}
     ntm = NonLinearTimingModel(
         engines="jug",
         transform=transform,
         analytically_marginalize=["DM"],
         name="timing",
     )
-    binding = ntm.bind(host)
-    ndim = len(binding.sampled)
+    ctx = ntm.for_pulsar(pulsar)
+    ndim = len(ctx.sampled)
     offset = _OFFSETS[transform]
 
     # --- Discovery side: trace the NumPyro model at two coordinate points ---
     likelihood = ds.PulsarLikelihood(
         [
-            host.residuals,
-            ds.makenoise_measurement_simple(host, noisedict),
-            *binding.discovery_signals(),
+            pulsar.residuals,
+            ds.makenoise_measurement_simple(pulsar, noisedict),
+            *ctx.discovery_signals(),
         ]
     )
-    numpyro_model = nlt_numpyro.model(likelihood, binding, fixed=noisedict)
-    site = binding.coord_site_name()
+    numpyro_model = nlt_numpyro.model(likelihood, ctx, fixed=noisedict)
+    site = ctx.latent_name_for_coord()
 
     q1 = jnp.zeros(ndim)
     q2 = jnp.full((ndim,), offset)
@@ -169,7 +169,7 @@ def test_discovery_and_enterprise_log_density_differences_agree(host, transform)
     white = white_signals.MeasurementNoise(
         efac=parameter.Constant(1.0)
     ) + white_signals.TNEquadNoise(log10_tnequad=parameter.Constant(-8.0))
-    pta = signal_base.PTA([(white + ntm.enterprise_signal())(host)])
+    pta = signal_base.PTA([(white + ntm.enterprise_signal())(pulsar)])
 
     x1 = np.zeros(ndim)
     x2 = np.full(ndim, offset)
@@ -183,7 +183,7 @@ def test_discovery_and_enterprise_log_density_differences_agree(host, transform)
 @pytest.mark.slow
 @pytest.mark.requires_enterprise
 def test_discovery_nuts_and_enterprise_ptmcmc_recover_the_same_posterior(
-    host, tmp_path
+    pulsar, tmp_path
 ):
     """Short real chains through both native sampler stacks (NumPyro NUTS on
     the Discovery model; enterprise_extensions.sampler.setup_sampler on the
@@ -194,39 +194,39 @@ def test_discovery_nuts_and_enterprise_ptmcmc_recover_the_same_posterior(
     pytest.importorskip("enterprise_extensions")
     from enterprise_extensions import sampler as ee_sampler
 
-    noisedict = {f"{host.name}_efac": 1.0, f"{host.name}_log10_t2equad": -8.0}
+    noisedict = {f"{pulsar.name}_efac": 1.0, f"{pulsar.name}_log10_t2equad": -8.0}
     ntm = NonLinearTimingModel(
         engines="jug",
         transform="whitening",
         analytically_marginalize=["DM"],
         name="timing",
     )
-    binding = ntm.bind(host)
+    ctx = ntm.for_pulsar(pulsar)
 
     nlt_numpyro.ensure_x64()
     likelihood = ds.PulsarLikelihood(
         [
-            host.residuals,
-            ds.makenoise_measurement_simple(host, noisedict),
-            *binding.discovery_signals(),
+            pulsar.residuals,
+            ds.makenoise_measurement_simple(pulsar, noisedict),
+            *ctx.discovery_signals(),
         ]
     )
-    numpyro_model = nlt_numpyro.model(likelihood, binding, fixed=noisedict)
+    numpyro_model = nlt_numpyro.model(likelihood, ctx, fixed=noisedict)
     mcmc = nlt_numpyro.nuts(
         numpyro_model,
-        binding,
+        ctx,
         num_warmup=500,
         num_samples=1000,
         num_chains=1,
         progress_bar=False,
     )
     mcmc.run(jax.random.PRNGKey(0))
-    disc_samples = nlt_numpyro.timing_draws(mcmc.get_samples(), binding)
+    disc_samples = nlt_numpyro.timing_draws(mcmc.get_samples(), ctx)
 
     white = white_signals.MeasurementNoise(
         efac=parameter.Constant(1.0)
     ) + white_signals.TNEquadNoise(log10_tnequad=parameter.Constant(-8.0))
-    pta = signal_base.PTA([(white + ntm.enterprise_signal())(host)])
+    pta = signal_base.PTA([(white + ntm.enterprise_signal())(pulsar)])
 
     np.random.seed(0)
     sampler = ee_sampler.setup_sampler(pta, outdir=str(tmp_path), resume=False)

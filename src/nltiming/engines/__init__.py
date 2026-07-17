@@ -1,8 +1,8 @@
-"""Timing-engine builders and public timing-engine adapter classes."""
+"""Timing-engine builders and public timing-engine classes."""
 
 from __future__ import annotations
 
-from .composite import PulsarSession, build_composite_backend
+from .composite import PtaContribution, build_composite_engine
 from .jug import JugEngine, LinearizedJugEngine
 from .pint import LinearizedPintEngine, PintEngine
 from .tempo2 import LinearizedLibstempoEngine, LibstempoEngine
@@ -32,24 +32,24 @@ def normalize_engines(engines):
     return out
 
 
-def build_backend(
+def build_engine(
     *,
     fitpars: tuple[str, ...],
     nrows: int,
-    sessions: list[PulsarSession],
-    host_design=None,
+    contributions: list[PtaContribution],
+    design_matrix=None,
 ):
-    """Build the per-pulsar composite over per-PTA engine sessions."""
-    return build_composite_backend(
+    """Build the per-pulsar composite over per-PTA engine contributions."""
+    return build_composite_engine(
         fitpars=fitpars,
         nrows=nrows,
-        sessions=sessions,
-        host_design=host_design,
+        contributions=contributions,
+        design_matrix=design_matrix,
     )
 
 
 __all__ = [
-    "PulsarSession",
+    "PtaContribution",
     "JugEngine",
     "VelaEngine",
     "LinearizedJugEngine",
@@ -57,8 +57,8 @@ __all__ = [
     "LinearizedLibstempoEngine",
     "PintEngine",
     "LibstempoEngine",
-    "build_backend",
-    "build_composite_backend",
+    "build_engine",
+    "build_composite_engine",
     "normalize_engines",
     "_ENGINE_CHOICES",
     "_IMPL_FAMILY",

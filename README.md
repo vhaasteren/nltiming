@@ -8,7 +8,7 @@ Instead of holding every timing parameter fixed at its par-file value (or
 linearizing around it), `nltiming` *numerically samples* a chosen subset of
 timing parameters inside the likelihood while the remaining linear nuisance
 parameters are analytically marginalized. The same model configuration drives
-both likelihood frontends and both sampler stacks (NumPyro NUTS via a
+both likelihood interfaces and both sampler stacks (NumPyro NUTS via a
 JAX-capable timing engine, or PTMCMCSampler). Much of this was inspired by
 [Vela.jl](https://github.com/abhisrkckl/Vela.jl), and earlier work in TempoNest.
 
@@ -18,11 +18,11 @@ of parameters in some latent space. The Vela.jl `"standardized"` parameter
 transformation is available where each parameter is transformed individually,
 and the `"whitening`" transformation is available that transforms the whole
 space simultaneously. When sampling with with `enterprise`/`PTMCMCSampler` this
-requires some extra scaffolding.
+requires some extra boilerplate.
 
 ## Ownership: `nltiming` owns model semantics, not sampler execution
 
-`nltiming` supplies native objects at the two likelihood frontends:
+`nltiming` supplies native objects at the two likelihood interfaces:
 
 - **Discovery:** `sampling.numpyro.model(...)` returns an ordinary
   zero-argument NumPyro model (with `.to_df` for decoded timing columns).
@@ -41,9 +41,9 @@ never reimplemented in a sampler wrapper. Choosing `transform="none"`,
 (`pta.param_names`) and the NumPyro coordinate — never the top-level sampling
 script.
 
-The host object must satisfy the `TimingHost` protocol (also exported under
-the original `PulsarInterface` name): frozen TOA arrays, `pint_model()`,
-`timing_backend()`; single-pulsar hosts and multi-PTA composite hosts (e.g.
+The pulsar object must satisfy the `TimingPulsar` protocol (also exported under
+the original `TimingPulsar` name): frozen TOA arrays, `pint_model()`,
+`timing_engine()`; single-pulsar and multi-PTA composite pulsars (e.g.
 [MetaPulsar](https://github.com/vhaasteren/metapulsar)) both work —
 PTA-suffixed parameter names are matched by base name.
 
@@ -74,17 +74,17 @@ ntm = NonLinearTimingModel(
     sample=["PB", "TASC", "A1"],         # base names; the rest is marginalized
     priors={"TASC": priors.delta_uniform(-0.5, 0.5, scale="PB")},
 )
-binding = ntm.bind(pulsar)               # pulsar: any TimingHost
+ctx = ntm.for_pulsar(pulsar)               # pulsar: any TimingPulsar
 
 likelihood = ds.PulsarLikelihood([
     pulsar.residuals,
     ds.makenoise_measurement_simple(pulsar, noisedict),
-    *binding.discovery_signals(),
+    *ctx.discovery_signals(),
 ])
 
 numpyro_model = sampling.numpyro.model(
     likelihood,
-    binding,
+    context,
     priors=noise_prior_overrides,   # optional: overrides for free non-timing params
     fixed=noisedict,                # pins numeric entries found in the likelihood
 )
@@ -92,7 +92,7 @@ numpyro_model = sampling.numpyro.model(
 
 `numpyro_model` is an ordinary zero-argument NumPyro model. It also exposes
 `.to_df(samples)`, which decodes timing coordinates to physical columns.
-That is the only NLT-specific sampling seam: Discovery (and raw NumPyro)
+That is the only NLT-specific sampling integration point: Discovery (and raw NumPyro)
 never reimplement the whitening transform.
 
 Do **not** sample the raw likelihood with Discovery's flat `makemodel`
@@ -108,7 +108,7 @@ sensible NUTS defaults. No Discovery I/O.
 ```python
 mcmc = sampling.numpyro.nuts(
     numpyro_model,
-    binding,
+    context,
     num_warmup=1_000,
     num_samples=2_000,
     num_chains=4,
@@ -126,7 +126,7 @@ posterior = mcmc.to_df()   # wired from numpyro_model.to_df
 ### 2. Discovery checkpoint runner — recommended Discovery path
 
 Use Discovery's own sampler factory and Feather checkpointing. No manual
-`sampler.to_df = ...` scaffolding: `makesampler_nuts` attaches
+`sampler.to_df = ...` boilerplate: `makesampler_nuts` attaches
 `sampler.to_df` from `numpyro_model.to_df`, and
 `run_nuts_with_checkpoints` recovers that attachment if needed.
 
@@ -141,7 +141,7 @@ sampler = ds_numpyro.makesampler_nuts(
     dense_mass=True,
     target_accept_prob=0.85,
     init_strategy=init_to_value(
-        values=sampling.numpyro.timing_init_values(binding)
+        values=sampling.numpyro.timing_init_values(ctx)
     ),
 )
 
@@ -161,9 +161,9 @@ posterior = pd.read_feather(outdir / "numpyro-samples.feather")
 
 The Feather file already contains decoded timing columns
 (`{prefix}_{fitpar}_theta_display`, etc.). For nonlinear timing, that is
-usually enough — no NLT sidecar required on the Discovery path.
+usually enough — no NLT run metadata required on the Discovery path.
 
-`sampling.numpyro.timing_init_values(binding)` is the one NLT helper used
+`sampling.numpyro.timing_init_values(ctx)` is the one NLT helper used
 at sampler construction: it initializes the joint timing site at the
 par-file reference (zeros in sampling coordinates).
 
@@ -189,7 +189,7 @@ Full example:
 ```python
 from numpyro.infer import MCMC, NUTS, init_to_value
 
-init = init_to_value(values=sampling.numpyro.timing_init_values(binding))
+init = init_to_value(values=sampling.numpyro.timing_init_values(ctx))
 
 mcmc = MCMC(
     NUTS(
@@ -251,7 +251,7 @@ ntm = NonLinearTimingModel(
     sample=["PB", "TASC", "A1"],
     priors={"TASC": priors.delta_uniform(-0.5, 0.5, scale="PB")},
 )
-binding = ntm.bind(pulsar)
+ctx = ntm.for_pulsar(pulsar)
 
 model = white + red + ntm.enterprise_signal()
 pta = signal_base.PTA([model(pulsar)])
@@ -264,8 +264,8 @@ sampler = ee_sampler.setup_sampler(pta, outdir=str(outdir), resume=False)
 x0 = np.hstack([np.asarray(p.sample(), dtype=float).reshape(-1) for p in pta.params])
 assert x0.shape == (len(pta.param_names),)
 
-layout = sampling.ptmcmc.chain_layout(binding, pta.param_names)
-binding.write(outdir, frontend="enterprise", sampler="ptmcmc", chain_layout=layout)
+layout = sampling.ptmcmc.chain_layout(ctx, pta.param_names)
+ctx.write(outdir, likelihood="enterprise", sampler="ptmcmc", chain_layout=layout)
 
 sampler.sample(x0, Niter=1_000_000, SCAMweight=30, AMweight=15, DEweight=50)
 ```
@@ -325,16 +325,173 @@ coordinates. It is not the standard Enterprise workflow above and is not
 part of this quick start — see its docstring if you specifically want a
 timing-only PTMCMC run with everything else pinned.
 
-## Artifacts: decode chains anywhere, no live model needed
+## Whitening: the posterior metric, config, and lifecycle
+
+### The timing coordinate
+
+Sampled timing parameters flow through two maps:
+
+```text
+delta = engine-native offset from the exact par-file reference
+z     = C @ x + c            affine sampler coordinate  (x is what NUTS sees)
+delta = prior_bijector(z)    PIT map; under it the timing prior is z ~ N(0, I)
+```
+
+`ParameterSpace` owns these maps and their Jacobians. `transform=` selects how
+the affine layer `(C, c)` is built:
+
+| `transform` | affine layer `C` | sampler coordinate |
+|---|---|---|
+| `"none"` | identity (no whitening; sample `delta` directly) | `delta` |
+| `"standardized"` | diagonal — each axis scaled to its posterior marginal σ | `x` |
+| `"whitening"` (default) | lower-triangular Cholesky factor of the full posterior covariance | `x` |
+
+### The posterior metric `F_z + I`
+
+Because the PIT makes the prior exactly `z ~ N(0, I)`, the local posterior
+precision in `z` is
+
+```text
+H = F_z + I          F_z = J_e^T F_delta J_e  (likelihood Fisher in z)
+```
+
+and whitening chooses `C C^T = H^{-1}`, so `C^T (F_z + I) C = I`. The `+ I` is
+the **exact prior curvature**, not a numerical floor or ridge. nltiming whitens
+the *target posterior*, never `C` itself: a likelihood-only metric `F_z` (or any
+`F_z + αI` with `α ≠ 1`) mis-scales the transformed posterior direction by
+direction and is deliberately **not** available — there is no likelihood-only
+mode and no `numerical_floor` knob anywhere in the API.
+
+### `WhiteningConfig`
+
+Whitening is configured with a small frozen dataclass (there is no
+stringly-typed dict):
 
 ```python
-from nltiming import NLTChainBundle
-post = NLTChainBundle.load(outdir).posterior(burn=0.25)
+from nltiming import NonLinearTimingModel, WhiteningConfig
+
+ntm = NonLinearTimingModel(
+    transform="whitening",
+    whitening=WhiteningConfig(
+        reference_noise="toa_errors",   # which precision builds F_delta
+        expansion_point="reference",    # where F_delta / the PIT Jacobian are evaluated
+        origin="auto",                  # where x = 0 maps (the affine center c)
+    ),
+)
 ```
+
+- **`reference_noise`** — the precision model used to build the likelihood
+  Fisher `F_delta` when the model conditions itself (see the lifecycle below):
+  - `"toa_errors"` *(default)* — diagonal `toaerrs**2`. Dependency-free and only
+    an **approximate** preconditioner; its provenance is flagged `approximate`.
+    Never describe a `toa_errors` metric as whitening a red-noise/DM/ECORR
+    target.
+  - `"frozen_white"` — EFAC/EQUAD white noise at declared values.
+  - `"assembled_likelihood"` — the full frozen precision (marginalized
+    red-noise/DM GP, ECORR, analytically-marginalized timing columns). This one
+    is **not** auto-buildable from config; a likelihood interface supplies a
+    `LocalPosteriorMetric` explicitly (see the two-stage lifecycle).
+- **`expansion_point`** — `"reference"` (the only value): `F_delta`, the design
+  matrix, and the PIT Jacobian are evaluated at the deterministic par-file
+  reference `z_e = z(delta=0)`. (Evaluating the Jacobian at a WLS solution
+  instead is what drives ill-conditioned PIT coordinates to their clipping
+  boundaries and magnifies `C`; that historical mode is retained only for
+  reproducing a pinned production commit.)
+- **`origin`** — where the sampler's `x = 0` maps, i.e. the affine center `c`.
+  Centering is a pure translation: it changes initialization and warmup, not the
+  covariance being whitened. Options:
+  - `"auto"` *(default)* — use a safeguarded local-posterior center **if** the
+    metric carries a likelihood score, otherwise fall back to `"reference"`. The
+    built-in `toa_errors`/`frozen_white` metrics carry no score, so `"auto"`
+    resolves to `"reference"` unless an assembled metric supplies one.
+  - `"reference"` — `c = z_e` (the par-file reference). Deterministic and fully
+    reproducible; the recommended debug/repro setting.
+  - `"local_posterior"` — one damped, trust-region Newton step toward the local
+    MAP, `q = -(F_z + I)^{-1}(g_L + z_e)` where `g_L = ∇_z(-\log L)`, passed
+    through a smooth interior guard (`z_max · tanh`) so it can never leave PIT
+    support. Requires a metric with a `score_delta`; the run records whether the
+    guard engaged. These are defaults, not mathematical invariants.
+
+### Two-stage lifecycle: `for_pulsar` → `with_transport`
+
+A `TimingContext` is immutable and conditioning is **finalize-once**:
+
+```python
+# Common path — conditions with the WhiteningConfig's default reference noise:
+ctx = ntm.for_pulsar(pulsar)                 # conditioned; ctx.transport is set
+
+# Assembled-metric path — supply the likelihood's own precision:
+base   = ntm.for_pulsar(pulsar, condition=False)   # unconditioned; transport is None
+metric = likelihood_interface.local_metric(base, reference_params)  # LocalPosteriorMetric
+ctx    = base.with_transport(metric)               # conditioned, finalize-once
+```
+
+An **unconditioned** base answers every pulsar-bound query a likelihood
+interface needs (`partition`, `priors`, `discovery_signals()`, the design
+matrix, `local_metric` inputs) with an identity affine layer. Only sampler and
+run-manifest construction require a **conditioned** context. Re-conditioning an
+already-conditioned context raises; build a fresh base to re-condition.
+`ctx.metric` and `ctx.transport` carry the metric provenance and the transport
+record; both are folded into `ctx.fingerprint()`.
+
+`LocalPosteriorMetric` is the typed, fingerprinted hand-off. The built-ins
+`toa_errors_metric(...)` and `frozen_white_metric(...)` cover classes 1–2; an
+assembled likelihood builds class 3 and marks it non-`approximate`.
+
+## Run products: decode chains anywhere, no live model needed
+
+A persisted run is a **scientific record**: decode it with the exact space it
+was sampled with, and build a live model only for fresh calculations. A valid
+read needs only the on-disk products — `nlt_run_meta.json` (schema
+`nlt-run-meta-v3`) plus the serialized `ParameterSpace` and the raw chain — never
+a live PTA, Discovery model, or PINT reload.
+
+```python
+import nltiming
+
+run   = nltiming.load_run(outdir)      # RunResults, verified by default
+phys  = run.load_display()             # prefer stored decoded physical values
+post  = run.posterior(burn=0.25)       # decode latent draws through run.space
+lat   = run.load_latent()              # raw latent chain (diagnostic)
+truth = run.truths()                   # par-file reference values for overlays
+```
+
+`load_run` (sugar for `RunResults.load(outdir, verify=True)`) recomputes every
+manifest **section digest** — `parameter_space`, `context`, `metric_source`,
+`transport`, `chains` — and a verification failure names the section that
+diverged. It refuses an unsupported schema with migration guidance, and
+`RunManifest.write` refuses to overwrite an incompatible run without
+`force=True`.
+
+**Reconcile before feeding a saved point through a rebuilt likelihood** (e.g. a
+GLS diagnostic):
+
+```python
+run.assert_consistent_with(ctx)   # raises, naming the diverging section, on any mismatch
+```
+
+Decode with `run.space`; never rebuild a decoder from pulsar/config for a saved
+chain, and never `ctx.write(...)` an existing run before loading it.
+
+### Static vs. dynamic transport
+
+The manifest's `transport` section records one of two classes:
+
+- **`static_affine`** (`latent_decodable = true`) — a fixed timing-only
+  `(C, c)`. The latent chain is independently decodable through `run.space`;
+  this is what the static timing whitening above produces.
+- **`dynamic_transport`** (`latent_decodable = false`) — a joint full-basis
+  transport `q = mu(eta) + L(eta)^{-T} xi` whose map depends on sampled
+  hyperparameters, so `xi` alone has no physical meaning. `load_display()` reads
+  the **required** stored per-draw physical values and refuses to reinterpret
+  `xi` through `run.space`. Joint runs are written with
+  `save_dynamic_checkpoint`, which refuses to promote a final checkpoint that
+  lacks those canonical decoded values, and the one-affine-layer invariant keeps
+  the static timing layer at identity when a dynamic transport is active.
 
 ## Interactive evaluator
 
-The same backend contract supports engine-independent timing inspection without
+The same engine interface supports engine-independent timing inspection without
 constructing a likelihood:
 
 ```python
@@ -363,21 +520,21 @@ zfit = timing.fit_z(space, ["F0", "F1"])
 All operations return immutable result objects. The evaluator does not mutate
 TOAs, parameter fit flags, timing sessions, or input files. `white_chi2` and
 the built-in fit use diagonal TOA errors only; correlated-noise inference
-remains the responsibility of the Discovery or Enterprise frontend.
+remains the responsibility of the Discovery or Enterprise likelihood interface.
 
 ## Scope
 
-`nltiming` owns the nonlinear-timing math, the timing backends (PINT,
-libstempo, JUG, Vela), and the Discovery and Enterprise likelihood frontends.
-Hosts (single-pulsar or multi-PTA composites such as MetaPulsar) supply the
-data via the `TimingHost` protocol; the JUG package owns the JAX timing-engine
+`nltiming` owns the nonlinear-timing math, the timing engines (PINT,
+libstempo, JUG, Vela), and the Discovery and Enterprise likelihood interfaces.
+Pulsars (single-pulsar or multi-PTA composites such as MetaPulsar) supply the
+data via the `TimingPulsar` protocol; the JUG package owns the JAX timing-engine
 primitives.
 
 Deliberately **out of scope**: Fourier/DM/chromatic/ECORR bases, `Phi`
 inference, power-law or free-spectrum projection, and correlated-noise
 likelihoods. Those belong to Discovery and Enterprise. `nltiming` supplies the
 timing block and prior transform they build on, and downstream quick-look GP
-tooling composes `nltiming` with those frontends rather than re-homing noise
+tooling composes `nltiming` with those likelihood interfaces rather than re-homing noise
 math here.
 
 Maintainer notes (ownership table, engineering caveats, upstream tracks) live
@@ -413,7 +570,7 @@ pip install "nltiming[libstempo]"
 When you *do* use libstempo for real `tempopulsar` evaluation, prefer
 **sandbox / process isolation** (`libstempo.sandbox`, or MetaPulsar’s
 `sandbox_tempo2`) so a tempo2 segfault cannot take down the host process.
-`nltiming`’s `LibstempoEngine` accepts whatever session object the host
+`nltiming`’s `LibstempoEngine` accepts whatever session object the pulsar
 provides — it does not construct libstempo itself.
 
 The `discovery` extra installs Discovery from
@@ -435,18 +592,21 @@ and requires **Python ≥ 3.12**.
 ## Layout
 
 - `nonlinear_timing_model.py` — `NonLinearTimingModel` (configuration) and
-  `TimingBinding` (`ntm.bind(pulsar)`, all pulsar-bound queries)
-- `protocols.py` — `PulsarData` / `TimingHost` and timing backend contracts
+  `TimingContext` (`ntm.for_pulsar(pulsar)`, all pulsar-bound queries)
+- `protocols.py` — `PulsarData` / `TimingPulsar` and timing engine interfaces
 - `evaluator.py` — mapping-based evaluation, metadata, scans, Jacobians, and
   immutable local weighted fits
-- `backends/` — PINT, libstempo, and JUG engine adapters plus the multi-PTA
-  composite backend
-- `frontends/` — Discovery and Enterprise likelihood adapters
-- `sampling/` — NumPyro model adapter and PTMCMC helpers (probabilistic model
-  adapters and optional sampler recipes, not sampler ownership)
+- `engines/` — PINT, libstempo, and JUG engines plus the multi-PTA
+  composite engine
+- `likelihoods/` — Discovery and Enterprise likelihood interfaces
+- `sampling/` — NumPyro model helpers and PTMCMC helpers (probabilistic model
+  helpers and optional sampler recipes, not sampler ownership)
 - `space.py`, `bijectors.py`, `whitening.py`, `priors.py`, `partition.py`,
   `units.py` — parameter-space math (transforms, priors, partition policy)
-- `artifacts.py` — the `nlt-sidecar-v2` artifact contract and `NLTChainBundle`
+- `metric.py` — `WhiteningConfig`, `LocalPosteriorMetric`, reference-noise metric
+  builders, and the static/dynamic transport records
+- `run_io.py` — the `nlt-run-meta-v3` run-metadata format, `RunResults`,
+  and the static/dynamic checkpoint writers
 
 ## Development
 

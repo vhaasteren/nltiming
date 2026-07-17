@@ -1,4 +1,4 @@
-"""Per-session libstempo timing engine adapter."""
+"""Per-PTA libstempo timing engine."""
 
 from __future__ import annotations
 
@@ -6,14 +6,14 @@ from typing import Mapping
 
 import numpy as np
 
-from .base import LinearModel, LinearTimingBackend, is_exact_linear_param
+from .base import LinearModel, LinearTimingEngine, is_exact_linear_param
 from .engines import Tempo2DeltaEngine
 
 
 class LibstempoEngine:
-    """Native libstempo residual-delta adapter."""
+    """Native libstempo residual-deltan engine."""
 
-    backend_name = "tempo2"
+    engine_name = "tempo2"
 
     def __init__(
         self,
@@ -41,7 +41,7 @@ class LibstempoEngine:
         )
 
     @classmethod
-    def from_session(
+    def from_contribution(
         cls,
         lt_psr,
         *,
@@ -55,11 +55,11 @@ class LibstempoEngine:
         settable = set(getattr(engine, "_reference_values", {}))
 
         for name in tuple(linear_model.fitpars):
-            backend_name = mapping.get(name, name)
-            if is_exact_linear_param(backend_name):
+            engine_param = mapping.get(name, name)
+            if is_exact_linear_param(engine_param):
                 exact_linear.append(name)
                 continue
-            if backend_name not in settable:
+            if engine_param not in settable:
                 exact_linear.append(name)
                 continue
             native_fitpars.append(name)
@@ -120,10 +120,10 @@ def _delta_dict(fitpars: tuple[str, ...], delta_theta: np.ndarray) -> dict[str, 
     return {name: float(delta[i]) for i, name in enumerate(fitpars)}
 
 
-class LinearizedLibstempoEngine(LinearTimingBackend):
+class LinearizedLibstempoEngine(LinearTimingEngine):
     """Explicit linearized libstempo test double using a frozen design matrix."""
 
-    backend_name = "tempo2"
+    engine_name = "tempo2"
 
     @classmethod
     def from_linear_model(cls, model: LinearModel) -> "LinearizedLibstempoEngine":

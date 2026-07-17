@@ -1,4 +1,4 @@
-"""Runtime validators and shared backend primitives."""
+"""Runtime validators and shared engine primitives."""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ from typing import Mapping
 
 import numpy as np
 
-from nltiming.protocols import EnterprisePulsarLike, TimingBackend
+from nltiming.protocols import EnterprisePulsarLike, TimingEngine
 
 # Lives here so importing it never pulls in jax/jug.
 _NUMPY_RESIDUAL_DEPRECATION = (
@@ -47,20 +47,20 @@ def validate_enterprise_pulsar(pulsar: EnterprisePulsarLike) -> None:
         raise ValueError("Mmat column count must match fitpars length")
 
 
-def zero_delta_tolerance(backend: TimingBackend, requested: float) -> float:
+def zero_delta_tolerance(engine: TimingEngine, requested: float) -> float:
     """Return the strict caller-requested residual-delta tolerance.
 
     JUG's former tempo2-specific relaxation represented the now-closed G1
     reference-state gap. Current tempo2 compatibility has picosecond-tier
-    zero-delta behavior and is validated by the same contract as other engines.
+    zero-delta behavior and is validated by the same checks as other engines.
     """
-    _ = backend
+    _ = engine
     return float(requested)
 
 
-def is_exact_linear_param(backend_name: str) -> bool:
+def is_exact_linear_param(param_name: str) -> bool:
     """Return true for fitpars that should use exact design-matrix columns."""
-    name = backend_name.upper()
+    name = param_name.upper()
     if name == "OFFSET":
         return True
     if name.startswith(("DMX", "JUMP", "FD")):
@@ -68,49 +68,49 @@ def is_exact_linear_param(backend_name: str) -> bool:
     return False
 
 
-def validate_backend_zero_delta(backend: TimingBackend, tol: float = 1e-12) -> None:
+def validate_engine_zero_delta(engine: TimingEngine, tol: float = 1e-12) -> None:
     """Check residual_delta(0) = 0 invariant."""
-    effective_tol = zero_delta_tolerance(backend, tol)
-    zero = np.zeros(len(backend.fitpars), dtype=float)
-    residual = np.asarray(backend.residual_delta(zero), dtype=float)
+    effective_tol = zero_delta_tolerance(engine, tol)
+    zero = np.zeros(len(engine.fitpars), dtype=float)
+    residual = np.asarray(engine.residual_delta(zero), dtype=float)
     max_abs = float(np.max(np.abs(residual))) if residual.size else 0.0
     if max_abs <= effective_tol:
         return
     raise ValueError("residual_delta(0) must equal 0")
 
 
-def validate_backend_shapes(backend: TimingBackend) -> None:
-    """Check backend fitpar/dmatrix shape invariants."""
-    design = np.asarray(backend.design_matrix(), dtype=float)
+def validate_engine_shapes(engine: TimingEngine) -> None:
+    """Check engine fitpar/dmatrix shape invariants."""
+    design = np.asarray(engine.design_matrix(), dtype=float)
     if design.ndim != 2:
         raise ValueError("design_matrix must be 2D")
-    if design.shape[1] != len(backend.fitpars):
+    if design.shape[1] != len(engine.fitpars):
         raise ValueError("design_matrix columns must match fitpars")
-    ref_exact = backend.reference_theta_exact()
-    missing = [name for name in backend.fitpars if name not in ref_exact]
+    ref_exact = engine.reference_theta_exact()
+    missing = [name for name in engine.fitpars if name not in ref_exact]
     if missing:
         raise ValueError(f"reference_theta_exact missing fitpars: {missing}")
 
 
-def validate_backend_against_pulsar(
-    backend: TimingBackend, pulsar: EnterprisePulsarLike, tol: float = 1e-12
+def validate_engine_against_pulsar(
+    engine: TimingEngine, pulsar: EnterprisePulsarLike, tol: float = 1e-12
 ) -> None:
-    """Validate backend outputs against pulsar canonical row and column ordering."""
+    """Validate engine outputs against pulsar canonical row and column ordering."""
     validate_enterprise_pulsar(pulsar)
-    validate_backend_shapes(backend)
-    validate_backend_zero_delta(backend, tol=tol)  # may relax tol for JUG(tempo2)
-    design = np.asarray(backend.design_matrix(), dtype=float)
-    host_design = np.asarray(pulsar.Mmat, dtype=float)
+    validate_engine_shapes(engine)
+    validate_engine_zero_delta(engine, tol=tol)  # may relax tol for JUG(tempo2)
+    design = np.asarray(engine.design_matrix(), dtype=float)
+    pulsar_design = np.asarray(pulsar.Mmat, dtype=float)
     nrows = len(pulsar.toas)
     if design.shape[0] != nrows:
-        raise ValueError("Backend row count must match pulsar rows")
-    if tuple(pulsar.fitpars) != tuple(backend.fitpars):
-        raise ValueError("Backend fitpars must match pulsar fitpars in canonical order")
-    if design.shape != host_design.shape:
-        raise ValueError("Backend design_matrix shape must match pulsar.Mmat")
-    if not np.allclose(design, host_design, atol=tol, rtol=0.0):
+        raise ValueError("Engine row count must match pulsar rows")
+    if tuple(pulsar.fitpars) != tuple(engine.fitpars):
+        raise ValueError("Engine fitpars must match pulsar fitpars in canonical order")
+    if design.shape != pulsar_design.shape:
+        raise ValueError("Engine design_matrix shape must match pulsar.Mmat")
+    if not np.allclose(design, pulsar_design, atol=tol, rtol=0.0):
         raise ValueError(
-            "Backend design_matrix must match pulsar.Mmat in canonical row order"
+            "Engine design_matrix must match pulsar.Mmat in canonical row order"
         )
 
 
@@ -124,7 +124,7 @@ class LinearModel:
     native_units: Mapping[str, str]
 
     @classmethod
-    def from_host(
+    def from_design(
         cls,
         *,
         fitpars: tuple[str, ...],
@@ -158,8 +158,8 @@ class LinearModel:
         return self.design @ delta
 
 
-class LinearTimingBackend:
-    """Concrete TimingBackend wrapper around a LinearModel."""
+class LinearTimingEngine:
+    """Concrete TimingEngine wrapper around a LinearModel."""
 
     def __init__(self, model: LinearModel):
         self._model = model

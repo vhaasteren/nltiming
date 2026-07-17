@@ -1,4 +1,4 @@
-"""Per-session PINT timing engine adapter."""
+"""Per-PTA PINT timing engine."""
 
 from __future__ import annotations
 
@@ -6,14 +6,14 @@ from typing import Any, Mapping
 
 import numpy as np
 
-from .base import LinearModel, LinearTimingBackend
+from .base import LinearModel, LinearTimingEngine
 from .engines import PintDeltaEngine
 
 
 class PintEngine:
-    """Native PINT residual-delta adapter."""
+    """Native PINT residual-deltan engine."""
 
-    backend_name = "pint"
+    engine_name = "pint"
 
     def __init__(self, *, engine: PintDeltaEngine, linear_model: LinearModel):
         self._engine = engine
@@ -22,7 +22,7 @@ class PintEngine:
         self.native_units = dict(linear_model.native_units)
 
     @classmethod
-    def from_session(
+    def from_contribution(
         cls, model: Any, toas: Any, *, linear_model: LinearModel
     ) -> "PintEngine":
         return cls(
@@ -50,10 +50,10 @@ def _delta_dict(fitpars: tuple[str, ...], delta_theta: np.ndarray) -> dict[str, 
     return {name: float(delta[i]) for i, name in enumerate(fitpars)}
 
 
-class LinearizedPintEngine(LinearTimingBackend):
+class LinearizedPintEngine(LinearTimingEngine):
     """Explicit linearized PINT test double using a frozen design matrix."""
 
-    backend_name = "pint"
+    engine_name = "pint"
 
     @classmethod
     def from_linear_model(cls, model: LinearModel) -> "LinearizedPintEngine":

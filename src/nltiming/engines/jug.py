@@ -1,4 +1,4 @@
-"""Per-session JUG timing engine adapter."""
+"""Per-PTA JUG timing engine."""
 
 from __future__ import annotations
 
@@ -11,7 +11,7 @@ from .engines import infer_jug_param_mapping
 from .base import (
     _NUMPY_RESIDUAL_DEPRECATION,
     LinearModel,
-    LinearTimingBackend,
+    LinearTimingEngine,
     is_exact_linear_param,
 )
 
@@ -30,17 +30,17 @@ _ECLIPTIC_FITPARS = frozenset(
 
 
 class JugEngine:
-    """Native JUG adapter with NumPy and pure-JAX residual-delta paths.
+    """Native JUG engine with NumPy and pure-JAX residual-delta paths.
 
     The nonlinear residuals are evaluated by a frozen JUG ``JaxTimingState``.
     ``design_matrix`` and reference theta metadata are intentionally served from
-    the pulsar-derived ``LinearModel`` so the pulsar timing backend uses the same
+    the pulsar-derived ``LinearModel`` so the pulsar timing engine uses the same
     canonical columns and analytically marginalized basis as ``MetaPulsar.Mmat``.
 
-    Unit convention: this adapter's entire external surface — ``design_matrix``,
+    Unit convention: this engine's entire external surface — ``design_matrix``,
     ``linearized_design_matrix``, ``residual_delta`` and ``residual_delta_jax`` —
-    speaks the **host fit-unit** ``delta_theta`` convention that ``MetaPulsar.Mmat``
-    (and the libstempo/Vela engines) use, e.g. RAJ in hourangle and DECJ in
+    speaks the **pulsar fit-unit** ``delta_theta`` convention that ``MetaPulsar.Mmat``
+    (and the libstempo/Velan engines) use, e.g. RAJ in hourangle and DECJ in
     degrees. The frozen ``JaxTimingState`` is internally **native** (RAJ/DECJ in
     radians), so incoming deltas are divided by the per-parameter fit/native
     factor (``jug.utils.units.native_to_fit_value``) before reaching the state,
@@ -49,7 +49,7 @@ class JugEngine:
     the linear regime for every parameter regardless of ``design_matrix_method``.
     """
 
-    backend_name = "jug"
+    engine_name = "jug"
 
     def __init__(
         self,
@@ -71,7 +71,7 @@ class JugEngine:
         self._jug_indices: tuple[int, ...] = tuple(range(len(self.fitpars)))
 
     @classmethod
-    def from_session(
+    def from_contribution(
         cls,
         session: Any,
         *,
@@ -96,12 +96,12 @@ class JugEngine:
         jug_fitpars: list[str] = []
         exact_linear: list[str] = []
         for name in fitpars:
-            backend_name = mapping.get(name, name)
-            if is_exact_linear_param(backend_name):
+            engine_param = mapping.get(name, name)
+            if is_exact_linear_param(engine_param):
                 exact_linear.append(name)
                 continue
             try:
-                validate_fit_param(backend_name)
+                validate_fit_param(engine_param)
             except ValueError:
                 exact_linear.append(name)
                 continue
@@ -122,19 +122,19 @@ class JugEngine:
             isort=None,
             design_matrix_method=design_matrix_method,
         )
-        backend = cls(
+        engine = cls(
             state=state,
             linear_model=linear_model,
             precision_critical=_canonical_high_precision(tuple(jug_fitpars), mapping),
         )
-        backend._exact_linear_fitpars = frozenset(exact_linear)
-        backend._exact_linear_indices = tuple(
+        engine._exact_linear_fitpars = frozenset(exact_linear)
+        engine._exact_linear_indices = tuple(
             fitpars.index(name) for name in exact_linear
         )
-        backend._jug_fitpars = tuple(jug_fitpars)
-        backend._jug_indices = tuple(fitpars.index(name) for name in jug_fitpars)
-        backend.compatibility = str(getattr(state, "compatibility", compatibility))
-        return backend
+        engine._jug_fitpars = tuple(jug_fitpars)
+        engine._jug_indices = tuple(fitpars.index(name) for name in jug_fitpars)
+        engine.compatibility = str(getattr(state, "compatibility", compatibility))
+        return engine
 
     def exact_linear_fitpars(self) -> frozenset[str]:
         """Pulsar fitpars evaluated exactly via the design matrix."""
@@ -194,21 +194,21 @@ class JugEngine:
         return np.asarray(self._model.design, dtype=float)
 
     def linearized_design_matrix(self, params: Any | None = None) -> np.ndarray:
-        """Return JUG-owned linearized residual columns in backend fitpar order."""
+        """Return JUG-owned linearized residual columns in engine fitpar order."""
         design = np.asarray(self._model.design, dtype=float).copy()
         jug_matrix = np.asarray(self._state.design_matrix, dtype=float)
         param_mapping = dict(getattr(self._state, "param_mapping", ()))
         jug_fitpars = getattr(self, "_jug_fitpars", self.fitpars)
         for local_col, model_col in enumerate(self._jug_indices):
             # JUG's autodiff columns are native (RAJ/DECJ in radians); divide by
-            # the fit/native factor to express them in host fit units.
+            # the fit/native factor to express them in pulsar fit units.
             design[:, model_col] = (
                 jug_matrix[:, local_col] / self._native_scale[local_col]
             )
             canonical = jug_fitpars[local_col]
-            backend = param_mapping.get(canonical, canonical)
+            engine = param_mapping.get(canonical, canonical)
             if (
-                backend.upper() in _ECLIPTIC_FITPARS
+                engine.upper() in _ECLIPTIC_FITPARS
                 or canonical.upper() in _ECLIPTIC_FITPARS
             ):
                 col_norm = float(np.linalg.norm(jug_matrix[:, local_col]))
@@ -241,7 +241,7 @@ class JugEngine:
 
 
 def _native_delta_scale(jug_fitpars: tuple[str, ...]) -> np.ndarray:
-    """Per-fitpar factor converting host fit-unit deltas to JUG native units.
+    """Per-fitpar factor converting pulsar fit-unit deltas to JUG native units.
 
     ``delta_native = delta_fit / factor``; the factor is
     ``jug.utils.units.native_to_fit_value(name, 1.0)`` — JUG's own authoritative
@@ -274,23 +274,25 @@ def _canonical_high_precision(
     )
 
 
-def verify_jug_native_chain_wiring(
-    backend: object,
+def verify_jug_native_chain(
+    engine: object,
     *,
     design_matrix_method: str = "autodiff",
 ) -> None:
-    """Smoke-check tempo2 JUG sessions export native-chain JAX state."""
+    """Smoke-check tempo2 JUG contributions export native-chain JAX state."""
     if str(design_matrix_method).lower() != "autodiff":
         return
-    sessions = getattr(backend, "sessions", None) or getattr(backend, "_sessions", ())
-    for session in sessions:
-        jug_backend = session.backend
-        if type(jug_backend).__name__ != "JugEngine":
+    contributions = getattr(engine, "contributions", None) or getattr(
+        engine, "_contributions", ()
+    )
+    for contribution in contributions:
+        jug_engine = contribution.engine
+        if type(jug_engine).__name__ != "JugEngine":
             continue
-        setup = getattr(getattr(jug_backend, "_state", None), "setup", None)
+        setup = getattr(getattr(jug_engine, "_state", None), "setup", None)
         if setup is None:
             raise RuntimeError(
-                f"JugEngine for {session.name!r} has no GeneralFitSetup."
+                f"JugEngine for {contribution.name!r} has no GeneralFitSetup."
             )
         compat = str(getattr(setup, "compatibility", "")).lower()
         if not compat.startswith("tempo2"):
@@ -298,20 +300,20 @@ def verify_jug_native_chain_wiring(
         static = getattr(setup, "native_chain_static", None)
         if static is None:
             raise RuntimeError(
-                f"PTA {session.name!r}: native_chain_static is None; "
-                "re-run timing_backend with prime_sessions=True."
+                f"PTA {contribution.name!r}: native_chain_static is None; "
+                "re-run timing_engine with prime_sessions=True."
             )
         td = static.get("term_diagnostics") or {}
         if "tempo2_obs_state" not in td:
             raise RuntimeError(
-                f"PTA {session.name!r}: native_chain_static missing tempo2_obs_state."
+                f"PTA {contribution.name!r}: native_chain_static missing tempo2_obs_state."
             )
 
 
-class LinearizedJugEngine(LinearTimingBackend):
+class LinearizedJugEngine(LinearTimingEngine):
     """Explicit linearized JUG test double with JAX-capable surface."""
 
-    backend_name = "jug"
+    engine_name = "jug"
 
     def __init__(
         self,

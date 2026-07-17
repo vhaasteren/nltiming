@@ -9,7 +9,7 @@ from nltiming.priors import (
     PriorBuildContext,
     PriorOverrideSpec,
     apply_prior_scale,
-    materialize_prior_override,
+    resolve_prior_override,
 )
 
 
@@ -40,7 +40,7 @@ def test_materialize_absolute_subtracts_bound_ref(composite_binary_ctx):
         prior=AxisPrior(family="uniform", lower=53113.0, upper=53114.0),
         frame="absolute",
     )
-    out = materialize_prior_override("TASC_epta", spec, composite_binary_ctx)
+    out = resolve_prior_override("TASC_epta", spec, composite_binary_ctx)
     assert out.lower == pytest.approx(53113.0 - 53113.7963542019, rel=0, abs=1e-4)
     assert out.upper == pytest.approx(53114.0 - 53113.7963542019, rel=0, abs=1e-4)
 
@@ -50,7 +50,7 @@ def test_materialize_delta_unchanged(composite_binary_ctx):
         prior=AxisPrior(family="uniform", lower=-0.1, upper=0.1),
         frame="delta",
     )
-    out = materialize_prior_override("TASC_epta", spec, composite_binary_ctx)
+    out = resolve_prior_override("TASC_epta", spec, composite_binary_ctx)
     assert out.lower == pytest.approx(-0.1)
     assert out.upper == pytest.approx(0.1)
 
@@ -61,7 +61,7 @@ def test_materialize_delta_with_scale(composite_binary_ctx):
         frame="delta",
         scale="PB_epta",
     )
-    out = materialize_prior_override("TASC_epta", spec, composite_binary_ctx)
+    out = resolve_prior_override("TASC_epta", spec, composite_binary_ctx)
     half = 0.5 * 1.19851257519955
     assert out.lower == pytest.approx(-half, rel=1e-12)
     assert out.upper == pytest.approx(+half, rel=1e-12)
@@ -79,7 +79,7 @@ def test_old_notebook_mistake_produces_wrong_delta(composite_binary_ctx):
         ),
         frame="absolute",
     )
-    out = materialize_prior_override("TASC_epta", spec, composite_binary_ctx)
+    out = resolve_prior_override("TASC_epta", spec, composite_binary_ctx)
     assert out.lower == pytest.approx(1775.596, rel=1e-3)
     assert out.upper == pytest.approx(1776.795, rel=1e-3)
 
@@ -91,7 +91,7 @@ def test_scale_rejected_for_absolute_frame(composite_binary_ctx):
         scale="PB_epta",
     )
     with pytest.raises(ValueError, match="only supported with frame='delta'"):
-        materialize_prior_override("TASC_epta", spec, composite_binary_ctx)
+        resolve_prior_override("TASC_epta", spec, composite_binary_ctx)
 
 
 class _FakeBackend:
@@ -112,19 +112,19 @@ class _FakePulsar:
     def pint_model(self):
         return None
 
-    def timing_backend(self, engines, design_matrix_method="analytic"):
+    def timing_engine(self, engines, design_matrix_method="analytic"):
         return _FakeBackend(self._refs)
 
     def can_use_engines(self, engines):
         return True
 
-    def cache_token(self):
+    def state_id(self):
         return "fake-v1"
 
 
 def test_ntm_resolve_prior_overrides(composite_binary_ctx):
     pulsar = _FakePulsar(dict(composite_binary_ctx.refs))
-    backend = pulsar.timing_backend({})
+    engine = pulsar.timing_engine({})
     ntm = NonLinearTimingModel(analytically_marginalize=[])
     ntm.set_prior(
         "TASC_epta",
@@ -136,7 +136,7 @@ def test_ntm_resolve_prior_overrides(composite_binary_ctx):
     )
     partition = resolve_partition(pulsar, analytically_marginalize=[])
     resolved = ntm._resolve_prior_overrides(
-        pulsar=pulsar, backend=backend, partition=partition
+        pulsar=pulsar, engine=engine, partition=partition
     )
     half = 0.5 * 1.19851257519955
     assert resolved["TASC_epta"].lower == pytest.approx(-half, rel=1e-12)

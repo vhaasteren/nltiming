@@ -1,11 +1,11 @@
-"""Tests for the Vela.jl (pyvela) backend adapter."""
+"""Tests for the Vela.jl (pyvela) engine adapter."""
 
 import numpy as np
 import pytest
 
-from nltiming.backends import normalize_engines
-from nltiming.backends.base import LinearModel
-from nltiming.backends.vela import VelaDeltaEngine, VelaEngine
+from nltiming.engines import normalize_engines
+from nltiming.engines.base import LinearModel
+from nltiming.engines.vela import VelaDeltaEngine, VelaEngine
 
 
 class _MockSPNTA:
@@ -38,7 +38,7 @@ class _MockSPNTA:
 
 def _linear_model(fitpars=("F0", "F1", "PB"), n=4):
     rng = np.random.default_rng(7)
-    return LinearModel.from_host(
+    return LinearModel.from_design(
         fitpars=tuple(fitpars),
         design=rng.normal(size=(n, len(fitpars))),
         theta_exact={name: "1.0" for name in fitpars},
@@ -78,24 +78,24 @@ def test_delta_engine_applies_isort():
 
 def test_vela_engine_routes_unsupported_params_to_exact_linear():
     model = _linear_model(fitpars=("F0", "F1", "PB", "DMX_0001", "JUMPX"))
-    backend = VelaEngine.from_session(
+    engine = VelaEngine.from_contribution(
         _MockSPNTA(), linear_model=model, phase_mean_mode=None
     )
-    assert backend.exact_linear_fitpars() == {"DMX_0001", "JUMPX"}
+    assert engine.exact_linear_fitpars() == {"DMX_0001", "JUMPX"}
 
     delta = np.array([0.1, -0.2, 0.3, 1.0, -1.0])
-    out = backend.residual_delta(delta)
+    out = engine.residual_delta(delta)
     spnta = _MockSPNTA()
     nonlinear = spnta.response @ (delta[:3] * spnta.scale_factors)
     exact = model.design[:, [3, 4]] @ delta[[3, 4]]
     np.testing.assert_allclose(out, nonlinear + exact)
 
 
-def test_vela_engine_serves_host_design_and_reference():
+def test_vela_engine_serves_pulsar_design_and_reference():
     model = _linear_model()
-    backend = VelaEngine.from_session(_MockSPNTA(), linear_model=model)
-    np.testing.assert_allclose(backend.design_matrix(), model.design)
-    assert backend.reference_theta_exact() == dict(model.theta_exact)
+    engine = VelaEngine.from_contribution(_MockSPNTA(), linear_model=model)
+    np.testing.assert_allclose(engine.design_matrix(), model.design)
+    assert engine.reference_theta_exact() == dict(model.theta_exact)
 
 
 def test_vela_engine_param_mapping_translates_names():
@@ -105,20 +105,20 @@ def test_vela_engine_param_mapping_translates_names():
     spnta.scale_factors = np.array([3.0])
     spnta.default_params = np.array([0.5])
     spnta.response = np.array([[1.0], [2.0], [0.0], [-1.0]])
-    backend = VelaEngine.from_session(
+    engine = VelaEngine.from_contribution(
         spnta,
         linear_model=model,
         param_mapping={"A1DOT": "XDOT"},
         phase_mean_mode=None,
     )
-    out = backend.residual_delta(np.array([2.0]))
+    out = engine.residual_delta(np.array([2.0]))
     np.testing.assert_allclose(out, spnta.response @ np.array([2.0 * 3.0]))
 
 
 def test_vela_engine_requires_some_native_params():
     model = _linear_model(fitpars=("DMX_0001",))
     with pytest.raises(ValueError, match="No Vela-evaluable"):
-        VelaEngine.from_session(_MockSPNTA(), linear_model=model)
+        VelaEngine.from_contribution(_MockSPNTA(), linear_model=model)
 
 
 def test_normalize_engines_accepts_vela_for_pint_family():

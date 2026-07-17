@@ -4,8 +4,8 @@ import numpy as np
 import pytest
 
 from nltiming import priors as prior_specs
-from nltiming.backends.base import LinearModel
-from nltiming.backends.jug import LinearizedJugEngine
+from nltiming.engines.base import LinearModel
+from nltiming.engines.jug import LinearizedJugEngine
 from nltiming.nonlinear_timing_model import NonLinearTimingModel
 from nltiming.partition import (
     fitpar_suffixes,
@@ -16,7 +16,7 @@ from nltiming.partition import (
 
 
 class _SuffixHost:
-    """Composite-style host with PTA-suffixed fitpars and _fitparameters mapping."""
+    """Composite-style pulsar with PTA-suffixed fitpars and _fitparameters mapping."""
 
     def __init__(self):
         self.name = "J2222+2222"
@@ -39,7 +39,7 @@ class _SuffixHost:
             [np.linspace(-0.5, 0.5, n)]
             + [rng.normal(size=n) for _ in range(len(self.fitpars) - 1)]
         )
-        model = LinearModel.from_host(
+        model = LinearModel.from_design(
             fitpars=self.fitpars,
             design=design,
             theta_exact={
@@ -80,56 +80,61 @@ class _SuffixHost:
     def backend_flags(self):
         return self._backend_flags
 
-    def cache_token(self):
+    def state_id(self):
         return "suffix-token"
 
     def pint_model(self):
         return object()
 
-    def timing_backend(self, engines="jug", **kwargs):
+    def timing_engine(self, engines="jug", **kwargs):
         return self._backend
 
 
 @pytest.fixture
-def host():
+def pulsar():
     return _SuffixHost()
 
 
-def test_match_fitpars_base_name_matches_all_suffixed(host):
-    fitpars = host.fitpars
-    assert match_fitpars(host, "PB", fitpars) == ("PB_a", "PB_b")
-    assert match_fitpars(host, "PB_a", fitpars) == ("PB_a",)
-    assert match_fitpars(host, "F1", fitpars) == ("F1",)
-    assert match_fitpars(host, "DMX_0001", fitpars) == ()
+def test_match_fitpars_base_name_matches_all_suffixed(pulsar):
+    fitpars = pulsar.fitpars
+    assert match_fitpars(pulsar, "PB", fitpars) == ("PB_a", "PB_b")
+    assert match_fitpars(pulsar, "PB_a", fitpars) == ("PB_a",)
+    assert match_fitpars(pulsar, "F1", fitpars) == ("F1",)
+    assert match_fitpars(pulsar, "DMX_0001", fitpars) == ()
 
 
-def test_fitpar_suffixes(host):
-    assert fitpar_suffixes(host, "PB_a") == {"_a"}
-    assert fitpar_suffixes(host, "F1") == {""}
+def test_fitpar_suffixes(pulsar):
+    assert fitpar_suffixes(pulsar, "PB_a") == {"_a"}
+    assert fitpar_suffixes(pulsar, "F1") == {""}
 
 
-def test_select_fitpars_preserves_order_and_raises_on_miss(host):
-    assert select_fitpars(host, ["TASC", "PB"]) == ("PB_a", "TASC_a", "PB_b", "TASC_b")
+def test_select_fitpars_preserves_order_and_raises_on_miss(pulsar):
+    assert select_fitpars(pulsar, ["TASC", "PB"]) == (
+        "PB_a",
+        "TASC_a",
+        "PB_b",
+        "TASC_b",
+    )
     with pytest.raises(ValueError, match="matches no fit parameter"):
-        select_fitpars(host, ["ECC"])
+        select_fitpars(pulsar, ["ECC"])
 
 
-def test_resolve_partition_sample_marginalizes_rest(host):
-    partition = resolve_partition(host, sample=["PB", "TASC"])
+def test_resolve_partition_sample_marginalizes_rest(pulsar):
+    partition = resolve_partition(pulsar, sample=["PB", "TASC"])
     assert partition.sampled == ("PB_a", "TASC_a", "PB_b", "TASC_b")
     assert partition.analytically_marginalized == ("F1",)
 
 
-def test_resolve_partition_sample_and_explicit_marginalize_conflict(host):
+def test_resolve_partition_sample_and_explicit_marginalize_conflict(pulsar):
     with pytest.raises(ValueError, match="not both"):
-        resolve_partition(host, analytically_marginalize=["F1"], sample=["PB"])
+        resolve_partition(pulsar, analytically_marginalize=["F1"], sample=["PB"])
 
 
-def test_model_sample_kwarg_selects_partition(host):
+def test_model_sample_kwarg_selects_partition(pulsar):
     ntm = NonLinearTimingModel(engines="jug", sample=["PB", "TASC"], name="timing")
-    binding = ntm.bind(host)
-    assert binding.sampled == ("PB_a", "TASC_a", "PB_b", "TASC_b")
-    assert binding.marginalized == ("F1",)
+    ctx = ntm.for_pulsar(pulsar)
+    assert ctx.sampled == ("PB_a", "TASC_a", "PB_b", "TASC_b")
+    assert ctx.marginalized == ("F1",)
 
 
 def test_model_sample_string_rejected():
@@ -144,14 +149,14 @@ def test_model_sample_conflicts_with_marginalize():
         )
 
 
-def test_constructor_priors_expand_to_suffixed_targets(host):
+def test_constructor_priors_expand_to_suffixed_targets(pulsar):
     ntm = NonLinearTimingModel(
         engines="jug",
         sample=["PB", "TASC"],
         priors={"TASC": prior_specs.delta_uniform(-0.5, 0.5, scale="PB")},
         name="timing",
     )
-    block = ntm.bind(host).priors
+    block = ntm.for_pulsar(pulsar).priors
     by_name = dict(zip(block.names, block.priors))
     assert block.sources["TASC_a"] == "override"
     assert block.sources["TASC_b"] == "override"
@@ -177,7 +182,7 @@ def test_prior_spec_helpers_validate_scale_frame():
     assert spec.scale == "PB"
 
 
-def test_with_engines_carries_sample_and_priors(host):
+def test_with_engines_carries_sample_and_priors(pulsar):
     ntm = NonLinearTimingModel(
         engines="jug",
         sample=["PB", "TASC"],
@@ -185,6 +190,6 @@ def test_with_engines_carries_sample_and_priors(host):
         name="timing",
     )
     other = ntm.with_engines("jug")
-    binding = other.bind(host)
-    assert binding.sampled == ("PB_a", "TASC_a", "PB_b", "TASC_b")
-    assert binding.priors.sources["TASC_a"] == "override"
+    ctx = other.for_pulsar(pulsar)
+    assert ctx.sampled == ("PB_a", "TASC_a", "PB_b", "TASC_b")
+    assert ctx.priors.sources["TASC_a"] == "override"

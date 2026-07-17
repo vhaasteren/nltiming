@@ -1,8 +1,8 @@
-"""Protocols for pulsars and timing-engine adapters.
+"""Protocols for pulsars and timing engines.
 
 Stack layering:
-- **Timing backend / timing engine** — residuals and design matrix (JUG, PINT, tempo2).
-- **Likelihood frontend** — Enterprise / Discovery signal assembly (``frontends/*``).
+- **Timing engine** — residuals and design matrix (JUG, PINT, tempo2).
+- **Likelihood interface** — Enterprise / Discovery signal assembly (``likelihoods/*``).
 - **Sampler** — user-owned posterior driver (PTMCMC, NumPyro NUTS, …); not imported here.
 """
 
@@ -47,7 +47,7 @@ class EphemerisExtras(Protocol):
 
 @runtime_checkable
 class PulsarData(Protocol):
-    """Duck-typed frozen pulsar-data surface consumed by likelihood frontends."""
+    """Duck-typed frozen pulsar-data surface consumed by likelihood interfaces."""
 
     name: str
     fitpars: list[str] | tuple[str, ...]
@@ -75,8 +75,8 @@ class PulsarData(Protocol):
 
 
 @runtime_checkable
-class TimingBackend(Protocol):
-    """Timing-engine adapter around theta-native engines in canonical pulsar order."""
+class TimingEngine(Protocol):
+    """Timing engine over theta-native engines in canonical pulsar order."""
 
     fitpars: tuple[str, ...]
     native_units: Mapping[str, str]
@@ -91,8 +91,8 @@ class TimingBackend(Protocol):
 
 
 @runtime_checkable
-class JaxTimingBackend(TimingBackend, Protocol):
-    """JAX-capable timing backend for traced residuals on the NumPyro NUTS tier."""
+class JaxTimingEngine(TimingEngine, Protocol):
+    """JAX-capable timing engine for traced residuals on the NumPyro NUTS tier."""
 
     def residual_delta_jax(self, delta_theta: Any) -> Any: ...
 
@@ -100,18 +100,17 @@ class JaxTimingBackend(TimingBackend, Protocol):
 
 
 @runtime_checkable
-class TimingHost(PulsarData, Protocol):
+class TimingPulsar(PulsarData, Protocol):
     """Pulsar protocol: frozen arrays plus timing-engine accessors."""
 
     def pint_model(self) -> Any: ...
 
-    def timing_backend(self, engines="jug") -> TimingBackend: ...
+    def timing_engine(self, engines="jug") -> TimingEngine: ...
 
     def can_use_engines(self, engines="jug") -> bool: ...
 
-    def cache_token(self) -> str | None: ...
+    def state_id(self) -> str | None: ...
 
 
-# Descriptive aliases retained for integrations that use the original names.
+# Descriptive alias retained for integrations that use the original name.
 EnterprisePulsarLike = PulsarData
-PulsarInterface = TimingHost

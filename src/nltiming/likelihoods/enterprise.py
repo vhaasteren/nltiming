@@ -1,4 +1,4 @@
-"""Enterprise likelihood-frontend adapter for nonlinear timing.
+"""Enterprise likelihood interface for nonlinear timing.
 
 This module wires ``NonLinearTimingModel`` into Enterprise's signal graph:
 a deterministic nonlinear delay for numerically sampled fit parameters and an optional
@@ -36,17 +36,17 @@ def _coord_from_transform(transform: str) -> str:
     return default_coord_for_transform(transform)
 
 
-def _residual_delta(backend, full_delta: np.ndarray) -> np.ndarray:
+def _residual_delta(engine, full_delta: np.ndarray) -> np.ndarray:
     """Evaluate residual delta, preferring the JAX path when available.
 
     The JUG NumPy residual path is deprecated and less accurate at large
     deltas; using the JAX path keeps the Enterprise likelihood consistent
-    with the Discovery frontend on JAX-capable backends.
+    with the Discovery likelihood interface on JAX-capable engines.
     """
-    fn = getattr(backend, "residual_delta_jax", None)
+    fn = getattr(engine, "residual_delta_jax", None)
     if fn is not None:
         return np.asarray(fn(full_delta), dtype=float)
-    return np.asarray(backend.residual_delta(full_delta), dtype=float)
+    return np.asarray(engine.residual_delta(full_delta), dtype=float)
 
 
 def _axis_bijector(*, space, idx: int) -> PriorBijector:
@@ -155,18 +155,18 @@ def _explicit_scalar_delay_function(sampled_names: tuple[str, ...], evaluator):
 
 def _make_waveform(
     *,
-    binding_fn,
+    ctx_fn,
     coord: str,
 ):
     from enterprise.signals import parameter
 
     def waveform(signal_name, psr=None):
         if psr is None:
-            raise ValueError("enterprise waveform requires psr binding")
-        binding = binding_fn(psr)
-        space = binding.space
-        partition = binding.partition
-        backend = binding.backend
+            raise ValueError("enterprise waveform requires a pulsar")
+        ctx = ctx_fn(psr)
+        space = ctx.space
+        partition = ctx.partition
+        engine = ctx.engine
         sampled_names = tuple(partition.sampled)
         sampled_indices = tuple(partition.idx_sampled)
         ndim = len(partition.fitpars)
@@ -185,7 +185,7 @@ def _make_waveform(
                 full_delta = np.zeros((ndim,), dtype=float)
                 for i, col in enumerate(sampled_indices):
                     full_delta[col] = delta_sampled[i]
-                return -_residual_delta(backend, full_delta)
+                return -_residual_delta(engine, full_delta)
 
             delay_body = _explicit_scalar_delay_function(sampled_names, _evaluate)
             kwargs = {
@@ -207,7 +207,7 @@ def _make_waveform(
             full_delta = np.zeros((ndim,), dtype=float)
             for i, col in enumerate(sampled_indices):
                 full_delta[col] = delta_sampled[i]
-            return -_residual_delta(backend, full_delta)
+            return -_residual_delta(engine, full_delta)
 
         kwargs = {"x": _vector_user_parameter(space=space)}
         return parameter.Function(_delay_body, **kwargs)(signal_name, psr=psr)
@@ -217,7 +217,7 @@ def _make_waveform(
 
 def _make_marginalizing_signal(
     *,
-    binding_fn,
+    ctx_fn,
     name: str,
 ):
     from enterprise.signals import gp_signals, signal_base
@@ -233,12 +233,12 @@ def _make_marginalizing_signal(
             super().__init__(psr)
             from nltiming.whitening import normalized_basis
 
-            binding = binding_fn(psr)
-            partition = binding.partition
+            ctx = ctx_fn(psr)
+            partition = ctx.partition
             # Column-normalized: span-preserving under the improper prior, and
             # required for float64 conditioning with the 1e40 prior weight.
             self._basis = normalized_basis(
-                binding.design_matrix[:, list(partition.idx_analytically_marginalized)]
+                ctx.design_matrix[:, list(partition.idx_analytically_marginalized)]
             )
             base = gp_signals.TimingModel(
                 name=f"{name}_timingmodel",
@@ -275,7 +275,7 @@ def _make_marginalizing_signal(
 
 def enterprise_signal(
     *,
-    binding_fn,
+    ctx_fn,
     name: str,
     transform: str,
 ):
@@ -283,12 +283,12 @@ def enterprise_signal(
 
     Parameters
     ----------
-    binding_fn
-        Callable ``pulsar -> TimingBinding`` (typically
-        ``NonLinearTimingModel.bind``). All pulsar-bound state — parameter
-        space, partition, timing backend, design matrix — comes from the
-        binding, so the Enterprise likelihood shares the exact backend
-        configuration used by the Discovery frontend and the artifacts.
+    ctx_fn
+        Callable ``pulsar -> TimingContext`` (typically
+        ``NonLinearTimingModel.for_pulsar``). All pulsar-bound state — parameter
+        space, partition, timing engine, design matrix — comes from the
+        ctx, so the Enterprise likelihood shares the exact engine
+        configuration used by the Discovery likelihood interface and the run products.
     name
         Enterprise signal / component name prefix.
     transform
@@ -306,7 +306,7 @@ def enterprise_signal(
     -----
     Delay parameters are mapped from the sampling coordinate back to native
     ``delta_theta`` via ``space.delta_from_coord`` before evaluating the
-    backend residual delta (JAX path when available). Prior terms follow
+    engine residual delta (JAX path when available). Prior terms follow
     ``space`` exactly, so fallback cheat priors are the wide uniform boxes
     described in the module docstring—not informative Gaussians tied to the
     WLS covariance.
@@ -314,7 +314,7 @@ def enterprise_signal(
     from enterprise.signals import deterministic_signals
 
     coord = _coord_from_transform(transform)
-    waveform = _make_waveform(binding_fn=binding_fn, coord=coord)
+    waveform = _make_waveform(ctx_fn=ctx_fn, coord=coord)
     delay_signal = deterministic_signals.Deterministic(waveform, name=name)
-    timing_model = _make_marginalizing_signal(binding_fn=binding_fn, name=name)
+    timing_model = _make_marginalizing_signal(ctx_fn=ctx_fn, name=name)
     return delay_signal + timing_model
