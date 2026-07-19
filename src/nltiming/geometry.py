@@ -438,6 +438,7 @@ class _CompiledTarget:
 
     def __init__(self, model, hyper_example: Mapping[str, float], *, dim: int):
         import jax
+        from numpyro.infer.util import get_transforms
 
         self.xi_site, self.hyper_sites = _require_site_metadata(model)
         hyper_example = {k: float(hyper_example[k]) for k in self.hyper_sites}
@@ -455,11 +456,19 @@ class _CompiledTarget:
         self._hess = jax.jit(jax.hessian(pot))
         self._pot = jax.jit(pot)
 
-    def u_hyper(self, model, hyper: Mapping[str, float]) -> np.ndarray:
+        # Cache the constrained->unconstrained hyper transforms once, so a new
+        # hyper point costs an inverse-transform, not a full model re-init (§8.3).
+        point = {self.xi_site: np.zeros(dim), **hyper_example}
+        self._transforms = get_transforms(model, (), {}, point)
+
+    def u_hyper(self, hyper: Mapping[str, float]) -> np.ndarray:
         """Flattened unconstrained hyper block at a constrained hyper point."""
-        hyper = {k: float(hyper[k]) for k in self.hyper_sites}
-        _, z0, _, _ = _unconstrained_potential(model, np.zeros(self.xi_dim), hyper)
-        parts = [np.reshape(np.asarray(z0[k], dtype=float), (-1,)) for k in self.hyper_sites]
+        import jax.numpy as jnp
+
+        parts = []
+        for k in self.hyper_sites:
+            u = self._transforms[k].inv(jnp.asarray(float(hyper[k])))
+            parts.append(np.reshape(np.asarray(u, dtype=float), (-1,)))
         return np.concatenate(parts) if parts else np.zeros((0,))
 
     def _u_at(self, xi: np.ndarray, u_hyper: np.ndarray):
@@ -564,7 +573,7 @@ def certify_joint_geometry(
             point_rms = max(point_rms, rms)
             point_std = max(point_std, std_toa)
 
-        u_hyper = compiled.u_hyper(model, point)
+        u_hyper = compiled.u_hyper(point)
 
         # Target metrics at xi=0 (§8.3 items 3–5).
         grad, hess = compiled.grad_hessian(zeros_xi, u_hyper)
