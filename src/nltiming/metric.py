@@ -311,9 +311,9 @@ def assert_static_layer_identity(
         raise OneAffineLayerError(
             f"{context} requires the nltiming static affine layer to be "
             "identity, but the timing ParameterSpace carries a non-identity "
-            "(C, c). Build the joint context with transform='none' (or an "
-            "unconditioned context) so exactly one non-identity affine transport "
-            "is active (§5.5)."
+            "(C, c). Build the joint context with whitening=None (the identity "
+            "static layer) so exactly one non-identity affine transport is "
+            "active (§4.4.1, §5.5)."
         )
 
 
@@ -345,18 +345,18 @@ def static_transport_record(
 
 
 def identity_transport_record(linear, *, coordinate: str) -> StaticTransportRecord:
-    """Transport record for a no-op (``transform='none'``) identity layer.
+    """Transport record for a no-op (``whitening=None``) identity static layer.
 
-    ``transform='none'`` samples delta directly, so no reference-noise metric is
-    computed (avoiding an unnecessary — and possibly singular — Fisher solve);
-    the record simply documents the identity map.
+    ``whitening=None`` samples the prior-normal ``z`` directly, so no
+    reference-noise metric is computed (avoiding an unnecessary — and possibly
+    singular — Fisher solve); the record simply documents the identity map.
     """
     return StaticTransportRecord(
         coordinate=coordinate,
         metric_source={
             "reference_noise": "identity",
-            "source": "no_transform",
-            "source_description": "identity transport (transform='none')",
+            "source": "static_layer_identity",
+            "source_description": "identity static layer (whitening=None)",
             "approximate": False,
             "has_score": False,
             "noise_snapshot": {},

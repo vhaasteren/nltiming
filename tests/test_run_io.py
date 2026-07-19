@@ -7,6 +7,8 @@ import json
 import numpy as np
 import pytest
 
+from nltiming import WhiteningConfig
+from nltiming import TimingInference
 from nltiming.run_io import (
     DISCOVERY_CHECKPOINT_NAME,
     DISCOVERY_FINAL_NAME,
@@ -88,8 +90,8 @@ def pulsar():
 def ntm():
     return NonLinearTimingModel(
         engines="jug",
-        transform="whitening",
-        analytically_marginalize=["F0"],
+        whitening=WhiteningConfig(),
+        inference=TimingInference.groups(delta_flat=["F0"]),
         name="timing",
     )
 

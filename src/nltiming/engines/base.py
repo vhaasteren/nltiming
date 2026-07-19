@@ -172,6 +172,10 @@ class LinearTimingEngine:
     def reference_theta_exact(self) -> Mapping[str, str]:
         return dict(self._model.theta_exact)
 
+    def identically_linear_fitpars(self) -> frozenset[str]:
+        """A linear model is affine in every delta, so every fitpar qualifies."""
+        return frozenset(self.fitpars)
+
     def residual_delta(self, delta_theta: np.ndarray) -> np.ndarray:
         return self._model.residual_delta(delta_theta)
 

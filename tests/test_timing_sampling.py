@@ -4,6 +4,8 @@ import numpy as np
 import pytest
 from numpyro import handlers
 
+from nltiming import WhiteningConfig
+from nltiming import TimingInference
 from nltiming.engines.base import LinearModel
 from nltiming.engines.jug import LinearizedJugEngine
 from nltiming.nonlinear_timing_model import NonLinearTimingModel
@@ -72,11 +74,11 @@ def pulsar():
     return _Pulsar()
 
 
-def _binding(transform="whitening", **kwargs):
+def _binding(whitening=WhiteningConfig(), **kwargs):
     ntm = NonLinearTimingModel(
         engines="jug",
-        transform=transform,
-        analytically_marginalize=["F0"],
+        whitening=whitening,
+        inference=TimingInference.groups(delta_flat=["F0"]),
         name="timing",
         **kwargs,
     )
@@ -207,7 +209,7 @@ def test_timing_draws_flattens_chains(pulsar):
 
 
 def test_samples_to_frame_ungrouped_columns_and_naming(pulsar):
-    ctx = _binding(transform="whitening").for_pulsar(pulsar)
+    ctx = _binding(whitening=WhiteningConfig()).for_pulsar(pulsar)
     site = ctx.latent_name_for_coord()
     n = 5
     samples = {
@@ -230,7 +232,7 @@ def test_samples_to_frame_ungrouped_columns_and_naming(pulsar):
 
 
 def test_samples_to_frame_flattens_grouped_chain_major(pulsar):
-    ctx = _binding(transform="whitening").for_pulsar(pulsar)
+    ctx = _binding(whitening=WhiteningConfig()).for_pulsar(pulsar)
     site = ctx.latent_name_for_coord()
     n_chains, n_draws = 2, 3
     x = np.arange(n_chains * n_draws, dtype=float).reshape(n_chains, n_draws, 1)
@@ -243,7 +245,7 @@ def test_samples_to_frame_flattens_grouped_chain_major(pulsar):
 
 
 def test_samples_to_frame_recomputes_delta_when_absent(pulsar):
-    ctx = _binding(transform="standardized").for_pulsar(pulsar)
+    ctx = _binding(whitening=WhiteningConfig()).for_pulsar(pulsar)
     site = ctx.latent_name_for_coord()
     q = np.array([[0.2]])
     samples = {site: q}
@@ -257,7 +259,7 @@ def test_samples_to_frame_recomputes_delta_when_absent(pulsar):
 
 
 def test_samples_to_frame_recomputes_theta_ignoring_stray_values(pulsar):
-    ctx = _binding(transform="none").for_pulsar(pulsar)
+    ctx = _binding(whitening=None).for_pulsar(pulsar)
     site = ctx.latent_name_for_coord()
     q = np.array([[0.05]])
     samples = {
@@ -267,7 +269,8 @@ def test_samples_to_frame_recomputes_theta_ignoring_stray_values(pulsar):
 
     df = nlt_numpyro.samples_to_frame(samples, ctx)
 
-    delta = np.asarray(ctx.space.delta_from_coord(q[0], np, coord="delta"))
+    # The identity static layer samples the prior-normal z coordinate.
+    delta = np.asarray(ctx.space.delta_from_coord(q[0], np, coord=ctx.coord))
     expected_native = ctx.space.to_physical(
         delta[None, :], units="native", coord="delta"
     )["F1"][0]
@@ -288,7 +291,7 @@ def test_samples_to_frame_missing_pandas_raises_actionable_error(pulsar, monkeyp
 
 def test_model_to_df_delegates_to_samples_to_frame(pulsar):
     pytest.importorskip("pandas")
-    ctx = _binding(transform="standardized").for_pulsar(pulsar)
+    ctx = _binding(whitening=WhiteningConfig()).for_pulsar(pulsar)
     likelihood = _FakeLikelihood([*ctx.delay_keys, "efac"])
     model_fn = nlt_numpyro.model(likelihood, ctx, fixed={"efac": 1.0})
     assert hasattr(model_fn, "to_df")
@@ -434,7 +437,7 @@ def test_nuts_no_to_df_when_model_lacks_it(pulsar, monkeypatch):
 def test_save_samples_wraps_timing_draws_and_checkpoint(tmp_path, pulsar, monkeypatch):
     import nltiming.run_io as run_io_mod
 
-    ctx = _binding(transform="whitening").for_pulsar(pulsar)
+    ctx = _binding(whitening=WhiteningConfig()).for_pulsar(pulsar)
     site = ctx.latent_name_for_coord()
     samples = {site: np.array([[0.1], [0.2], [0.3]])}
     captured = {}
@@ -472,15 +475,15 @@ def test_ensure_x64_enables_float64():
 
 
 def test_eval_params_whitening_uses_joint_site(pulsar):
-    ctx = _binding(transform="whitening").for_pulsar(pulsar)
+    ctx = _binding(whitening=WhiteningConfig()).for_pulsar(pulsar)
     vec = np.array([0.25])
     params = nlt_ptmcmc.eval_params(ctx, vec, fixed={"efac": 1.0})
     assert params["efac"] == 1.0
     np.testing.assert_array_equal(params[ctx.latent_name_for_coord()], vec)
 
 
-def test_eval_params_standardized_uses_scalar_delay_keys(pulsar):
-    ctx = _binding(transform="standardized").for_pulsar(pulsar)
+def test_eval_params_identity_uses_scalar_delay_keys(pulsar):
+    ctx = _binding(whitening=None).for_pulsar(pulsar)
     vec = np.array([0.25])
     params = nlt_ptmcmc.eval_params(ctx, vec)
     assert params == {ctx.delay_keys[0]: 0.25}
@@ -500,7 +503,7 @@ def test_initial_point_is_zero_reference(pulsar):
 
 
 def test_initial_cov_matches_wls_in_sampling_coords(pulsar):
-    ctx = _binding(transform="whitening").for_pulsar(pulsar)
+    ctx = _binding(whitening=WhiteningConfig()).for_pulsar(pulsar)
     cov = nlt_ptmcmc.initial_cov(ctx, nsamples=4000, seed=1)
     assert cov.shape == (1, 1)
     # positive definite
@@ -511,16 +514,16 @@ def test_initial_cov_matches_wls_in_sampling_coords(pulsar):
 
 
 def test_timing_param_names_layouts(pulsar):
-    whitening = _binding(transform="whitening").for_pulsar(pulsar)
+    whitening = _binding(whitening=WhiteningConfig()).for_pulsar(pulsar)
     site = whitening.latent_name_for_coord()
     assert nlt_ptmcmc.timing_param_names(whitening) == (f"{site}_0",)
 
-    standardized = _binding(transform="standardized").for_pulsar(pulsar)
-    assert nlt_ptmcmc.timing_param_names(standardized) == standardized.delay_keys
+    identity = _binding(whitening=None).for_pulsar(pulsar)
+    assert nlt_ptmcmc.timing_param_names(identity) == identity.delay_keys
 
 
 def test_chain_layout_locates_timing_columns(pulsar):
-    ctx = _binding(transform="standardized").for_pulsar(pulsar)
+    ctx = _binding(whitening=WhiteningConfig()).for_pulsar(pulsar)
     names = ["noise_param", *nlt_ptmcmc.timing_param_names(ctx)]
     layout = nlt_ptmcmc.chain_layout(ctx, names)
     assert layout == {"kind": "ptmcmc", "file": "chain_1.txt", "columns": [1]}
@@ -532,8 +535,8 @@ def test_chain_layout_missing_key_raises(pulsar):
         nlt_ptmcmc.chain_layout(ctx, ["something_else"])
 
 
-@pytest.mark.parametrize("transform", ["standardized", "whitening"])
-def test_chain_layout_locates_columns_in_real_enterprise_pta(pulsar, transform):
+@pytest.mark.parametrize("whitening", [None, WhiteningConfig()])
+def test_chain_layout_locates_columns_in_real_enterprise_pta(pulsar, whitening):
     """§12/§14.6: chain_layout must locate timing columns in a full PTA vector
     with free noise parameters interleaved, for both scalar-standardized and
     joint-whitened layouts, using Enterprise's own param_names ordering."""
@@ -543,8 +546,8 @@ def test_chain_layout_locates_columns_in_real_enterprise_pta(pulsar, transform):
     white = white_signals.MeasurementNoise(efac=efac)
     ntm = NonLinearTimingModel(
         engines="jug",
-        transform=transform,
-        analytically_marginalize=["F0"],
+        whitening=whitening,
+        inference=TimingInference.groups(delta_flat=["F0"]),
         name="timing",
     )
     ctx = ntm.for_pulsar(pulsar)

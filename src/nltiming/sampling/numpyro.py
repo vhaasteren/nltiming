@@ -149,7 +149,7 @@ def sample_timing(
     those same engine-facing delta keys (``{pulsar}_{model}_{fitpar}``) for
     the likelihood.
     """
-    sampled = ctx.partition.sampled
+    sampled = ctx.plan.sampled
     if not sampled:
         return params
 
@@ -196,7 +196,7 @@ def record_physical_postprocess(
     if scope != "timing":
         raise ValueError("scope must be one of {'timing', 'all'}")
 
-    sampled = ctx.partition.sampled
+    sampled = ctx.plan.sampled
     if not sampled:
         return {}
 
@@ -542,7 +542,7 @@ def joint_model(
     CW model) used for template-subtracted centering (§4.4); the same ExtSignal
     must also be subtracted from the residual in ``likelihood``.
 
-    Requires ``ctx`` to be built with ``transform='none'`` (or otherwise carry an
+    Requires ``ctx`` to be built with ``whitening=None`` (or otherwise carry an
     identity static affine layer): the dynamic transport is the ONE affine layer
     (§5.5). The existing static :func:`model` builder is untouched.
     """
@@ -599,7 +599,9 @@ def joint_model(
         fixed_params[key] = float(value)
 
     priordict = dict(priors or {})
-    free = [p for p in clogL_params if p not in owned and p not in fixed_params]
+    # Sorted so hyper_sites (and the sample loop) have a deterministic order:
+    # marginalized D20 / Enterprise E8 and the §10 mass matrix bind to it.
+    free = sorted(p for p in clogL_params if p not in owned and p not in fixed_params)
     if free:
         from discovery import prior as ds_prior
 
@@ -633,6 +635,8 @@ def joint_model(
         numpyro.factor("nlt_joint", logtarget + ldj + 0.5 * jnp.sum(xi * xi))
 
     nlt_joint_model.transport = transport
+    nlt_joint_model.xi_site = xi_site
+    nlt_joint_model.hyper_sites = tuple(free)
     nlt_joint_model.to_df = lambda samples: joint_samples_to_frame(samples, ctx)
     return nlt_joint_model
 
@@ -726,7 +730,7 @@ def joint_model_multi(
     hyperparameters shared across pulsars (e.g. a CURN amplitude that every
     pulsar's GP names identically) are declared **once** and flow into every
     pulsar's transport and likelihood. Each pulsar must be built with an identity
-    static affine layer (``transform='none'``).
+    static affine layer (``whitening=None``).
 
     ``global_gp`` (a discovery ``makeglobalgp_fourier`` object, HD or any ORF)
     adds a correlated GW block: each pulsar's transport conditions its GW

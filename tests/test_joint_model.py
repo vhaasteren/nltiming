@@ -17,6 +17,7 @@ import jax.numpy as jnp  # noqa: E402
 # LinearizedJugEngine import requires the jug extra.
 pytest.importorskip("jug")
 
+from nltiming import TimingInference, WhiteningConfig  # noqa: E402
 from nltiming.engines.base import LinearModel  # noqa: E402
 from nltiming.engines.jug import LinearizedJugEngine  # noqa: E402
 from nltiming.nonlinear_timing_model import NonLinearTimingModel  # noqa: E402
@@ -85,22 +86,145 @@ class _Pulsar:
 def _joint_ctx():
     ntm = NonLinearTimingModel(
         engines="jug",
-        sample=["F0", "F1"],
-        sample_linear="remaining",
-        transform="none",
+        inference=TimingInference.sample_all(),
         name="timing",
     )
     return ntm, ntm.for_pulsar(_Pulsar())
 
 
-def test_three_way_partition_via_model():
+def test_sample_all_plan_via_model():
     _, ctx = _joint_ctx()
-    assert ctx.partition.nonlinear_sampled == ("F0", "F1")
-    assert ctx.partition.linear_sampled == ("DM",)
-    assert ctx.sampled == ("F0", "F1", "DM")
+    # Joint full-basis: every timing axis sampled, nothing marginalized.
+    assert ctx.plan.sampled == ("F0", "F1", "DM")
+    assert ctx.plan.marginalized_delta == ()
+    assert ctx.plan.marginalized_z == ()
     assert ctx.marginalized == ()
-    # sampled_all is an alias of sampled (nonlinear + linear).
     assert ctx.sampled_all == ctx.sampled
+    # A linear JUG engine declares every fitpar identically linear; DM is also
+    # in the fallback registry.
+    assert set(ctx.identically_linear) == {"F0", "F1", "DM"}
+    assert "fallback" in ctx.linearity_sources_for("DM")
+    assert "engine" in ctx.linearity_sources_for("F0")
+
+
+def test_chart_records_tag_proper_axes_affine_normal():
+    _, ctx = _joint_ctx()
+    summary = {d["name"]: d for d in ctx.chart_summary()}
+    assert set(summary) == {"F0", "F1", "DM"}
+    # The linear JUG engine declares every axis identically linear -> Gaussian
+    # delta prior -> affine_normal chart on every proper axis.
+    assert all(d["chart"] == "affine_normal" for d in summary.values())
+    assert ctx.plan.axis("DM").prior is not None
+    assert ctx.plan.axis("DM").prior.family == "normal"
+    assert ctx.nonaffine_identically_linear == ()
+
+
+def test_nonlinear_axis_uses_prior_pit_chart():
+    ntm = NonLinearTimingModel(
+        engines="jug",
+        inference=TimingInference.sample_all(),
+        identically_linear=[],  # assert none linear -> uniform cheat prior -> PIT
+        name="timing",
+    )
+    ctx = ntm.for_pulsar(_Pulsar())
+    charts = {d["name"]: d["chart"] for d in ctx.chart_summary()}
+    assert charts == {"F0": "prior_pit", "F1": "prior_pit", "DM": "prior_pit"}
+
+
+def test_uniform_override_on_identically_linear_axis_is_reported_nonaffine():
+    from nltiming import priors as P
+    from nltiming.coordinates import NonAffineIdenticallyLinearWarning
+
+    ntm = NonLinearTimingModel(
+        engines="jug",
+        inference=TimingInference.sample_all(),
+        priors={"DM": P.delta_uniform(-1e-3, 1e-3)},
+        name="timing",
+    )
+    with pytest.warns(NonAffineIdenticallyLinearWarning, match="DM"):
+        ctx = ntm.for_pulsar(_Pulsar())
+    # DM is identically linear but the explicit uniform prior makes its chart PIT.
+    assert ctx.plan.axis("DM").chart == "prior_pit"
+    assert "DM" in ctx.nonaffine_identically_linear
+
+
+def test_nonaffine_identically_linear_warning_can_be_suppressed(recwarn):
+    from nltiming import priors as P
+    from nltiming.coordinates import (
+        NonAffineIdenticallyLinearWarning,
+        TimingCoordinatePolicy,
+    )
+
+    ntm = NonLinearTimingModel(
+        engines="jug",
+        inference=TimingInference.sample_all(),
+        priors={"DM": P.delta_uniform(-1e-3, 1e-3)},
+        coordinate_policy=TimingCoordinatePolicy(nonaffine_identically_linear="ignore"),
+        name="timing",
+    )
+    ntm.for_pulsar(_Pulsar())
+    assert not [w for w in recwarn if issubclass(
+        w.category, NonAffineIdenticallyLinearWarning)]
+
+
+def test_prior_on_delta_flat_axis_raises_and_names_z_prior_remedy():
+    from nltiming import priors as P
+
+    ntm = NonLinearTimingModel(
+        engines="jug",
+        inference=TimingInference.groups(delta_flat=["DM"]),
+        priors={"DM": P.delta_uniform(-1e-3, 1e-3)},
+        prior_override_policy="warn",
+        name="timing",
+    )
+    with pytest.raises(ValueError, match="delta-flat.*z-prior"):
+        ntm.for_pulsar(_Pulsar())
+
+
+def test_whitening_none_is_identity_static_layer():
+    from nltiming.metric import assert_static_layer_identity
+
+    _, ctx = _joint_ctx()  # whitening omitted -> None -> identity
+    assert ctx.model.static_layer == "identity"
+    assert ctx.coord == "z"
+    assert_static_layer_identity(ctx.space)  # must not raise
+
+
+def test_whitening_config_is_nonidentity_static_layer():
+    from nltiming.metric import OneAffineLayerError, assert_static_layer_identity
+
+    ntm = NonLinearTimingModel(
+        engines="jug",
+        inference=TimingInference.sample_all(),
+        whitening=WhiteningConfig(),
+        name="timing",
+    )
+    ctx = ntm.for_pulsar(_Pulsar())
+    assert ctx.model.static_layer == "whitening"
+    assert ctx.coord == "x"
+    with pytest.raises(OneAffineLayerError):
+        assert_static_layer_identity(ctx.space)
+
+
+def test_transform_keyword_is_rejected():
+    with pytest.raises(TypeError):
+        NonLinearTimingModel(
+            engines="jug",
+            transform="none",
+            inference=TimingInference.sample_all(),
+        )
+
+
+def test_z_prior_axis_is_rejected_until_adapters_exist():
+    """A plan with a marginalize_z_prior axis must not silently vanish from the
+    likelihood: building a context raises until the Stage 5 adapters exist."""
+    ntm = NonLinearTimingModel(
+        engines="jug",
+        inference=TimingInference.groups(z_prior=["DM"]),
+        name="timing",
+    )
+    with pytest.raises(NotImplementedError, match="marginalize_z_prior"):
+        ntm.for_pulsar(_Pulsar())
 
 
 def test_local_timing_block_is_negative_autodiff_jacobian():
@@ -112,8 +236,8 @@ def test_local_timing_block_is_negative_autodiff_jacobian():
     assert blk.joint_site == ctx.joint_site
 
     # W_z == -∂(residual_delta_jax(δ(z)))/∂z at z_ref (the exact engine path).
-    idx = jnp.asarray(ctx.partition.idx_sampled)
-    nfit = len(ctx.partition.fitpars)
+    idx = jnp.asarray(ctx.plan.idx_sampled)
+    nfit = len(ctx.plan.fitpars)
     z_ref = jnp.asarray(blk.z_ref)
 
     def residual_of_z(z):
@@ -171,9 +295,8 @@ def test_joint_model_requires_identity_static_layer():
 
     ntm = NonLinearTimingModel(
         engines="jug",
-        sample=["F0", "F1"],
-        sample_linear="remaining",
-        transform="whitening",
+        inference=TimingInference.sample_all(),
+        whitening=WhiteningConfig(),
         name="timing",
     )
     ctx = ntm.for_pulsar(_Pulsar())  # conditioned => non-identity (C, c)

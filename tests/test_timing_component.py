@@ -7,13 +7,14 @@ import jax.numpy as jnp
 import jax.random as jr
 from numpyro import handlers
 
+from nltiming import TimingInference, WhiteningConfig
 from nltiming.engines.base import LinearModel
 from nltiming.engines.jug import LinearizedJugEngine
 from nltiming.engines.pint import LinearizedPintEngine
 from nltiming.nonlinear_timing_model import NonLinearTimingModel
 from nltiming.whitening import normalized_basis
 from nltiming.sampling.numpyro import _sample_timing_coord, sample_timing
-from nltiming.partition import resolve_partition
+from _planhelp import plan_for
 from nltiming.whitening import schur_delta_wls
 
 
@@ -119,7 +120,7 @@ def _monkeypatch_numpyro(monkeypatch, sample_value):
 
 
 def _schur_fisher(pulsar, *, analytically_marginalize, variance):
-    part = resolve_partition(pulsar, analytically_marginalize=analytically_marginalize)
+    part = plan_for(pulsar, delta_flat=analytically_marginalize or ())
     return schur_delta_wls(pulsar=pulsar, partition=part, variance=variance).fisher
 
 
@@ -152,18 +153,17 @@ def test_component_config_only_build_and_with_engines():
 
     ntm = NonLinearTimingModel(
         engines="jug",
-        transform="whitening",
-        analytically_marginalize=["F0"],
-        prior_policy="wide_default",
         whitening=WhiteningConfig(),
+        inference=TimingInference.groups(delta_flat=["F0"]),
+        prior_policy="wide_default",
         name="timing",
     )
     swapped = ntm.with_engines({"tempo2": "jug", "pint": "pint"})
 
     assert ntm.engines == {"tempo2": "jug", "pint": "jug"}
     assert swapped.engines == {"tempo2": "jug", "pint": "pint"}
-    assert swapped.transform == ntm.transform
-    assert swapped.analytically_marginalize == ntm.analytically_marginalize
+    assert swapped.static_layer == ntm.static_layer
+    assert swapped.inference == ntm.inference
     assert swapped.prior_policy == ntm.prior_policy
     assert swapped.whitening == ntm.whitening
 
@@ -171,8 +171,8 @@ def test_component_config_only_build_and_with_engines():
 def test_space_cached_and_invalidated_by_state_id(pulsar):
     ntm = NonLinearTimingModel(
         engines="jug",
-        transform="standardized",
-        analytically_marginalize=["F0", "DM"],
+        whitening=WhiteningConfig(),
+        inference=TimingInference.groups(delta_flat=["F0", "DM"]),
         name="timing",
     )
     first = ntm.for_pulsar(pulsar).space
@@ -190,13 +190,12 @@ def test_whitening_config_roundtrip_and_space_shape(pulsar):
 
     ntm_default = NonLinearTimingModel(
         engines="jug",
-        transform="whitening",
-        analytically_marginalize=["F0", "DM"],
+        whitening=WhiteningConfig(),
+        inference=TimingInference.groups(delta_flat=["F0", "DM"]),
     )
     ntm_toa = NonLinearTimingModel(
         engines="jug",
-        transform="whitening",
-        analytically_marginalize=["F0", "DM"],
+        inference=TimingInference.groups(delta_flat=["F0", "DM"]),
         whitening=WhiteningConfig(reference_noise="toa_errors"),
     )
     sp_default = ntm_default.for_pulsar(pulsar).space
@@ -213,8 +212,8 @@ def test_whitening_builders_condition_fisher_to_unit_scale(pulsar):
     analytically_marginalize_cfg = None
     ntm_default = NonLinearTimingModel(
         engines="jug",
-        transform="whitening",
-        analytically_marginalize=analytically_marginalize_cfg,
+        whitening=WhiteningConfig(),
+        inference=TimingInference.sample_all(),
     )
 
     default_fisher = _schur_fisher(
@@ -243,15 +242,15 @@ def test_autodiff_design_matrix_method_feeds_whitening(pulsar):
     ntm = NonLinearTimingModel(
         engines="jug",
         design_matrix_method="autodiff",
-        transform="whitening",
-        analytically_marginalize=["F0", "DM"],
+        whitening=WhiteningConfig(),
+        inference=TimingInference.groups(delta_flat=["F0", "DM"]),
         name="timing",
     )
 
     resolved = ntm.for_pulsar(pulsar)
     np.testing.assert_allclose(resolved.design_matrix, autodiff_matrix)
 
-    part = resolve_partition(pulsar, analytically_marginalize=["F0", "DM"])
+    part = plan_for(pulsar, delta_flat=["F0", "DM"])
     expected_fisher = schur_delta_wls(
         pulsar=pulsar,
         partition=part,
@@ -269,35 +268,13 @@ def test_autodiff_design_matrix_method_feeds_whitening(pulsar):
     )
 
 
-def test_standardized_builder_uses_z_space_marginal_scales(pulsar):
-    ntm = NonLinearTimingModel(
-        engines="jug",
-        transform="standardized",
-        analytically_marginalize=None,
-        name="timing",
-    )
-    space = ntm.for_pulsar(pulsar).space
-    fisher = _schur_fisher(
-        pulsar,
-        analytically_marginalize=None,
-        variance=np.asarray(pulsar.toaerrs, dtype=float) ** 2,
-    )
-    fisher_z = _z_space_fisher(space, fisher)
-    # Standardized posterior scales are the marginal sigmas of (F_z + I)^-1.
-    covariance_z = _covariance_from_fisher(fisher_z + np.eye(len(space.names)))
-
-    assert np.allclose(space.linear.C, np.diag(np.diag(space.linear.C)))
-    np.testing.assert_allclose(
-        np.diag(space.linear.C),
-        np.sqrt(np.diag(covariance_z)),
-    )
-
 
 def test_cheat_wls_prior_is_wide_uniform_box(pulsar):
     ntm = NonLinearTimingModel(
         engines="jug",
-        transform="standardized",
-        analytically_marginalize=None,
+        whitening=WhiteningConfig(),
+        inference=TimingInference.sample_all(),
+        identically_linear=[],
         name="timing",
     )
     block = ntm.for_pulsar(pulsar).priors
@@ -319,7 +296,7 @@ def test_cheat_wls_prior_is_wide_uniform_box(pulsar):
         [(prior.upper + prior.lower) / 2.0 for prior in block.priors], dtype=float
     )
     np.testing.assert_allclose(
-        half_widths, ntm.cheat_prior_scale * expected_stds, rtol=1e-6
+        half_widths, ntm.coordinate_policy.nonlinear_scale * expected_stds, rtol=1e-6
     )
     np.testing.assert_allclose(centers, 0.0, atol=1e-12)
 
@@ -330,13 +307,14 @@ def test_autodiff_design_matrix_method_feeds_cheat_prior_widths(pulsar):
     ntm = NonLinearTimingModel(
         engines="jug",
         design_matrix_method="autodiff",
-        transform="standardized",
-        analytically_marginalize=None,
+        whitening=WhiteningConfig(),
+        inference=TimingInference.sample_all(),
+        identically_linear=[],
         name="timing",
     )
 
     block = ntm.for_pulsar(pulsar).priors
-    part = resolve_partition(pulsar, analytically_marginalize=None)
+    part = plan_for(pulsar, sample_all=True)
     expected_fisher = schur_delta_wls(
         pulsar=pulsar,
         partition=part,
@@ -348,7 +326,7 @@ def test_autodiff_design_matrix_method_feeds_cheat_prior_widths(pulsar):
         [(prior.upper - prior.lower) / 2.0 for prior in block.priors], dtype=float
     )
     np.testing.assert_allclose(
-        half_widths, ntm.cheat_prior_scale * expected_stds, rtol=1e-6
+        half_widths, ntm.coordinate_policy.nonlinear_scale * expected_stds, rtol=1e-6
     )
 
 
@@ -368,8 +346,9 @@ def test_cheat_prior_box_clipped_to_physical_bounds():
     bounded = _BoundedHost()
     ntm = NonLinearTimingModel(
         engines="jug",
-        transform="standardized",
-        analytically_marginalize=["F1", "DM"],
+        whitening=WhiteningConfig(),
+        inference=TimingInference.groups(delta_flat=["F1", "DM"]),
+        identically_linear=[],
         name="timing",
     )
     block = ntm.for_pulsar(bounded).priors
@@ -379,7 +358,7 @@ def test_cheat_prior_box_clipped_to_physical_bounds():
         variance=np.asarray(bounded.toaerrs, dtype=float) ** 2,
     )
     sigma_ecc = float(np.sqrt(_covariance_from_fisher(fisher)[0, 0]))
-    half = ntm.cheat_prior_scale * sigma_ecc
+    half = ntm.coordinate_policy.nonlinear_scale * sigma_ecc
 
     ecc_prior = block.priors[block.names.index("ECC")]
     assert ecc_prior.family == "uniform"
@@ -392,8 +371,8 @@ def test_cheat_prior_box_clipped_to_physical_bounds():
 def test_discovery_signals_delta_only_and_jax_gate(pulsar):
     ntm = NonLinearTimingModel(
         engines="jug",
-        transform="standardized",
-        analytically_marginalize=["F0", "DM"],
+        whitening=WhiteningConfig(),
+        inference=TimingInference.groups(delta_flat=["F0", "DM"]),
         name="timing",
     )
     signals = ntm.for_pulsar(pulsar).discovery_signals()
@@ -404,8 +383,7 @@ def test_discovery_signals_delta_only_and_jax_gate(pulsar):
 
     ntm_nonjax = NonLinearTimingModel(
         engines={"tempo2": "jug", "pint": "pint"},
-        transform="none",
-        analytically_marginalize=["F0", "DM"],
+        inference=TimingInference.groups(delta_flat=["F0", "DM"]),
         name="timing",
     )
     with pytest.raises(ValueError, match="JAX-capable engine"):
@@ -427,8 +405,8 @@ def test_autodiff_design_matrix_method_feeds_discovery_gp_basis(pulsar, monkeypa
     ntm = NonLinearTimingModel(
         engines="jug",
         design_matrix_method="autodiff",
-        transform="standardized",
-        analytically_marginalize=["F0", "DM"],
+        whitening=WhiteningConfig(),
+        inference=TimingInference.groups(delta_flat=["F0", "DM"]),
         name="timing",
     )
 
@@ -444,8 +422,7 @@ def test_autodiff_design_matrix_method_feeds_discovery_gp_basis(pulsar, monkeypa
 def test_all_analytically_marginalized_paths(pulsar):
     ntm = NonLinearTimingModel(
         engines={"tempo2": "jug", "pint": "pint"},
-        transform="none",
-        analytically_marginalize=["F0", "F1", "DM"],
+        inference=TimingInference.groups(delta_flat=["F0", "F1", "DM"]),
         name="timing",
     )
     assert len(ntm.for_pulsar(pulsar).discovery_signals()) == 1
@@ -458,8 +435,8 @@ def test_all_analytically_marginalized_paths(pulsar):
 def test_non_timing_params_and_timing_param_keys_are_plain_set_subtraction(pulsar):
     ntm = NonLinearTimingModel(
         engines="jug",
-        transform="whitening",
-        analytically_marginalize=["F0", "DM"],
+        whitening=WhiteningConfig(),
+        inference=TimingInference.groups(delta_flat=["F0", "DM"]),
         name="timing",
     )
     keys = ntm.for_pulsar(pulsar).timing_param_keys()
@@ -474,8 +451,7 @@ def test_non_timing_params_and_timing_param_keys_are_plain_set_subtraction(pulsa
 
     ntm_all_marg = NonLinearTimingModel(
         engines="jug",
-        transform="none",
-        analytically_marginalize=["F0", "F1", "DM"],
+        inference=TimingInference.groups(delta_flat=["F0", "F1", "DM"]),
         name="timing",
     )
     plain = ("efac", "gamma", "log10_A")
@@ -488,8 +464,8 @@ def test_sample_timing_x_site_samples_and_injects_delta_deterministic(
 ):
     ntm = NonLinearTimingModel(
         engines="jug",
-        transform="standardized",
-        analytically_marginalize=["F0", "DM"],
+        whitening=WhiteningConfig(),
+        inference=TimingInference.groups(delta_flat=["F0", "DM"]),
         name="timing",
     )
     calls = _monkeypatch_numpyro(monkeypatch, sample_value=np.array([0.2]))
@@ -509,26 +485,11 @@ def test_sample_timing_x_site_samples_and_injects_delta_deterministic(
     )
 
 
-def test_sample_timing_delta_coord_has_exactly_one_prior_factor(pulsar, monkeypatch):
-    ntm = NonLinearTimingModel(
-        engines="jug",
-        transform="none",
-        analytically_marginalize=["F0", "DM"],
-        name="timing",
-    )
-    calls = _monkeypatch_numpyro(monkeypatch, sample_value=np.array([0.0]))
-
-    sample_timing(ntm.for_pulsar(pulsar), {})
-
-    assert len(calls["factor"]) == 1
-    assert calls["factor"][0][0] == f"{pulsar.name}_timing_delta_logprior"
-
 
 def test_sample_timing_noop_when_no_sampled(pulsar, monkeypatch):
     ntm = NonLinearTimingModel(
         engines="jug",
-        transform="none",
-        analytically_marginalize=["F0", "F1", "DM"],
+        inference=TimingInference.groups(delta_flat=["F0", "F1", "DM"]),
         name="timing",
     )
     calls = _monkeypatch_numpyro(monkeypatch, sample_value=np.array([]))
@@ -542,21 +503,20 @@ def test_sample_timing_noop_when_no_sampled(pulsar, monkeypatch):
 def test_set_prior_validated_against_sampled_partition(pulsar):
     ntm = NonLinearTimingModel(
         engines="jug",
-        transform="none",
-        analytically_marginalize=["F0", "DM"],
+        inference=TimingInference.groups(delta_flat=["F0", "DM"]),
         prior_override_policy="strict",
         name="timing",
     )
     ntm.set_prior("F0", "uniform", lower=-1.0, upper=1.0)
-    with pytest.raises(ValueError, match="non-sampled"):
+    # F0 is delta-flat here, so the override is rejected with the §4.4 remedy.
+    with pytest.raises(ValueError, match="delta-flat.*z-prior"):
         ntm.for_pulsar(pulsar).space
 
 
 def test_set_prior_unknown_name_raises(pulsar):
     ntm = NonLinearTimingModel(
         engines="jug",
-        transform="none",
-        analytically_marginalize=["F0", "DM"],
+        inference=TimingInference.groups(delta_flat=["F0", "DM"]),
         prior_override_policy="strict",
         name="timing",
     )
@@ -568,8 +528,7 @@ def test_set_prior_unknown_name_raises(pulsar):
 def test_enterprise_signal_forwards_engines(pulsar):
     ntm = NonLinearTimingModel(
         engines="jug",
-        transform="none",
-        analytically_marginalize=["F0", "DM"],
+        inference=TimingInference.groups(delta_flat=["F0", "DM"]),
         name="timing",
     )
     ent = ntm.enterprise_signal()
@@ -588,8 +547,7 @@ def test_autodiff_design_matrix_method_feeds_enterprise_gp_basis(pulsar):
     ntm = NonLinearTimingModel(
         engines="jug",
         design_matrix_method="autodiff",
-        transform="none",
-        analytically_marginalize=["F0", "DM"],
+        inference=TimingInference.groups(delta_flat=["F0", "DM"]),
         name="timing",
     )
 
@@ -604,8 +562,8 @@ def test_autodiff_design_matrix_method_feeds_enterprise_gp_basis(pulsar):
 def test_sample_timing_x_site_has_vector_event_shape(pulsar):
     ntm = NonLinearTimingModel(
         engines="jug",
-        transform="standardized",
-        analytically_marginalize=["F0", "DM"],
+        whitening=WhiteningConfig(),
+        inference=TimingInference.groups(delta_flat=["F0", "DM"]),
         name="timing",
     )
 
@@ -626,12 +584,12 @@ def test_timing_coord_distribution_log_prob_matches_logprior_coord(pulsar):
     """The x/z coordinate distributions built by _sample_timing_coord must have
     log_prob equal to space.logprior_coord, including normalization (§6.2) —
     across diagonal standardization and non-diagonal whitening."""
-    cases = [("standardized", "x"), ("whitening", "x"), ("none", "z")]
-    for transform, coord in cases:
+    cases = [(WhiteningConfig(), "x"), (None, "z")]
+    for whitening, coord in cases:
         ntm = NonLinearTimingModel(
             engines="jug",
-            transform=transform,
-            analytically_marginalize=["DM"],
+            whitening=whitening,
+            inference=TimingInference.groups(delta_flat=["DM"]),
             name="timing",
         )
         ctx = ntm.for_pulsar(pulsar)
@@ -646,53 +604,52 @@ def test_timing_coord_distribution_log_prob_matches_logprior_coord(pulsar):
 
         got = float(distribution.log_prob(q))
         expected = float(ctx.space.logprior_coord(jnp.asarray(q), jnp, coord=coord))
-        assert np.isclose(got, expected, rtol=1e-6, atol=1e-8), (transform, coord)
+        assert np.isclose(got, expected, rtol=1e-6, atol=1e-8), (whitening, coord)
 
 
 def test_timing_coord_x_and_z_add_no_extra_prior_factor(pulsar, monkeypatch):
-    for transform, coord in [("standardized", "x"), ("whitening", "x"), ("none", "z")]:
+    for whitening, coord in [(WhiteningConfig(), "x"), (None, "z")]:
         ntm = NonLinearTimingModel(
             engines="jug",
-            transform=transform,
-            analytically_marginalize=["DM"],
+            whitening=whitening,
+            inference=TimingInference.groups(delta_flat=["DM"]),
             name="timing",
         )
         calls = _monkeypatch_numpyro(monkeypatch, sample_value=np.zeros(2))
         _sample_timing_coord(ntm.for_pulsar(pulsar), coord=coord)
-        assert calls["factor"] == [], (transform, coord)
+        assert calls["factor"] == [], (whitening, coord)
 
 
-def _enterprise_pta(pulsar, *, transform, analytically_marginalize):
+def _enterprise_pta(pulsar, *, whitening, analytically_marginalize):
     from enterprise.signals import parameter, signal_base, white_signals
 
     efac = parameter.Uniform(0.1, 5.0)
     white = white_signals.MeasurementNoise(efac=efac)
     ntm = NonLinearTimingModel(
         engines="jug",
-        transform=transform,
-        analytically_marginalize=analytically_marginalize,
+        whitening=whitening,
+        inference=TimingInference.groups(delta_flat=analytically_marginalize),
         name="timing",
     )
     return signal_base.PTA([(white + ntm.enterprise_signal())(pulsar)])
 
 
 @pytest.mark.parametrize(
-    ("transform", "analytically_marginalize"),
+    ("whitening", "analytically_marginalize"),
     [
-        ("none", ["DM"]),
-        ("standardized", ["DM"]),
-        ("whitening", ["F0", "DM"]),  # ndim=1: size-1 block must stay a vector
-        ("whitening", ["DM"]),  # ndim=2, non-diagonal C from the pulsar design matrix
+        (None, ["DM"]),  # identity static layer (scalar z params)
+        (WhiteningConfig(), ["F0", "DM"]),  # ndim=1: size-1 block stays a vector
+        (WhiteningConfig(), ["DM"]),  # ndim=2, non-diagonal C from the design matrix
     ],
 )
 def test_enterprise_parameters_sample_and_evaluate_full_pta(
-    pulsar, transform, analytically_marginalize
+    pulsar, whitening, analytically_marginalize
 ):
     """p.sample() works for every NLT Enterprise parameter in every transform
     mode, over the complete PTA vector (noise + timing sampled jointly), and
     dict/flat-vector evaluations agree."""
     pta = _enterprise_pta(
-        pulsar, transform=transform, analytically_marginalize=analytically_marginalize
+        pulsar, whitening=whitening, analytically_marginalize=analytically_marginalize
     )
     x0 = np.hstack(
         [np.asarray(p.sample(), dtype=float).reshape(-1) for p in pta.params]
@@ -709,8 +666,7 @@ def test_enterprise_parameters_sample_and_evaluate_full_pta(
 def test_scalar_timing_parameter_prior_draw_mode_is_component(pulsar):
     ntm = NonLinearTimingModel(
         engines="jug",
-        transform="none",
-        analytically_marginalize=["DM"],
+        inference=TimingInference.groups(delta_flat=["DM"]),
         name="timing",
     )
     bound = ntm.enterprise_signal()(pulsar)
@@ -727,8 +683,8 @@ def test_whitening_vector_parameter_is_joint_and_size_one_stays_a_vector(pulsar)
     it is a length-1 array, not a bare scalar."""
     ntm = NonLinearTimingModel(
         engines="jug",
-        transform="whitening",
-        analytically_marginalize=["F0", "DM"],
+        whitening=WhiteningConfig(),
+        inference=TimingInference.groups(delta_flat=["F0", "DM"]),
         name="timing",
     )
     bound = ntm.enterprise_signal()(pulsar)
@@ -750,8 +706,8 @@ def test_whitening_vector_sample_and_ppf_describe_the_same_distribution(pulsar):
 
     ntm = NonLinearTimingModel(
         engines="jug",
-        transform="whitening",
-        analytically_marginalize=["DM"],
+        whitening=WhiteningConfig(),
+        inference=TimingInference.groups(delta_flat=["DM"]),
         name="timing",
     )
     bound = ntm.enterprise_signal()(pulsar)

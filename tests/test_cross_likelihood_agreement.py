@@ -20,6 +20,8 @@ import jax.numpy as jnp
 import jax.random as jr
 from numpyro import handlers
 
+from nltiming import WhiteningConfig
+from nltiming import TimingInference
 from nltiming.engines.base import LinearModel
 from nltiming.engines.jug import LinearizedJugEngine
 from nltiming.engines.pint import LinearizedPintEngine
@@ -115,24 +117,27 @@ def pulsar():
     return _Pulsar()
 
 
-# transform="none" moves in raw physical delta (F0 ~ 10, F1 ~ 1 scale), so its
+# identity (whitening=None) samples the prior-normal z coordinate (O(1)), so its
 # cheat-prior box is comparatively tight; the other coordinates are O(1) by
 # construction.
-_OFFSETS = {"none": 1e-9, "standardized": 0.05, "whitening": 0.05}
+# identity samples in z (O(1)); whitening samples in x (O(1)).
+_OFFSETS = {"identity": 0.05, "whitening": 0.05}
 
 
-@pytest.mark.parametrize("transform", ["none", "standardized", "whitening"])
-def test_discovery_and_enterprise_log_density_differences_agree(pulsar, transform):
+@pytest.mark.parametrize(
+    "layer", [None, WhiteningConfig()], ids=["identity", "whitening"]
+)
+def test_discovery_and_enterprise_log_density_differences_agree(pulsar, layer):
     noisedict = {f"{pulsar.name}_efac": 1.0, f"{pulsar.name}_log10_t2equad": -8.0}
     ntm = NonLinearTimingModel(
         engines="jug",
-        transform=transform,
-        analytically_marginalize=["DM"],
+        whitening=layer,
+        inference=TimingInference.groups(delta_flat=["DM"]),
         name="timing",
     )
     ctx = ntm.for_pulsar(pulsar)
     ndim = len(ctx.sampled)
-    offset = _OFFSETS[transform]
+    offset = _OFFSETS["identity" if layer is None else "whitening"]
 
     # --- Discovery side: trace the NumPyro model at two coordinate points ---
     likelihood = ds.PulsarLikelihood(
@@ -161,6 +166,15 @@ def test_discovery_and_enterprise_log_density_differences_agree(pulsar, transfor
         tr2[site]["fn"].log_prob(tr2[site]["value"]).sum()
         - tr1[site]["fn"].log_prob(tr1[site]["value"]).sum()
     )
+    # For coord="delta" the site is an ImproperUniform placeholder and the real
+    # prior (uniform box or Gaussian, per the axis chart) lives in the
+    # "{site}_logprior" factor; include it so the prior difference is complete
+    # whatever the prior family.
+    lp_site = f"{site}_logprior"
+    if lp_site in tr1:
+        disc_prior_diff += float(
+            tr2[lp_site]["fn"].log_factor - tr1[lp_site]["fn"].log_factor
+        )
     disc_ll_diff = float(tr2["ll"]["fn"].log_factor - tr1["ll"]["fn"].log_factor)
 
     # --- Enterprise side: the same two points through the full PTA ---
@@ -197,8 +211,8 @@ def test_discovery_nuts_and_enterprise_ptmcmc_recover_the_same_posterior(
     noisedict = {f"{pulsar.name}_efac": 1.0, f"{pulsar.name}_log10_t2equad": -8.0}
     ntm = NonLinearTimingModel(
         engines="jug",
-        transform="whitening",
-        analytically_marginalize=["DM"],
+        whitening=WhiteningConfig(),
+        inference=TimingInference.groups(delta_flat=["DM"]),
         name="timing",
     )
     ctx = ntm.for_pulsar(pulsar)

@@ -16,13 +16,20 @@ from .precision import ExactNativeRef
 from .units import to_display
 
 
-def default_coord_for_transform(transform: str) -> str:
-    """Return the vector coordinate sampled by a component transform mode."""
-    if transform == "none":
-        return "delta"
-    if transform in {"standardized", "whitening"}:
+_STATIC_LAYERS = {"identity", "whitening"}
+
+
+def coord_for_static_layer(static_layer: str) -> str:
+    """Return the sampler coordinate for a static-layer choice (§4.4.1).
+
+    ``identity`` (``whitening=None``) samples the prior-normal chart coordinate
+    ``z``; ``whitening`` (a ``WhiteningConfig``) samples the whitened ``x``.
+    """
+    if static_layer == "identity":
+        return "z"
+    if static_layer == "whitening":
         return "x"
-    raise ValueError(f"Unsupported transform: {transform}")
+    raise ValueError(f"Unsupported static layer: {static_layer}")
 
 
 DensityParts = namedtuple(
@@ -41,18 +48,18 @@ class ParameterSpace:
         prior_bijector: PriorBijector,
         linear: WhiteningLinear,
         *,
-        transform: str = "standardized",
+        static_layer: str = "identity",
         pint_model: Any | None = None,
     ):
-        if transform not in {"none", "standardized", "whitening"}:
-            raise ValueError(f"Unknown transform mode: {transform}")
+        if static_layer not in _STATIC_LAYERS:
+            raise ValueError(f"Unknown static layer: {static_layer}")
         if names != theta_ref.names:
             raise ValueError("names must match theta_ref names")
         self.names = names
         self.theta_ref = theta_ref
         self.prior_bijector = prior_bijector
         self.linear = linear
-        self.transform = transform
+        self.static_layer = static_layer
         self.pint_model = pint_model
         self.ndim = len(names)
         if self.linear.C.shape != (self.ndim, self.ndim):
@@ -64,7 +71,7 @@ class ParameterSpace:
         theta_ref_mapping: dict[str, str | float | int],
         prior_bijector: PriorBijector | None = None,
         *,
-        transform: str = "standardized",
+        static_layer: str = "identity",
         linear_transform: WhiteningLinear | None = None,
         pint_model: Any | None = None,
     ) -> "ParameterSpace":
@@ -86,7 +93,7 @@ class ParameterSpace:
             theta_ref=exact,
             prior_bijector=prior_bijector,
             linear=linear_transform,
-            transform=transform,
+            static_layer=static_layer,
             pint_model=pint_model,
         )
 
@@ -193,7 +200,7 @@ class ParameterSpace:
 
     def to_physical(self, samples, units: str = "display", coord: str | None = None):
         if coord is None:
-            coord = default_coord_for_transform(self.transform)
+            coord = coord_for_static_layer(self.static_layer)
         arr = np.asarray(samples, dtype=float)
         if arr.ndim == 1:
             arr = arr[None, :]
@@ -219,17 +226,17 @@ class ParameterSpace:
         return {
             "names": list(self.names),
             "theta_ref": self.theta_ref.as_mapping(),
-            "transform": self.transform,
+            "static_layer": self.static_layer,
         }
 
     def fingerprint(self) -> str:
         """Stable identity of this decoder (names, refs, transform, priors, C, z0)."""
         hasher = hashlib.sha256()
         meta = {
-            "schema": "nlt-parameter-space-v1",
+            "schema": "nlt-parameter-space-v2",
             "names": list(self.names),
             "theta_ref": self.theta_ref.as_mapping(),
-            "transform": self.transform,
+            "static_layer": self.static_layer,
             "priors": [
                 {
                     "family": p.family,
@@ -289,5 +296,5 @@ class ParameterSpace:
             theta_ref=theta_ref,
             prior_bijector=prior_bijector,
             linear=linear,
-            transform=payload["transform"],
+            static_layer=payload["static_layer"],
         )

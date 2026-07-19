@@ -14,11 +14,11 @@ normal, etc.).
 
 With ``prior_policy="fallback"``, unresolved sampled priors use the reference-stack
 *cheat* prior convention—not Gaussians at the WLS scale. Each axis is a flat
-``uniform`` on ``[center ± cheat_prior_scale · σ]`` in delta space
+``uniform`` on ``[center ± coordinate_policy.nonlinear_scale · σ]`` in delta space
 (``center`` = par-file reference, ``σ`` = par-file uncertainty with WLS
 fallback), clipped to ``native_physical_bounds`` (e.g. ``ECC ∈ [0, 1]``,
 ``M2 ≥ 0``). Over the typical posterior support these boxes are
-effectively flat. The whitening/standardized coordinate map is for sampler
+effectively flat. The whitening coordinate map is for sampler
 preconditioning only and does not alter the physical prior density.
 """
 
@@ -27,13 +27,7 @@ from __future__ import annotations
 import numpy as np
 
 from nltiming.bijectors import PriorBijector
-from nltiming.space import default_coord_for_transform
-
-
-def _coord_from_transform(transform: str) -> str:
-    if transform == "standardized":
-        return "standardized"
-    return default_coord_for_transform(transform)
+from nltiming.space import coord_for_static_layer
 
 
 def _residual_delta(engine, full_delta: np.ndarray) -> np.ndarray:
@@ -70,14 +64,6 @@ def _scalar_user_parameter(*, space, coord: str, idx: int):
             return float(
                 axis.logprior_physical(delta, np) + axis.logabsdet_delta_from_z(q, np)
             )
-        if coord == "standardized":
-            z = np.asarray([space.linear.C[idx, idx] * value + space.linear.z0[idx]])
-            delta = axis.delta_from_z(z, np)
-            return float(
-                axis.logprior_physical(delta, np)
-                + axis.logabsdet_delta_from_z(z, np)
-                + np.log(space.linear.C[idx, idx])
-            )
         raise ValueError(f"Scalar Enterprise parameters do not support coord={coord!r}")
 
     def _ppf(u):
@@ -87,9 +73,6 @@ def _scalar_user_parameter(*, space, coord: str, idx: int):
             return float(delta[0])
         if coord == "z":
             return float(axis.z_from_delta(delta, np)[0])
-        if coord == "standardized":
-            z = float(axis.z_from_delta(delta, np)[0])
-            return float((z - space.linear.z0[idx]) / space.linear.C[idx, idx])
         raise ValueError(f"Scalar Enterprise parameters do not support coord={coord!r}")
 
     def _sampler(size=None):
@@ -165,20 +148,20 @@ def _make_waveform(
             raise ValueError("enterprise waveform requires a pulsar")
         ctx = ctx_fn(psr)
         space = ctx.space
-        partition = ctx.partition
+        partition = ctx.plan
         engine = ctx.engine
         sampled_names = tuple(partition.sampled)
         sampled_indices = tuple(partition.idx_sampled)
         ndim = len(partition.fitpars)
 
-        if coord in {"delta", "z", "standardized"}:
+        if coord in {"delta", "z"}:
 
             def _evaluate(**coord_values):
                 q = np.asarray(
                     [coord_values[param] for param in sampled_names],
                     dtype=float,
                 )
-                space_coord = "x" if coord == "standardized" else coord
+                space_coord = coord
                 delta_sampled = np.asarray(
                     space.delta_from_coord(q, np, coord=space_coord)
                 )
@@ -234,7 +217,7 @@ def _make_marginalizing_signal(
             from nltiming.whitening import normalized_basis
 
             ctx = ctx_fn(psr)
-            partition = ctx.partition
+            partition = ctx.plan
             # Column-normalized: span-preserving under the improper prior, and
             # required for float64 conditioning with the 1e40 prior weight.
             self._basis = normalized_basis(
@@ -277,7 +260,7 @@ def enterprise_signal(
     *,
     ctx_fn,
     name: str,
-    transform: str,
+    static_layer: str,
 ):
     """Return a deferred Enterprise signal with deterministic delay + timing GP.
 
@@ -291,10 +274,10 @@ def enterprise_signal(
         configuration used by the Discovery likelihood interface and the run products.
     name
         Enterprise signal / component name prefix.
-    transform
-        ``NonLinearTimingModel`` transform mode: ``"none"``, ``"standardized"``,
+    static_layer
+        ``NonLinearTimingModel`` static layer: ``"identity"`` or ``"whitening"``
         or ``"whitening"``. Selects the Enterprise sampling coordinate
-        (``delta``, per-axis standardized, or joint ``x``).
+        (``z`` under the identity layer, or joint ``x`` under whitening).
 
     Returns
     -------
@@ -313,7 +296,7 @@ def enterprise_signal(
     """
     from enterprise.signals import deterministic_signals
 
-    coord = _coord_from_transform(transform)
+    coord = coord_for_static_layer(static_layer)
     waveform = _make_waveform(ctx_fn=ctx_fn, coord=coord)
     delay_signal = deterministic_signals.Deterministic(waveform, name=name)
     timing_model = _make_marginalizing_signal(ctx_fn=ctx_fn, name=name)

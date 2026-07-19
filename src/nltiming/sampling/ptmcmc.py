@@ -30,10 +30,10 @@ def eval_params(
 ) -> dict[str, Any]:
     """Map a timing-block sampler vector to a likelihood parameter dict.
 
-    With ``transform="standardized"`` the vector entries are scalar
-    standardized coordinates keyed by delay-key names (Enterprise scalar
-    ``UserParameter`` layout); otherwise the whole vector is the joint
-    coordinate site.
+    Under the identity static layer (``whitening=None``) the vector entries are
+    scalar prior-normal ``z`` coordinates keyed by delay-key names (Enterprise
+    scalar ``UserParameter`` layout); under static whitening the whole vector is
+    the joint ``x`` coordinate site.
     """
     params: dict[str, Any] = {
         key: float(value)
@@ -45,7 +45,7 @@ def eval_params(
         raise ValueError(f"expected vector of length {len(ctx.sampled)}, got {x.size}")
     if not ctx.sampled:
         return params
-    if ctx.model.transform == "standardized":
+    if ctx.model.static_layer == "identity":
         for i, key in enumerate(ctx.delay_keys):
             params[key] = float(x[i])
     else:
@@ -75,7 +75,7 @@ def initial_cov(ctx, *, nsamples: int = 2000, seed: int = 0) -> np.ndarray:
         raise ValueError("ctx has no sampled timing parameters")
     wls = schur_delta_wls(
         pulsar=ctx.pulsar,
-        partition=ctx.partition,
+        partition=ctx.plan,
         variance=np.asarray(ctx.pulsar.toaerrs, dtype=float) ** 2,
         design_matrix=ctx.design_matrix,
     )
@@ -102,7 +102,7 @@ def timing_param_names(ctx) -> tuple[str, ...]:
     """Sampler-visible timing parameter names in vector order."""
     if not ctx.sampled:
         return tuple()
-    if ctx.model.transform == "standardized":
+    if ctx.model.static_layer == "identity":
         return tuple(ctx.delay_keys)
     site = ctx.latent_name_for_coord()
     return tuple(f"{site}_{i}" for i in range(len(ctx.sampled)))

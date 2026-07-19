@@ -229,6 +229,10 @@ class VelaEngine:
         """Pulsar fitpars evaluated exactly via the design matrix."""
         return self._exact_linear_fitpars
 
+    def identically_linear_fitpars(self) -> frozenset[str]:
+        """Fitpars whose engine waveform is affine in delta (§4.3)."""
+        return self._exact_linear_fitpars
+
     def reference_theta(self) -> np.ndarray:
         return self._model.reference_theta()
 

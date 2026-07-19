@@ -1,16 +1,16 @@
-"""Tests for sample=-based partition selection and constructor priors."""
+"""Tests for inference-based plan selection and constructor priors."""
 
 import numpy as np
 import pytest
 
 from nltiming import priors as prior_specs
+from nltiming import TimingInference
 from nltiming.engines.base import LinearModel
 from nltiming.engines.jug import LinearizedJugEngine
 from nltiming.nonlinear_timing_model import NonLinearTimingModel
-from nltiming.partition import (
+from nltiming.selection import (
     fitpar_suffixes,
     match_fitpars,
-    resolve_partition,
     select_fitpars,
 )
 
@@ -119,40 +119,22 @@ def test_select_fitpars_preserves_order_and_raises_on_miss(pulsar):
         select_fitpars(pulsar, ["ECC"])
 
 
-def test_resolve_partition_sample_marginalizes_rest(pulsar):
-    partition = resolve_partition(pulsar, sample=["PB", "TASC"])
-    assert partition.sampled == ("PB_a", "TASC_a", "PB_b", "TASC_b")
-    assert partition.analytically_marginalized == ("F1",)
-
-
-def test_resolve_partition_sample_and_explicit_marginalize_conflict(pulsar):
-    with pytest.raises(ValueError, match="not both"):
-        resolve_partition(pulsar, analytically_marginalize=["F1"], sample=["PB"])
-
-
-def test_model_sample_kwarg_selects_partition(pulsar):
-    ntm = NonLinearTimingModel(engines="jug", sample=["PB", "TASC"], name="timing")
+def test_model_inference_groups_selects_plan(pulsar):
+    ntm = NonLinearTimingModel(engines="jug", inference=TimingInference.groups(delta_flat=["F1"]), name="timing")
     ctx = ntm.for_pulsar(pulsar)
     assert ctx.sampled == ("PB_a", "TASC_a", "PB_b", "TASC_b")
     assert ctx.marginalized == ("F1",)
 
 
-def test_model_sample_string_rejected():
-    with pytest.raises(ValueError, match="sequence of fitpar names"):
-        NonLinearTimingModel(engines="jug", sample="PB")
-
-
-def test_model_sample_conflicts_with_marginalize():
-    with pytest.raises(ValueError, match="not both"):
-        NonLinearTimingModel(
-            engines="jug", sample=["PB"], analytically_marginalize=["F1"]
-        )
+def test_model_inference_type_rejected():
+    with pytest.raises(TypeError, match="TimingInference"):
+        NonLinearTimingModel(engines="jug", inference="PB")
 
 
 def test_constructor_priors_expand_to_suffixed_targets(pulsar):
     ntm = NonLinearTimingModel(
         engines="jug",
-        sample=["PB", "TASC"],
+        inference=TimingInference.groups(delta_flat=["F1"]),
         priors={"TASC": prior_specs.delta_uniform(-0.5, 0.5, scale="PB")},
         name="timing",
     )
@@ -182,10 +164,10 @@ def test_prior_spec_helpers_validate_scale_frame():
     assert spec.scale == "PB"
 
 
-def test_with_engines_carries_sample_and_priors(pulsar):
+def test_with_engines_carries_inference_and_priors(pulsar):
     ntm = NonLinearTimingModel(
         engines="jug",
-        sample=["PB", "TASC"],
+        inference=TimingInference.groups(delta_flat=["F1"]),
         priors={"TASC": prior_specs.delta_uniform(-0.5, 0.5, scale="PB")},
         name="timing",
     )

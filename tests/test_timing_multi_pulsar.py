@@ -2,6 +2,7 @@
 
 import numpy as np
 
+from nltiming import TimingInference
 from nltiming.engines.base import LinearModel
 from nltiming.engines.jug import LinearizedJugEngine
 from nltiming.nonlinear_timing_model import NonLinearTimingModel
@@ -69,14 +70,13 @@ def test_multi_pulsar_prefixes_and_cache_independence(monkeypatch):
     host_b = _Host("J0002+0002", "tok-b")
     ntm = NonLinearTimingModel(
         engines="jug",
-        transform="none",
-        analytically_marginalize=["F0"],
+        inference=TimingInference.groups(delta_flat=["F0"]),
         name="timing",
     )
 
     sample_values = {
-        f"{host_a.name}_timing_delta": np.array([0.1]),
-        f"{host_b.name}_timing_delta": np.array([-0.2]),
+        f"{host_a.name}_timing_z": np.array([0.1]),
+        f"{host_b.name}_timing_z": np.array([-0.2]),
     }
     deterministic_calls = []
 

@@ -11,6 +11,8 @@ import json
 import numpy as np
 import pytest
 
+from nltiming import WhiteningConfig
+from nltiming import TimingInference
 from nltiming.engines.base import LinearModel
 from nltiming.engines.jug import LinearizedJugEngine
 from nltiming.nonlinear_timing_model import NonLinearTimingModel
@@ -86,8 +88,8 @@ def pulsar():
 def ntm():
     return NonLinearTimingModel(
         engines="jug",
-        transform="whitening",
-        analytically_marginalize=["F0"],
+        whitening=WhiteningConfig(),
+        inference=TimingInference.groups(delta_flat=["F0"]),
         name="timing",
     )
 
@@ -137,11 +139,11 @@ def test_wrong_chain_array_fails_naming_chains(tmp_path, ntm, pulsar):
 def test_wrong_live_context_fails_assert_consistent_with(tmp_path, ntm, pulsar):
     _write_run(tmp_path, ntm, pulsar)
     run = load_run(tmp_path)
-    # A different model config yields a different context fingerprint.
+    # A different static layer yields a different context fingerprint.
     other = NonLinearTimingModel(
         engines="jug",
-        transform="standardized",
-        analytically_marginalize=["F0"],
+        whitening=None,
+        inference=TimingInference.groups(delta_flat=["F0"]),
         name="timing",
     )
     other_ctx = other.for_pulsar(_Pulsar())
@@ -181,8 +183,8 @@ def test_no_overwrite_of_incompatible_run(tmp_path, ntm, pulsar):
     # A manifest with a different context digest must not clobber the existing run.
     other = NonLinearTimingModel(
         engines="jug",
-        transform="standardized",
-        analytically_marginalize=["F0"],
+        whitening=None,
+        inference=TimingInference.groups(delta_flat=["F0"]),
         name="timing",
     )
     other_manifest = other.for_pulsar(pulsar).run_manifest(

@@ -65,6 +65,13 @@ class PulsarTimingEngine:
         """Per-PTA contributions in pulsar row order."""
         return list(self._contributions)
 
+    def identically_linear_fitpars(self) -> frozenset[str]:
+        """Union of per-contribution identically-linear fitpars (§4.3)."""
+        out: set[str] = set()
+        for contribution in self._contributions:
+            out.update(contribution.exact_linear_fitpars)
+        return frozenset(out)
+
     def _merge_reference_theta_exact(self) -> dict[str, str]:
         merged: dict[str, str] = {}
         for contribution in self._contributions:

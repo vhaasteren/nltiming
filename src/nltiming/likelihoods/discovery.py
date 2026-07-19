@@ -14,7 +14,7 @@ added separately—for example via ``sample_timing``, which evaluates
 ``space.logprior_coord`` as a NumPyro factor.
 
 With ``prior_policy="fallback"``, unresolved sampled priors use the reference-stack
-*cheat* prior convention: a flat ``uniform`` on ``[center ± cheat_prior_scale · σ]`` in
+*cheat* prior convention: a flat ``uniform`` on ``[center ± coordinate_policy.nonlinear_scale · σ]`` in
 delta space (center = par-file reference, ``σ`` = par-file uncertainty with
 WLS fallback), clipped to ``native_physical_bounds`` when applicable. The
 whitening/standardized linear layer is a sampler reparameterization only; it
@@ -27,7 +27,7 @@ from typing import Callable
 
 import numpy as np
 
-from nltiming.partition import PartitionResult
+from nltiming.inference import TimingParameterPlan
 from nltiming.protocols import JaxTimingEngine
 
 
@@ -39,7 +39,7 @@ def _build_delay_callable(
     *,
     pulsar,
     engine: JaxTimingEngine,
-    partition: PartitionResult,
+    partition: TimingParameterPlan,
     name: str,
 ) -> Callable[[dict[str, object]], object]:
     sampled_names = tuple(partition.sampled)
@@ -68,7 +68,7 @@ def _build_delay_callable(
 
 
 def discovery_signals(
-    *, pulsar, space, engine, partition: PartitionResult, name: str, design_matrix=None
+    *, pulsar, space, engine, partition: TimingParameterPlan, name: str, design_matrix=None
 ) -> list:
     """Return Discovery-native timing signals: GP (optional) + nonlinear delay.
 

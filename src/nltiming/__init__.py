@@ -24,6 +24,12 @@ from .metric import (
     toa_errors_metric,
 )
 from .nonlinear_timing_model import NonLinearTimingModel, TimingContext
+from .inference import (
+    Marginalize,
+    TimingInference,
+    TimingParameterPlan,
+)
+from .coordinates import TimingCoordinatePolicy, TimingExpansionSpec
 from .evaluator import (
     TimingCapabilities,
     TimingEvaluation,
@@ -47,6 +53,11 @@ from .space import ParameterSpace
 __all__ = [
     "NonLinearTimingModel",
     "TimingContext",
+    "Marginalize",
+    "TimingInference",
+    "TimingParameterPlan",
+    "TimingCoordinatePolicy",
+    "TimingExpansionSpec",
     "WhiteningConfig",
     "LocalPosteriorMetric",
     "StaticTransportRecord",

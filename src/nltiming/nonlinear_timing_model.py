@@ -21,12 +21,18 @@ from .metric import (
     static_transport_record,
     toa_errors_metric,
 )
-from .partition import (
-    PartitionResult,
-    fitpar_suffixes,
-    match_fitpars,
-    resolve_partition,
+from .coordinates import (
+    LocallyMarginalizedTimingWarning,
+    NonAffineIdenticallyLinearWarning,
+    TimingCoordinatePolicy,
 )
+from .inference import (
+    TimingInference,
+    TimingParameterPlan,
+    resolve_inference_plan,
+)
+from .linearity import LinearityResolution, resolve_linearity
+from .selection import fitpar_suffixes, match_fitpars
 from .priors import (
     PriorBlock,
     PriorBuildContext,
@@ -37,12 +43,11 @@ from .priors import (
     store_prior_override,
     validate_prior_policy,
 )
-from .space import ParameterSpace, default_coord_for_transform
+from .space import ParameterSpace, coord_for_static_layer
 from .units import lookup_pint_param, native_physical_bounds, to_native
 from .whitening import posterior_linear_transform, schur_delta_wls
 from .engines import normalize_engines
 
-_TRANSFORMS = {"none", "standardized", "whitening"}
 _DESIGN_MATRIX_METHODS = {"analytic", "autodiff"}
 _PRIOR_OVERRIDE_POLICIES = {"warn", "strict"}
 
@@ -105,7 +110,8 @@ class TimingContext:
     model: "NonLinearTimingModel"
     pulsar: Any
     engine: Any
-    partition: PartitionResult
+    plan: TimingParameterPlan
+    linearity: LinearityResolution
     prior_block: PriorBlock
     space: ParameterSpace
     coord: str
@@ -145,8 +151,8 @@ class TimingContext:
         Finalize-once and immutable: raises on an already-conditioned context,
         validates the metric's sampled order/dimension, builds the posterior
         ``(C, c)``, and folds the metric provenance into the transport record.
-        ``metric=None`` is only valid for ``transform='none'`` (an identity
-        transport that computes no reference-noise Fisher).
+        ``metric=None`` is only valid for the identity static layer
+        (``whitening=None``), which computes no reference-noise Fisher.
         """
         if self.conditioned:
             raise ValueError(
@@ -155,10 +161,10 @@ class TimingContext:
                 "re-condition (§5.2)."
             )
         if metric is None:
-            if self.model.transform != "none":
+            if self.model.static_layer != "identity":
                 raise ValueError(
-                    "with_transport requires a LocalPosteriorMetric unless "
-                    "transform='none'"
+                    "with_transport requires a LocalPosteriorMetric unless the "
+                    "static layer is identity (whitening=None)"
                 )
             linear = WhiteningLinear.identity(len(self.sampled))
             new_space = ParameterSpace(
@@ -166,7 +172,7 @@ class TimingContext:
                 theta_ref=self.space.theta_ref,
                 prior_bijector=self.space.prior_bijector,
                 linear=linear,
-                transform=self.model.transform,
+                static_layer=self.model.static_layer,
                 pint_model=self.space.pint_model,
             )
             transport = identity_transport_record(linear, coordinate=self.coord)
@@ -185,7 +191,7 @@ class TimingContext:
             theta_ref=self.space.theta_ref,
             prior_bijector=self.space.prior_bijector,
             linear=linear,
-            transform=self.model.transform,
+            static_layer=self.model.static_layer,
             pint_model=self.space.pint_model,
         )
         transport = static_transport_record(
@@ -205,18 +211,61 @@ class TimingContext:
 
     @property
     def sampled(self) -> tuple[str, ...]:
-        return self.partition.sampled
+        return self.plan.sampled
 
     @property
     def marginalized(self) -> tuple[str, ...]:
-        return self.partition.analytically_marginalized
+        return self.plan.marginalized_delta
+
+    @property
+    def identically_linear(self) -> tuple[str, ...]:
+        """Effective identically-linear fitpars, in fitpar order."""
+        return tuple(
+            a.name for a in self.plan.axes if a.name in self.linearity.effective_names
+        )
+
+    def linearity_sources_for(self, name: str) -> tuple[str, ...]:
+        return self.linearity.sources_for(name)
+
+    def chart_summary(self) -> list[dict[str, Any]]:
+        """Per-proper-axis chart/prior summary (pandas-free ``list[dict]``)."""
+        out: list[dict[str, Any]] = []
+        for axis in self.plan.axes:
+            if axis.disposition not in ("sample", "marginalize_z_prior"):
+                continue
+            out.append(
+                {
+                    "name": axis.name,
+                    "disposition": axis.disposition,
+                    "chart": axis.chart,
+                    "prior_family": None if axis.prior is None else axis.prior.family,
+                    "prior_source": axis.prior_source,
+                    "identically_linear": axis.name in self.linearity.effective_names,
+                }
+            )
+        return out
+
+    @property
+    def nonaffine_identically_linear(self) -> tuple[str, ...]:
+        """Identically-linear proper axes whose chart is not ``affine_normal``.
+
+        These are declared identically linear yet carry a bounded/non-Gaussian
+        prior, so their PIT chart is only a local surrogate (§4.4).
+        """
+        return tuple(
+            axis.name
+            for axis in self.plan.axes
+            if axis.name in self.linearity.effective_names
+            and axis.chart is not None
+            and axis.chart != "affine_normal"
+        )
 
     @property
     def priors(self) -> PriorBlock:
         return self.prior_block
 
     def timing_param_keys(self) -> tuple[str, ...]:
-        if not self.partition.sampled:
+        if not self.plan.sampled:
             return tuple()
         return (self.latent_name, *self.delay_keys)
 
@@ -225,7 +274,7 @@ class TimingContext:
         return tuple(name for name in params if name not in owned)
 
     def latent_name_for_coord(self, coord: str | None = None) -> str:
-        default = default_coord_for_transform(self.model.transform)
+        default = coord_for_static_layer(self.model.static_layer)
         coord = default if coord is None else coord
         if coord not in {"delta", "z", "x"}:
             raise ValueError(f"Unsupported coord: {coord}")
@@ -246,8 +295,8 @@ class TimingContext:
                 self.pulsar, self.engine
             ),
             "space": self.space.fingerprint(),
-            "transform": self.model.transform,
-            "coord": default_coord_for_transform(self.model.transform),
+            "static_layer": self.model.static_layer,
+            "coord": coord_for_static_layer(self.model.static_layer),
             "sampled": list(self.sampled),
             "engines": sorted(self.model.engines.items()),
             "design_matrix_method": self.model.design_matrix_method,
@@ -263,10 +312,9 @@ class TimingContext:
 
     @property
     def sampled_all(self) -> tuple[str, ...]:
-        """All numerically sampled timing parameters (nonlinear + exact-linear),
-        in fitpar order. Alias of :attr:`sampled` — the joint timing coordinate
-        spans this whole set."""
-        return self.partition.sampled
+        """All numerically sampled timing parameters, in fitpar order. Alias of
+        :attr:`sampled` — the joint timing coordinate spans this whole set."""
+        return self.plan.sampled
 
     @property
     def joint_site(self) -> str:
@@ -310,8 +358,8 @@ class TimingContext:
                 f"{type(self.engine).__name__}"
             )
 
-        idx = jnp.asarray(self.partition.idx_sampled)
-        nfit = len(self.partition.fitpars)
+        idx = jnp.asarray(self.plan.idx_sampled)
+        nfit = len(self.plan.fitpars)
         bij = self.space.prior_bijector
         z_ref = jnp.asarray(bij.z_from_delta(np.zeros(ndim), np))
 
@@ -335,19 +383,19 @@ class TimingContext:
     def discovery_signals(self, *, joint: bool = False) -> list:
         from .likelihoods.discovery import discovery_signals
 
-        if joint and self.partition.idx_analytically_marginalized:
+        if joint and self.plan.idx_analytically_marginalized:
             raise ValueError(
                 "discovery_signals(joint=True) expects a fully-sampled timing "
-                "partition (nothing analytically marginalized), but "
+                "plan (nothing analytically marginalized), but "
                 f"{list(self.marginalized)} are marginalized. Build the model "
-                "with sample_linear= (and analytically_marginalize=None) so the "
-                "joint transport carries every timing direction."
+                "with inference=TimingInference.sample_all() so the joint "
+                "transport carries every timing direction."
             )
         return discovery_signals(
             pulsar=self.pulsar,
             space=self.space,
             engine=self.engine,
-            partition=self.partition,
+            partition=self.plan,
             name=self.model.name,
             design_matrix=self.design_matrix,
         )
@@ -364,7 +412,7 @@ class TimingContext:
         Accepts either the joint coordinate site (``latent_name_for_coord``), the
         per-parameter delay keys, or Enterprise standardized scalar columns.
         """
-        sampled = self.partition.sampled
+        sampled = self.plan.sampled
         if not sampled:
             return np.zeros((0,), dtype=float)
 
@@ -388,20 +436,17 @@ class TimingContext:
                 "or a delta site"
             )
 
-        # Enterprise standardized scalars reuse delay-key names for sampler x axes.
+        # Enterprise scalar timing axes reuse delay-key names for their sampler
+        # coordinate (z under the identity static layer).
         if (
-            coord == "x"
-            and self.model.transform == "standardized"
+            coord in ("z", "x")
             and all(key in params for key in self.delay_keys)
         ):
             values = np.asarray([params[key] for key in self.delay_keys], dtype=float)
-            # Implicit default coord corresponds to sample_timing outputs
-            # where delay keys already carry delta values.
             if not coord_explicit:
                 return values
-            # Explicit coord="x" keeps Enterprise standardized-scalar semantics.
             return np.asarray(
-                self.space.delta_from_coord(values, np, coord="x"), dtype=float
+                self.space.delta_from_coord(values, np, coord=coord), dtype=float
             )
 
         raise ValueError(
@@ -466,47 +511,38 @@ class NonLinearTimingModel:
         design_matrix_method: str = "analytic",
         tempo2_native: str | None = None,
         tempo2_jug_options: Mapping[str, Any] | None = None,
-        transform: str = "whitening",
-        sample: str | Sequence[str] | None = None,
-        sample_linear: str | Sequence[str] | None = None,
-        analytically_marginalize: str | Sequence[str] | None = "default",
+        inference: TimingInference | None = None,
+        identically_linear: Sequence[str] | None = None,
         priors: Mapping[str, PriorOverrideSpec] | None = None,
         prior_policy: PriorPolicy = "wide_default",
         prior_override_policy: Literal["warn", "strict"] = "warn",
-        cheat_prior_scale: float = 50.0,
-        linear_prior_scale: float = 50.0,
+        coordinate_policy: TimingCoordinatePolicy = TimingCoordinatePolicy(),
         whitening: WhiteningConfig | None = None,
         name: str = "nonlinear_timing_model",
     ):
-        if transform not in _TRANSFORMS:
-            raise ValueError(f"Unsupported transform: {transform}")
-        if not (float(cheat_prior_scale) > 0.0):
-            raise ValueError("cheat_prior_scale must be positive")
         override_policy = str(prior_override_policy or "warn").lower()
         if override_policy not in _PRIOR_OVERRIDE_POLICIES:
             raise ValueError(
                 "prior_override_policy must be 'warn' or 'strict'; "
                 f"got {prior_override_policy!r}"
             )
-        if sample is not None and sample != "default":
-            if isinstance(sample, str):
-                raise ValueError(
-                    "sample must be 'default', None, or a sequence of fitpar names"
+        if inference is None:
+            inference = TimingInference.default()
+        elif not isinstance(inference, TimingInference):
+            raise TypeError(
+                "inference must be a TimingInference (see nltiming.inference); "
+                "the old sample=/sample_linear=/analytically_marginalize= switches "
+                "were removed (§4.1)"
+            )
+        if identically_linear is not None:
+            if isinstance(identically_linear, str):
+                raise TypeError(
+                    "identically_linear must be a sequence of fitpar selectors, "
+                    "not a bare string"
                 )
-            if sample_linear is None and analytically_marginalize != "default":
-                raise ValueError(
-                    "pass either sample= or analytically_marginalize=, not both"
-                )
-            sample = tuple(str(name) for name in sample)
-        if sample_linear is not None and sample_linear != "remaining":
-            if isinstance(sample_linear, str):
-                raise ValueError(
-                    "sample_linear must be 'remaining', None, or a sequence of "
-                    "fitpar names"
-                )
-            sample_linear = tuple(str(name) for name in sample_linear)
-        if not (float(linear_prior_scale) > 0.0):
-            raise ValueError("linear_prior_scale must be positive")
+            identically_linear = tuple(str(n) for n in identically_linear)
+        if not isinstance(coordinate_policy, TimingCoordinatePolicy):
+            raise TypeError("coordinate_policy must be a TimingCoordinatePolicy")
         self.engines = normalize_engines(engines)
         self.design_matrix_method = _normalize_design_matrix_method(
             design_matrix_method
@@ -517,19 +553,21 @@ class NonLinearTimingModel:
         )
         self._tempo2_jug_options_resolved: dict[str, Any] | None = None
         self.prior_override_policy = override_policy
-        self.transform = transform
-        self.sample = sample
-        self.sample_linear = sample_linear
-        self.analytically_marginalize = analytically_marginalize
+        self.inference = inference
+        self.identically_linear = identically_linear
+        self.coordinate_policy = coordinate_policy
         self.prior_policy = validate_prior_policy(prior_policy)
-        self.cheat_prior_scale = float(cheat_prior_scale)
-        self.linear_prior_scale = float(linear_prior_scale)
         if whitening is not None and not isinstance(whitening, WhiteningConfig):
             raise TypeError(
                 "whitening must be a WhiteningConfig (see nltiming.metric); "
                 "the stringly-typed whitening_config dict was removed (§5.1)"
             )
-        self.whitening = whitening if whitening is not None else WhiteningConfig()
+        # Static-layer selection is the ONLY coordinate knob (§4.4.1): whitening
+        # is None -> identity static layer (sampler coordinate z, the only legal
+        # setting for the dynamic joint/decentered transports); a WhiteningConfig
+        # -> a static posterior-whitening layer (sampler coordinate x).
+        self.whitening = whitening
+        self.static_layer = "identity" if whitening is None else "whitening"
         self.name = name
         self._prior_overrides: dict[str, PriorOverrideSpec] = {}
         self._resolved_cache: dict[str, TimingContext] = {}
@@ -628,14 +666,11 @@ class NonLinearTimingModel:
             design_matrix_method=self.design_matrix_method,
             tempo2_native=self.tempo2_native,
             tempo2_jug_options=self._tempo2_jug_options_raw,
-            transform=self.transform,
-            sample=self.sample,
-            sample_linear=self.sample_linear,
-            analytically_marginalize=self.analytically_marginalize,
+            inference=self.inference,
+            identically_linear=self.identically_linear,
             prior_policy=self.prior_policy,
             prior_override_policy=self.prior_override_policy,
-            cheat_prior_scale=self.cheat_prior_scale,
-            linear_prior_scale=self.linear_prior_scale,
+            coordinate_policy=self.coordinate_policy,
             whitening=self.whitening,
             name=self.name,
         )
@@ -648,21 +683,17 @@ class NonLinearTimingModel:
             "design_matrix_method": self.design_matrix_method,
             "tempo2_native": self._tempo2_native_fingerprint(),
             "tempo2_jug_options": self.tempo2_jug_options,
-            "transform": self.transform,
-            "sample": (
-                list(self.sample) if isinstance(self.sample, tuple) else self.sample
+            "static_layer": self.static_layer,
+            "inference": self.inference.as_dict(),
+            "identically_linear": (
+                None
+                if self.identically_linear is None
+                else list(self.identically_linear)
             ),
-            "sample_linear": (
-                list(self.sample_linear)
-                if isinstance(self.sample_linear, tuple)
-                else self.sample_linear
-            ),
-            "analytically_marginalize": self.analytically_marginalize,
+            "coordinate_policy": self.coordinate_policy.as_dict(),
             "prior_policy": self.prior_policy,
             "prior_override_policy": self.prior_override_policy,
-            "cheat_prior_scale": self.cheat_prior_scale,
-            "linear_prior_scale": self.linear_prior_scale,
-            "whitening": self.whitening.as_dict(),
+            "whitening": None if self.whitening is None else self.whitening.as_dict(),
             "name": self.name,
             "prior_overrides": {
                 key: {
@@ -696,12 +727,17 @@ class NonLinearTimingModel:
             **self._timing_engine_kwargs(),
         )
 
-    def _partition(self, pulsar) -> PartitionResult:
-        return resolve_partition(
+    def _resolve_linearity(self, pulsar, engine) -> LinearityResolution:
+        return resolve_linearity(
+            pulsar, engine, identically_linear=self.identically_linear
+        )
+
+    def _plan(self, pulsar, engine, linearity) -> TimingParameterPlan:
+        return resolve_inference_plan(
             pulsar,
-            analytically_marginalize=self.analytically_marginalize,
-            sample=self.sample,
-            sample_linear=self.sample_linear,
+            inference=self.inference,
+            linearity=linearity,
+            coordinate_policy=self.coordinate_policy,
         )
 
     def _resolve_prior_overrides(
@@ -709,7 +745,7 @@ class NonLinearTimingModel:
         *,
         pulsar,
         engine,
-        partition: PartitionResult,
+        partition: TimingParameterPlan,
     ) -> dict[str, AxisPrior]:
         """Materialize stored override specs into delta-space AxisPrior values.
 
@@ -742,6 +778,26 @@ class NonLinearTimingModel:
             if hits and not any(hit in sampled_set for hit in hits)
         )
         if invalid:
+            # A prior override that lands on an analytically delta-flat axis is
+            # rejected outright (§4.4): that axis has an improper flat measure and
+            # no proper prior, so the override cannot participate. The user must
+            # choose z-prior marginalization (or sample the axis) for the prior to
+            # matter. This is stronger than the warn/strict policy for genuinely
+            # absent parameters.
+            delta_flat = set(partition.marginalized_delta)
+            on_delta_flat = sorted(
+                name
+                for name in invalid
+                if any(hit in delta_flat for hit in expansion[name])
+            )
+            if on_delta_flat:
+                raise ValueError(
+                    "Prior overrides target analytically delta-flat (improper "
+                    f"measure) timing axes: {on_delta_flat}. Delta-flat axes have "
+                    "no proper prior; choose z-prior marginalization "
+                    "(Marginalize.z_prior()) or sample these axes for a prior to "
+                    "apply."
+                )
             if self.prior_override_policy == "strict":
                 raise ValueError(
                     "Prior overrides target non-sampled parameters for this pulsar: "
@@ -776,7 +832,7 @@ class NonLinearTimingModel:
         pulsar,
         spec: PriorOverrideSpec,
         target: str,
-        partition: PartitionResult,
+        partition: TimingParameterPlan,
     ) -> PriorOverrideSpec:
         """Resolve a spec's ``scale=`` reference suffix-consistently with ``target``."""
         if spec.scale is None:
@@ -809,7 +865,8 @@ class NonLinearTimingModel:
         *,
         pulsar,
         engine,
-        partition: PartitionResult,
+        partition: TimingParameterPlan,
+        linearity: LinearityResolution,
         design_matrix: np.ndarray,
     ) -> PriorBlock:
         ref_exact = engine.reference_theta_exact()
@@ -834,13 +891,96 @@ class NonLinearTimingModel:
             pint_model=pulsar.pint_model(),
         )
         theta_ref_native = {name: float(value) for name, value in sampled_refs.items()}
+        linear_names = frozenset(
+            a.name
+            for a in partition.axes
+            if a.disposition == "sample" and a.name in linearity.effective_names
+        )
         return self._fill_wls_cheat_priors(
             pulsar=pulsar,
             partition=partition,
             block=block,
+            linear_names=linear_names,
             theta_ref_native=theta_ref_native,
             design_matrix=design_matrix,
         )
+
+    def _emit_coordinate_warnings(
+        self, plan: TimingParameterPlan, linearity: LinearityResolution
+    ) -> None:
+        """Emit the §4.4 coordinate warnings (honoring the user's plan/priors).
+
+        - ``NonAffineIdenticallyLinearWarning``: an identically-linear proper axis
+          whose resolved chart is not ``affine_normal`` (a bounded/non-Gaussian
+          prior makes its PIT chart a local surrogate).
+        - ``LocallyMarginalizedTimingWarning``: a marginalized axis not certified
+          identically linear (its analytical integration uses a fixed local affine
+          likelihood). The constructor default may legitimately trigger this for
+          engine-uncertified spindown/dispersion/position axes.
+        """
+        policy = self.coordinate_policy
+        linear = linearity.effective_names
+        nonaffine = [
+            axis.name
+            for axis in plan.axes
+            if axis.name in linear
+            and axis.chart is not None
+            and axis.chart != "affine_normal"
+        ]
+        if nonaffine and policy.nonaffine_identically_linear == "warn":
+            warnings.warn(
+                NonAffineIdenticallyLinearWarning(
+                    "identically-linear timing axes carry a non-Gaussian prior, so "
+                    f"their chart is only a local PIT surrogate: {nonaffine}. The "
+                    "prior is honored; pass coordinate_policy with "
+                    "nonaffine_identically_linear='ignore' to silence."
+                ),
+                stacklevel=3,
+            )
+        local_marg = [
+            axis.name
+            for axis in plan.axes
+            if axis.disposition in ("marginalize_delta_flat", "marginalize_z_prior")
+            and axis.name not in linear
+        ]
+        if local_marg and policy.nonidentically_linear_marginalization == "warn":
+            warnings.warn(
+                LocallyMarginalizedTimingWarning(
+                    "analytically marginalized timing axes are not certified "
+                    f"identically linear, so their integration is local: {local_marg}. "
+                    "The plan is honored; pass coordinate_policy with "
+                    "nonidentically_linear_marginalization='ignore' to silence."
+                ),
+                stacklevel=3,
+            )
+
+    def _tag_charts(
+        self, plan: TimingParameterPlan, prior_block: PriorBlock, prior_bijector
+    ) -> TimingParameterPlan:
+        """Attach the resolved prior, prior source, and chart to each proper axis.
+
+        The chart is derived mechanically from the resolved prior family
+        (Gaussian delta prior -> ``affine_normal``; otherwise ``prior_pit``).
+        Delta-flat axes keep ``prior=chart=None`` (no proper prior).
+        """
+        prior_by_name = dict(zip(prior_block.names, prior_block.priors))
+        chart_by_name = dict(zip(prior_block.names, prior_bijector.chart_kinds()))
+        axes = []
+        for axis in plan.axes:
+            if axis.disposition in ("sample", "marginalize_z_prior") and (
+                axis.name in prior_by_name
+            ):
+                axes.append(
+                    replace(
+                        axis,
+                        prior=prior_by_name[axis.name],
+                        prior_source=prior_block.sources.get(axis.name),
+                        chart=chart_by_name[axis.name],
+                    )
+                )
+            else:
+                axes.append(axis)
+        return plan.with_axes(axes)
 
     def _parfile_cheat_stds(self, pulsar, names) -> dict[str, float]:
         """Per-parameter par-file frequentist uncertainties in native units."""
@@ -867,8 +1007,9 @@ class NonLinearTimingModel:
         self,
         *,
         pulsar,
-        partition: PartitionResult,
+        partition: TimingParameterPlan,
         block: PriorBlock,
+        linear_names: frozenset[str] = frozenset(),
         theta_ref_native: dict[str, float] | None = None,
         design_matrix: np.ndarray | None = None,
     ) -> PriorBlock:
@@ -884,8 +1025,12 @@ class NonLinearTimingModel:
         )
         wls_stds = np.sqrt(np.diag(wls.covariance))
         parfile_stds = self._parfile_cheat_stds(pulsar, block.names)
-        scale = self.cheat_prior_scale
-        linear_set = set(partition.linear_sampled)
+        scale = self.coordinate_policy.nonlinear_scale
+        # Identically-linear sampled axes get a wide proper Gaussian in delta
+        # (§4.4); everything else gets the clipped uniform cheat box. This
+        # replaces the old partition.linear_sampled concept with the linearity
+        # registry.
+        linear_set = set(linear_names)
         priors = []
         for idx, (name, prior) in enumerate(
             zip(block.names, block.priors, strict=True)
@@ -907,7 +1052,7 @@ class NonLinearTimingModel:
                     AxisPrior(
                         family="normal",
                         mean=0.0,
-                        std=float(self.linear_prior_scale * sigma),
+                        std=float(self.coordinate_policy.linear_scale * sigma),
                     )
                 )
                 continue
@@ -939,17 +1084,22 @@ class NonLinearTimingModel:
         no external kernel) are auto-buildable; an assembled-likelihood metric
         must be supplied by the likelihood interface (§5.1).
         """
+        if self.whitening is None:
+            raise ValueError(
+                "the identity static layer (whitening=None) has no reference-noise "
+                "metric; pass a WhiteningConfig to enable static whitening"
+            )
         reference_noise = self.whitening.reference_noise
         if reference_noise == "toa_errors":
             return toa_errors_metric(
                 pulsar=ctx.pulsar,
-                partition=ctx.partition,
+                partition=ctx.plan,
                 design_matrix=ctx.design_matrix,
             )
         if reference_noise == "frozen_white":
             return frozen_white_metric(
                 pulsar=ctx.pulsar,
-                partition=ctx.partition,
+                partition=ctx.plan,
                 design_matrix=ctx.design_matrix,
             )
         raise ValueError(
@@ -961,14 +1111,15 @@ class NonLinearTimingModel:
     def _linear_from_metric(
         self, metric: LocalPosteriorMetric, prior_bijector
     ) -> tuple[WhiteningLinear, bool]:
-        """Posterior whitening ``(C, c)`` from a metric; returns guard flag."""
-        ndim = len(metric.sampled)
-        if self.transform == "none":
-            return WhiteningLinear.identity(ndim), False
+        """Posterior whitening ``(C, c)`` from a metric; returns guard flag.
+
+        Only reached for a non-identity static layer (``whitening`` is a
+        ``WhiteningConfig``); the identity layer never conditions.
+        """
         linear, diagnostics = posterior_linear_transform(
             metric.fisher_delta,
             prior_bijector=prior_bijector,
-            mode=self.transform,
+            mode="whitening",
             score_delta=metric.score_delta,
             origin=self.whitening.origin,
         )
@@ -1005,7 +1156,20 @@ class NonLinearTimingModel:
 
     def _unconditioned_for_pulsar(self, pulsar, engine) -> TimingContext:
         """Build the unconditioned base context (identity transport, §5.2)."""
-        partition = self._partition(pulsar)
+        linearity = self._resolve_linearity(pulsar, engine)
+        partition = self._plan(pulsar, engine, linearity)
+        if partition.marginalized_z:
+            # The z-prior marginal block (proper unit-normal coefficients) is not
+            # yet wired into the Discovery/Enterprise likelihood assembly
+            # (geometry §5.5-§5.6, Stage 5). Refuse to build a context that would
+            # silently drop those axes from the likelihood rather than integrate
+            # them; use delta_flat marginalization or sample them until then.
+            raise NotImplementedError(
+                "marginalize_z_prior axes "
+                f"{list(partition.marginalized_z)} are not yet consumed by the "
+                "likelihood adapters (geometry §5.5-§5.6, Stage 5). Use "
+                "Marginalize.delta_flat() or sample these axes for now."
+            )
         design_matrix = _timing_design_matrix(
             pulsar,
             engine,
@@ -1015,6 +1179,7 @@ class NonLinearTimingModel:
             pulsar=pulsar,
             engine=engine,
             partition=partition,
+            linearity=linearity,
             design_matrix=design_matrix,
         )
         prior_bijector = prior_block.to_bijector(
@@ -1022,22 +1187,25 @@ class NonLinearTimingModel:
                 engine, "precision_critical_fitpars", lambda: frozenset()
             )()
         )
+        partition = self._tag_charts(partition, prior_block, prior_bijector)
+        self._emit_coordinate_warnings(partition, linearity)
         ref_exact = engine.reference_theta_exact()
         sampled_ref_exact = {name: ref_exact[name] for name in partition.sampled}
         # Unconditioned: the linear layer is identity until with_transport runs.
         space = ParameterSpace.build(
             sampled_ref_exact,
             prior_bijector=prior_bijector,
-            transform=self.transform,
+            static_layer=self.static_layer,
             linear_transform=WhiteningLinear.identity(len(partition.sampled)),
             pint_model=pulsar.pint_model(),
         )
-        coord = default_coord_for_transform(self.transform)
+        coord = coord_for_static_layer(self.static_layer)
         return TimingContext(
             model=self,
             pulsar=pulsar,
             engine=engine,
-            partition=partition,
+            plan=partition,
+            linearity=linearity,
             prior_block=prior_block,
             space=space,
             coord=coord,
@@ -1066,9 +1234,11 @@ class NonLinearTimingModel:
 
         base = self._unconditioned_for_pulsar(pulsar, engine)
         if condition:
-            # transform='none' is an identity map; skip the reference-noise
-            # Fisher entirely (it is unused and could be singular).
-            metric = None if self.transform == "none" else base.default_metric()
+            # The identity static layer (whitening=None) is an identity map, so
+            # skip the reference-noise Fisher entirely (unused, possibly singular).
+            metric = (
+                None if self.static_layer == "identity" else base.default_metric()
+            )
             resolved = base.with_transport(metric)
         else:
             resolved = base
@@ -1081,5 +1251,5 @@ class NonLinearTimingModel:
         return enterprise_signal(
             ctx_fn=self.for_pulsar,
             name=self.name,
-            transform=self.transform,
+            static_layer=self.static_layer,
         )

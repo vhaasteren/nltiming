@@ -5,7 +5,7 @@ import pytest
 
 from nltiming.bijectors import AxisPrior
 from nltiming.priors import PriorBlock, PriorOverrideSpec, store_prior_override
-from nltiming.partition import PartitionResult
+from _planhelp import plan_for
 from nltiming.space import ParameterSpace
 from nltiming.whitening import (
     diagonal_white,
@@ -104,13 +104,13 @@ def test_whitening_builders_change_coord_only_not_physical_prior():
     default_space = ParameterSpace.build(
         theta_ref_mapping=theta_ref,
         prior_bijector=bijector,
-        transform="whitening",
+        static_layer="whitening",
         linear_transform=diagonal_white(2),
     )
     shifted_space = ParameterSpace.build(
         theta_ref_mapping=theta_ref,
         prior_bijector=bijector,
-        transform="whitening",
+        static_layer="whitening",
         linear_transform=fixed_hyperparameters(2, {"center": [0.3, -0.2]}),
     )
 
@@ -151,13 +151,7 @@ class _WhiteningPulsar:
 
 def test_diagonal_white_uses_pulsar_partition_for_nonidentity_transform():
     pulsar = _WhiteningPulsar()
-    partition = PartitionResult(
-        fitpars=("F0", "A1"),
-        analytically_marginalized=("F0",),
-        sampled=("A1",),
-        idx_analytically_marginalized=(0,),
-        idx_sampled=(1,),
-    )
+    partition = plan_for(pulsar, delta_flat=["F0"])
     block = PriorBlock.from_fitpars(
         ["A1"],
         policy="explicit",
@@ -183,13 +177,7 @@ def test_diagonal_white_uses_pulsar_partition_for_nonidentity_transform():
 
 def test_fixed_hyperparameters_uses_serialized_white_noise_values():
     pulsar = _WhiteningPulsar()
-    partition = PartitionResult(
-        fitpars=("F0", "A1"),
-        analytically_marginalized=(),
-        sampled=("F0", "A1"),
-        idx_analytically_marginalized=(),
-        idx_sampled=(0, 1),
-    )
+    partition = plan_for(pulsar, sample_all=True)
 
     default = diagonal_white(pulsar=pulsar, partition=partition)
     fixed = fixed_hyperparameters(
@@ -220,13 +208,7 @@ class _DegenerateWhiteningPulsar:
 
 def test_schur_delta_wls_raises_on_degenerate_fisher():
     pulsar = _DegenerateWhiteningPulsar()
-    partition = PartitionResult(
-        fitpars=("P1", "P2"),
-        analytically_marginalized=(),
-        sampled=("P1", "P2"),
-        idx_analytically_marginalized=(),
-        idx_sampled=(0, 1),
-    )
+    partition = plan_for(pulsar, sample_all=True)
     with pytest.raises(ValueError, match="positive definite"):
         schur_delta_wls(
             pulsar=pulsar,

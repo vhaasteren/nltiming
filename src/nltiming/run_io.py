@@ -15,7 +15,7 @@ from typing import Any, Mapping, Sequence
 
 import numpy as np
 
-from .space import ParameterSpace, default_coord_for_transform
+from .space import ParameterSpace, coord_for_static_layer
 from .units import units_map
 
 RUN_META_SCHEMA = "nlt-run-meta-v3"
@@ -114,7 +114,7 @@ class RunManifest:
     latent_name: str
     sampled: tuple[str, ...]
     coord: str
-    transform: str
+    static_layer: str
     design_matrix_method: str
     engines: dict[str, str]
     native_units: dict[str, str]
@@ -200,7 +200,7 @@ class RunManifest:
             "sample_coord": self.coord,
             "latent_name": self.latent_name,
             "sampled": list(self.sampled),
-            "transform": self.transform,
+            "static_layer": self.static_layer,
             "design_matrix_method": self.design_matrix_method,
             "engines": dict(self.engines),
             "tempo2_native": self.tempo2_native,
@@ -311,8 +311,8 @@ def build_run_manifest(
         pulsar_name=pulsar.name,
         latent_name=keys[0],
         sampled=sampled,
-        coord=default_coord_for_transform(ntm.transform),
-        transform=ntm.transform,
+        coord=coord_for_static_layer(ntm.static_layer),
+        static_layer=ntm.static_layer,
         design_matrix_method=ntm.design_matrix_method,
         engines=dict(ntm.engines),
         tempo2_native=tempo2_native,
@@ -581,7 +581,7 @@ class RunResults:
                 raise RunIOError(
                     f"{section} section diverged: run={expected} live={actual}. "
                     f"Run was sampled with coord={run_meta.get('sample_coord')!r}, "
-                    f"transform={run_meta.get('transform')!r}. Decode with "
+                    f"static_layer={run_meta.get('static_layer')!r}. Decode with "
                     "run.space; rebuild a live context only for fresh "
                     "calculations (§7.5)."
                 )

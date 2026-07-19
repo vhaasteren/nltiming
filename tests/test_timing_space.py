@@ -19,7 +19,7 @@ def _build_standardized_space():
     return ParameterSpace.build(
         theta_ref_mapping=theta_ref,
         prior_bijector=prior,
-        transform="standardized",
+        static_layer="whitening",
         linear_transform=linear,
     )
 
@@ -46,7 +46,7 @@ def test_x_z_delta_roundtrip_whitening():
     space = ParameterSpace.build(
         theta_ref_mapping=theta_ref,
         prior_bijector=prior,
-        transform="whitening",
+        static_layer="whitening",
         linear_transform=linear,
     )
     x = np.array([0.25, -0.8], dtype=float)
@@ -96,7 +96,7 @@ def test_delta_from_cube_uses_physical_prior_not_whitening():
     space = ParameterSpace.build(
         theta_ref_mapping=theta_ref,
         prior_bijector=prior,
-        transform="whitening",
+        static_layer="whitening",
         linear_transform=linear,
     )
     u = np.array([0.5], dtype=float)
@@ -150,7 +150,7 @@ def test_whitening_linear_x_from_z_supports_jax_xp():
     space = ParameterSpace.build(
         theta_ref_mapping=theta_ref,
         prior_bijector=prior,
-        transform="whitening",
+        static_layer="whitening",
         linear_transform=linear,
     )
     z = jnp.array([0.5, -1.0], dtype=float)

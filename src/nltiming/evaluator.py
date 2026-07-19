@@ -14,7 +14,7 @@ from typing import Any, Literal, cast
 
 import numpy as np
 
-from .partition import match_fitpars
+from .selection import match_fitpars
 from .protocols import JaxTimingEngine
 from .space import ParameterSpace
 from .units import lookup_pint_param, normalize_param_name, units_map

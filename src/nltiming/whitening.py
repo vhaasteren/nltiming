@@ -151,18 +151,18 @@ def _z_space_wls(wls: DeltaWLS, prior_bijector) -> tuple[np.ndarray, np.ndarray]
     return mean_z, covariance_z
 
 
-def _linear_from_z_covariance(covariance_z: np.ndarray, *, mode: str) -> np.ndarray:
-    if mode == "standardized":
-        return np.diag(np.sqrt(np.diag(covariance_z)))
-    if mode == "whitening":
-        try:
-            return sl.cholesky(covariance_z, lower=True)
-        except sl.LinAlgError as exc:
-            raise ValueError(
-                "Timing covariance in z coordinates is not numerically positive "
-                "definite while building the whitening transform."
-            ) from exc
-    raise ValueError(f"Unsupported transform mode for WLS linear layer: {mode}")
+def _linear_from_z_covariance(covariance_z: np.ndarray, *, mode: str = "whitening") -> np.ndarray:
+    # The only static whitening is the full posterior whitening (§4.4.1); the old
+    # diagonal "standardized" mode was retired in favor of the chart system.
+    if mode != "whitening":
+        raise ValueError(f"Unsupported static whitening mode: {mode!r}")
+    try:
+        return sl.cholesky(covariance_z, lower=True)
+    except sl.LinAlgError as exc:
+        raise ValueError(
+            "Timing covariance in z coordinates is not numerically positive "
+            "definite while building the whitening transform."
+        ) from exc
 
 
 def _linear_transform_from_wls(

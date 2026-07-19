@@ -6,8 +6,9 @@ import warnings
 
 import pytest
 
+from nltiming import TimingInference
 from nltiming.nonlinear_timing_model import NonLinearTimingModel
-from nltiming.partition import resolve_partition
+from _planhelp import plan_for
 
 
 class _StubBackend:
@@ -18,7 +19,7 @@ class _StubBackend:
 def test_prior_override_warn_skips_unknown_fitpar():
     ntm = NonLinearTimingModel(
         prior_override_policy="warn",
-        analytically_marginalize=[],
+        inference=TimingInference.sample_all(),
     )
     ntm.set_prior_delta("ECC", "uniform", lower=0.0, upper=0.9)
 
@@ -27,7 +28,7 @@ def test_prior_override_warn_skips_unknown_fitpar():
         name = "stub"
 
     pulsar = _Pulsar()
-    partition = resolve_partition(pulsar, analytically_marginalize=[])
+    partition = plan_for(pulsar, sample_all=True)
     engine = _StubBackend()
 
     with warnings.catch_warnings(record=True) as caught:
@@ -43,7 +44,7 @@ def test_prior_override_warn_skips_unknown_fitpar():
 def test_prior_override_strict_raises_unknown_fitpar():
     ntm = NonLinearTimingModel(
         prior_override_policy="strict",
-        analytically_marginalize=[],
+        inference=TimingInference.sample_all(),
     )
     ntm.set_prior_delta("ECC", "uniform", lower=0.0, upper=0.9)
 
@@ -52,7 +53,7 @@ def test_prior_override_strict_raises_unknown_fitpar():
         name = "stub"
 
     pulsar = _Pulsar()
-    partition = resolve_partition(pulsar, analytically_marginalize=[])
+    partition = plan_for(pulsar, sample_all=True)
     engine = _StubBackend()
 
     with pytest.raises(ValueError, match="unknown fit parameters"):

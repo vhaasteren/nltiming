@@ -140,6 +140,10 @@ class JugEngine:
         """Pulsar fitpars evaluated exactly via the design matrix."""
         return getattr(self, "_exact_linear_fitpars", frozenset())
 
+    def identically_linear_fitpars(self) -> frozenset[str]:
+        """Fitpars whose engine waveform is affine in delta (§4.3)."""
+        return getattr(self, "_exact_linear_fitpars", frozenset())
+
     @property
     def _native_scale(self) -> np.ndarray:
         """Per-JUG-fitpar fit-unit -> native-delta factor (see class docstring).

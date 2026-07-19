@@ -91,6 +91,15 @@ class PriorBijector:
         )
         return cls(names=names, priors=priors)
 
+    def chart_kinds(self) -> tuple[str, ...]:
+        """Per-axis chart kind (§4.4): ``affine_normal`` for a Gaussian delta
+        prior (globally affine in ``z``), ``prior_pit`` otherwise (a local PIT
+        chart)."""
+        return tuple(
+            "affine_normal" if prior.family == "normal" else "prior_pit"
+            for prior in self.priors
+        )
+
     def delta_from_z(self, z, xp):
         z = xp.asarray(z)
         out = []

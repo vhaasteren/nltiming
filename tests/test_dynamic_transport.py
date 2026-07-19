@@ -11,6 +11,8 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
+from nltiming import WhiteningConfig
+from nltiming import TimingInference
 from nltiming.bijectors import WhiteningLinear
 from nltiming.engines.base import LinearModel
 from nltiming.engines.jug import LinearizedJugEngine
@@ -149,14 +151,13 @@ def test_dynamic_transport_record_captures_structure_and_digest():
 def test_one_affine_layer_guard_rejects_nonidentity_static_layer():
     identity = ParameterSpace.build(
         {"a": "0.0", "b": "0.0"},
-        transform="none",
         linear_transform=WhiteningLinear.identity(2),
     )
     assert_static_layer_identity(identity)  # identity layer: must not raise
 
     nonidentity = ParameterSpace.build(
         {"a": "0.0", "b": "0.0"},
-        transform="whitening",
+        static_layer="whitening",
         linear_transform=WhiteningLinear(
             C=np.array([[2.0, 0.0], [0.3, 1.5]]), z0=np.array([0.1, 0.0])
         ),
@@ -167,11 +168,11 @@ def test_one_affine_layer_guard_rejects_nonidentity_static_layer():
 
 def test_joint_manifest_requires_identity_static_layer():
     pulsar = _Pulsar()
-    # transform='whitening' conditions a non-identity static layer -> rejected.
+    # whitening=WhiteningConfig() conditions a non-identity static layer -> rejected.
     ntm = NonLinearTimingModel(
         engines="jug",
-        transform="whitening",
-        analytically_marginalize=["F0"],
+        whitening=WhiteningConfig(),
+        inference=TimingInference.groups(delta_flat=["F0"]),
         name="timing",
     )
     ctx = ntm.for_pulsar(pulsar)
@@ -188,8 +189,8 @@ def test_joint_manifest_requires_identity_static_layer():
 
 
 def _joint_manifest(tmp_path, pulsar):
-    # transform='none' -> identity static layer, satisfying the one-layer rule.
-    ntm = NonLinearTimingModel(engines="jug", transform="none", name="timing")
+    # whitening=None -> identity static layer, satisfying the one-layer rule.
+    ntm = NonLinearTimingModel(engines="jug", name="timing")
     ctx = ntm.for_pulsar(pulsar)
     record = dynamic_transport_record(_FakeTransport())
     manifest = ctx.run_manifest(

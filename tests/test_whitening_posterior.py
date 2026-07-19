@@ -34,8 +34,8 @@ def _random_spd(rng, ndim, *, scale=1.0):
 # --------------------------------------------------------------------------
 
 
-@pytest.mark.parametrize("mode", ["whitening", "standardized"])
-def test_posterior_metric_whitens_fz_plus_identity(mode):
+def test_posterior_metric_whitens_fz_plus_identity():
+    mode = "whitening"
     """§10.1: ``C^T (F_z + I) C = I`` for the full posterior metric."""
     rng = np.random.default_rng(0)
     names = ("a", "b", "c")
@@ -170,7 +170,7 @@ def test_pullback_logprob_matches_direct_and_space_density():
     space = ParameterSpace.build(
         {"a": "0.0", "b": "0.0", "c": "0.0"},
         prior_bijector=_normal_bijector(names, [1.0, 1.0, 1.0]),
-        transform="whitening",
+        static_layer="whitening",
         linear_transform=linear,
     )
 

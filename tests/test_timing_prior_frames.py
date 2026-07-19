@@ -2,9 +2,10 @@
 
 import pytest
 
+from nltiming import TimingInference
 from nltiming.bijectors import AxisPrior
 from nltiming.nonlinear_timing_model import NonLinearTimingModel
-from nltiming.partition import resolve_partition
+from _planhelp import plan_for
 from nltiming.priors import (
     PriorBuildContext,
     PriorOverrideSpec,
@@ -125,7 +126,7 @@ class _FakePulsar:
 def test_ntm_resolve_prior_overrides(composite_binary_ctx):
     pulsar = _FakePulsar(dict(composite_binary_ctx.refs))
     engine = pulsar.timing_engine({})
-    ntm = NonLinearTimingModel(analytically_marginalize=[])
+    ntm = NonLinearTimingModel(inference=TimingInference.sample_all())
     ntm.set_prior(
         "TASC_epta",
         "uniform",
@@ -134,7 +135,7 @@ def test_ntm_resolve_prior_overrides(composite_binary_ctx):
         upper=0.5,
         scale="PB_epta",
     )
-    partition = resolve_partition(pulsar, analytically_marginalize=[])
+    partition = plan_for(pulsar, sample_all=True)
     resolved = ntm._resolve_prior_overrides(
         pulsar=pulsar, engine=engine, partition=partition
     )

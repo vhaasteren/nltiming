@@ -79,7 +79,7 @@ def pulsar():
 
 def _model(**kwargs):
     return NonLinearTimingModel(
-        engines="jug", transform="whitening", name="timing", **kwargs
+        engines="jug", whitening=WhiteningConfig(), name="timing", **kwargs
     )
 
 
@@ -152,11 +152,11 @@ def test_reference_noise_sources_are_distinguishable(pulsar):
     and digests."""
     base = _model().for_pulsar(pulsar, condition=False)
     toa = toa_errors_metric(
-        pulsar=base.pulsar, partition=base.partition, design_matrix=base.design_matrix
+        pulsar=base.pulsar, partition=base.plan, design_matrix=base.design_matrix
     )
     frozen = frozen_white_metric(
         pulsar=base.pulsar,
-        partition=base.partition,
+        partition=base.plan,
         efac={"demo": 2.0},
         equad={"demo": 1.0e-7},
         design_matrix=base.design_matrix,
@@ -203,12 +203,12 @@ def test_whitening_config_rejects_stringly_dict(pulsar):
         WhiteningConfig(reference_noise="not_a_class")
 
 
-def test_transform_none_conditions_with_identity_transport_and_no_metric(pulsar):
-    """transform='none' is an identity map: it conditions with an identity
+def test_whitening_none_conditions_with_identity_transport_and_no_metric(pulsar):
+    """whitening=None is an identity map: it conditions with an identity
     transport and no reference-noise metric, so its provenance never claims a
     (never-applied) toa_errors whitening (§5.5, provenance honesty)."""
     none_ctx = NonLinearTimingModel(
-        engines="jug", transform="none", name="t"
+        engines="jug", name="t"
     ).for_pulsar(pulsar)
     assert none_ctx.conditioned is True
     assert none_ctx.metric is None
@@ -216,7 +216,7 @@ def test_transform_none_conditions_with_identity_transport_and_no_metric(pulsar)
     assert none_ctx.transport.metric_source["reference_noise"] == "identity"
     np.testing.assert_allclose(none_ctx.space.linear.C, np.eye(len(none_ctx.sampled)))
     # An explicit unconditioned base can still be conditioned with None only.
-    base = NonLinearTimingModel(engines="jug", transform="none", name="t").for_pulsar(
+    base = NonLinearTimingModel(engines="jug", name="t").for_pulsar(
         pulsar, condition=False
     )
     assert base.with_transport().metric is None
