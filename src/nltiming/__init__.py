@@ -30,6 +30,11 @@ from .inference import (
     TimingParameterPlan,
 )
 from .coordinates import TimingCoordinatePolicy, TimingExpansionSpec
+from .linearization import (
+    ExpansionOutsidePriorInteriorError,
+    TimingLinearization,
+)
+from .expansion import ExpansionRefinementResult, refine_timing_expansion
 from .evaluator import (
     TimingCapabilities,
     TimingEvaluation,
@@ -58,6 +63,10 @@ __all__ = [
     "TimingParameterPlan",
     "TimingCoordinatePolicy",
     "TimingExpansionSpec",
+    "TimingLinearization",
+    "ExpansionOutsidePriorInteriorError",
+    "refine_timing_expansion",
+    "ExpansionRefinementResult",
     "WhiteningConfig",
     "LocalPosteriorMetric",
     "StaticTransportRecord",

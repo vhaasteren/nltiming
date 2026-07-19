@@ -25,7 +25,9 @@ from .coordinates import (
     LocallyMarginalizedTimingWarning,
     NonAffineIdenticallyLinearWarning,
     TimingCoordinatePolicy,
+    TimingExpansionSpec,
 )
+from .linearization import TimingLinearization, build_linearization
 from .inference import (
     TimingInference,
     TimingParameterPlan,
@@ -118,8 +120,61 @@ class TimingContext:
     latent_name: str
     delay_keys: tuple[str, ...]
     design_matrix: np.ndarray
+    linearization: "TimingLinearization"
     metric: LocalPosteriorMetric | None = None
     transport: StaticTransportRecord | None = None
+
+    @property
+    def proper_space(self) -> ParameterSpace:
+        """ParameterSpace over the proper-prior axes (sampled ∪ z-marginalized).
+
+        z-prior marginalization is not yet wired, so this equals :attr:`space`.
+        """
+        return self.space
+
+    def with_expansion(
+        self,
+        *,
+        delta,
+        source: str = "explicit_delta",
+    ) -> "TimingContext":
+        """Re-linearize all proper-prior axes at one fixed physical point (§5.3).
+
+        ``delta`` is a mapping over ``ctx.plan.proper`` (no delta-flat names) or an
+        array in proper-name order. Callable only before static conditioning.
+        """
+        if source not in ("explicit_delta", "refined"):
+            raise ValueError("source must be 'explicit_delta' or 'refined'")
+        if self.conditioned:
+            raise ValueError(
+                "with_expansion must be called before static conditioning "
+                "(build the context with condition=False, §5.3)"
+            )
+        proper = self.plan.proper
+        if isinstance(delta, Mapping):
+            missing = [name for name in proper if name not in delta]
+            extra = [name for name in delta if name not in proper]
+            if missing or extra:
+                raise ValueError(
+                    f"with_expansion delta must cover exactly the proper axes "
+                    f"{list(proper)}; missing={missing}, unexpected={extra}"
+                )
+            delta_array = np.asarray([float(delta[name]) for name in proper], dtype=float)
+        else:
+            delta_array = np.asarray(delta, dtype=float)
+            if delta_array.shape != (len(proper),):
+                raise ValueError(
+                    f"with_expansion delta array must have shape {(len(proper),)} "
+                    "in proper-name order"
+                )
+        linearization = build_linearization(
+            engine=self.engine,
+            plan=self.plan,
+            space=self.proper_space,
+            delta_expansion=delta_array,
+            source=source,
+        )
+        return replace(self, linearization=linearization)
 
     @property
     def conditioned(self) -> bool:
@@ -322,61 +377,30 @@ class TimingContext:
         return f"{self.name_stem}_timing_z"
 
     def local_timing_block(self) -> "LocalTimingBlock":
-        """Waveform Jacobian of the timing model in prior-normal ``z`` (§6.3).
+        """Sampled-block timing waveform Jacobian in prior-normal ``z``.
 
-        ``W_z`` is such that the timing residual is ``r = y - W_z z`` to first
-        order at the reference. It is the Jacobian of the *exact* engine residual
-        path used by the likelihood, differentiated straight through the PIT
-        bijector: ``W_z = -∂(residual_delta_jax(δ(z)))/∂z`` at ``z_ref``. This
-        guarantees the conditioner equals the true local timing curvature
-        regardless of any engine fit↔native unit conversion (the analytic design
-        matrix and ``residual_delta_jax`` use different per-parameter scales, so
-        the plain ``-(M·J)`` form mismatches and de-whitens the transform).
+        Thin projection of :attr:`linearization`: ``basis`` is
+        ``W_s = -∂(residual_delta(δ(z)))/∂z`` at the fixed expansion point (the
+        engine reference by default, a refined point after
+        :meth:`with_expansion`), and ``z_ref`` is that expansion coordinate.
+        There is no parallel autodiff path — the sole differentiation of the
+        exact engine residual lives in ``build_linearization`` (§5.2).
 
         The sign: ``delay = -residual_delta`` and ``r = y - delay``, so
-        ``W_z z = -residual_delta`` and ``W_z = -∂(residual_delta)/∂z``. Getting
-        this wrong flips every timing↔stochastic cross term in ``G0`` — the
-        single most likely implementation bug, so it has a dedicated test.
-
-        ``prior_precision`` is identity in ``z`` (PIT construction) — the exact
-        conditioner precision for an external block.
+        ``W_s z = -residual_delta`` and ``W_s = -∂(residual_delta)/∂z``. Getting
+        this wrong flips every timing↔stochastic cross term in ``G0``.
+        ``prior_precision`` is identity in ``z`` (PIT construction).
         """
-        ndim = len(self.sampled)
-        if ndim == 0:
+        if not self.sampled:
             raise ValueError(
-                "local_timing_block requires at least one sampled timing " "parameter"
+                "local_timing_block requires at least one sampled timing parameter"
             )
-        import jax
-        import jax.numpy as jnp
-
-        from .protocols import JaxTimingEngine
-
-        if not isinstance(self.engine, JaxTimingEngine):
-            raise ValueError(
-                "local_timing_block requires a JAX-capable engine (the joint "
-                "full-basis path is JUG-only); got "
-                f"{type(self.engine).__name__}"
-            )
-
-        idx = jnp.asarray(self.plan.idx_sampled)
-        nfit = len(self.plan.fitpars)
-        bij = self.space.prior_bijector
-        z_ref = jnp.asarray(bij.z_from_delta(np.zeros(ndim), np))
-
-        def residual_of_z(z):
-            delta_sampled = self.space.delta_from_z(z, jnp)
-            full = (
-                jnp.zeros((nfit,), dtype=delta_sampled.dtype).at[idx].set(delta_sampled)
-            )
-            return self.engine.residual_delta_jax(full)
-
-        # W_z = -∂(residual_delta)/∂z  (r = y - W_z z; see docstring).
-        W_z = -np.asarray(jax.jacfwd(residual_of_z)(z_ref), dtype=float)
+        lin = self.linearization
         return LocalTimingBlock(
-            basis=W_z,
-            names=tuple(self.sampled),
+            basis=np.asarray(lin.sampled_basis, dtype=float),
+            names=lin.sampled_names,
             prior_precision=1.0,
-            z_ref=np.asarray(z_ref, dtype=float),
+            z_ref=np.asarray(lin.sampled_z_expansion, dtype=float),
             joint_site=self.joint_site,
         )
 
@@ -517,6 +541,7 @@ class NonLinearTimingModel:
         prior_policy: PriorPolicy = "wide_default",
         prior_override_policy: Literal["warn", "strict"] = "warn",
         coordinate_policy: TimingCoordinatePolicy = TimingCoordinatePolicy(),
+        expansion: TimingExpansionSpec = TimingExpansionSpec.engine_reference(),
         whitening: WhiteningConfig | None = None,
         name: str = "nonlinear_timing_model",
     ):
@@ -543,6 +568,9 @@ class NonLinearTimingModel:
             identically_linear = tuple(str(n) for n in identically_linear)
         if not isinstance(coordinate_policy, TimingCoordinatePolicy):
             raise TypeError("coordinate_policy must be a TimingCoordinatePolicy")
+        if not isinstance(expansion, TimingExpansionSpec):
+            raise TypeError("expansion must be a TimingExpansionSpec")
+        self.expansion = expansion
         self.engines = normalize_engines(engines)
         self.design_matrix_method = _normalize_design_matrix_method(
             design_matrix_method
@@ -671,6 +699,7 @@ class NonLinearTimingModel:
             prior_policy=self.prior_policy,
             prior_override_policy=self.prior_override_policy,
             coordinate_policy=self.coordinate_policy,
+            expansion=self.expansion,
             whitening=self.whitening,
             name=self.name,
         )
@@ -691,6 +720,7 @@ class NonLinearTimingModel:
                 else list(self.identically_linear)
             ),
             "coordinate_policy": self.coordinate_policy.as_dict(),
+            "expansion": self.expansion.as_dict(),
             "prior_policy": self.prior_policy,
             "prior_override_policy": self.prior_override_policy,
             "whitening": None if self.whitening is None else self.whitening.as_dict(),
@@ -1200,6 +1230,13 @@ class NonLinearTimingModel:
             pint_model=pulsar.pint_model(),
         )
         coord = coord_for_static_layer(self.static_layer)
+        linearization = build_linearization(
+            engine=engine,
+            plan=partition,
+            space=space,
+            delta_expansion=self._expansion_delta(space, partition),
+            source=self.expansion.mode,
+        )
         return TimingContext(
             model=self,
             pulsar=pulsar,
@@ -1214,7 +1251,27 @@ class NonLinearTimingModel:
                 f"{pulsar.name}_{self.name}_{name}" for name in partition.sampled
             ),
             design_matrix=design_matrix,
+            linearization=linearization,
         )
+
+    def _expansion_delta(self, space, plan) -> np.ndarray:
+        """Resolve the configured expansion spec to a proper-order delta (§5.3)."""
+        proper = plan.proper
+        spec = self.expansion
+        if spec.mode == "engine_reference":
+            return np.zeros(len(proper), dtype=float)
+        if spec.mode == "prior_center":
+            return np.asarray(
+                space.delta_from_z(np.zeros(len(proper)), np), dtype=float
+            )
+        # explicit_delta
+        missing = [name for name in proper if name not in spec.delta]
+        if missing:
+            raise ValueError(
+                f"explicit_delta expansion must cover every proper axis; "
+                f"missing {missing}"
+            )
+        return np.asarray([float(spec.delta[name]) for name in proper], dtype=float)
 
     def for_pulsar(self, pulsar, *, condition: bool = True) -> TimingContext:
         """Resolve this model config against a pulsar (cached per state).

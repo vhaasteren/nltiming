@@ -387,6 +387,36 @@ def model(
     return nlt_model
 
 
+def conditional_timing_potential(likelihood, ctx, *, fixed):
+    """Exact conditional negative-log target in proper ``z`` at fixed non-timing
+    parameters (§6), for :func:`nltiming.expansion.refine_timing_expansion`.
+
+    Evaluates every proper (sampled) axis through the exact engine delay and adds
+    the ``0.5 ||z||^2`` prior; delta-flat axes stay fixed at zero (no proper
+    conditional density). It builds no transport. The returned callable maps a
+    proper-``z`` vector to a scalar.
+
+    This uses ``likelihood.logL`` — the coefficient-marginalized Discovery
+    density (as in :func:`model`). Pass a likelihood whose ``logL`` is the
+    intended scalar conditional density; a residual-form joint ``clogL`` (which
+    takes explicit GP coefficients) is not the right object here.
+    """
+    import jax.numpy as jnp
+
+    space = ctx.proper_space
+    delay_keys = tuple(ctx.delay_keys)
+    fixed_params = {k: float(v) for k, v in dict(fixed or {}).items()}
+
+    def neg_log_target_z(z):
+        delta = space.delta_from_z(z, jnp)
+        params = dict(fixed_params)
+        for i, key in enumerate(delay_keys):
+            params[key] = delta[i]
+        return -likelihood.logL(params) + 0.5 * jnp.sum(z * z)
+
+    return neg_log_target_z
+
+
 def _resolve_reference_noise(reference_noise, pulsar):
     """Resolve the ``reference_noise=`` argument of :func:`joint_model` into a
     discovery frozen-solve operator (a ``_FrozenSolve``-like with ``.solve`` and
@@ -467,7 +497,10 @@ def build_joint_transport(
     return dst.Transport(
         blocks,
         reference_noise=_resolve_reference_noise(reference_noise, ctx.pulsar),
-        reference_residual=np.asarray(ctx.pulsar.residuals, dtype=float),
+        reference_residual=np.asarray(
+            ctx.linearization.transport_effective_residual(ctx.pulsar.residuals),
+            dtype=float,
+        ),
         center=center,
         softclip=(
             {"timing": float(softclip_zmax)}
