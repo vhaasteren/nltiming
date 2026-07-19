@@ -35,6 +35,18 @@ from .linearization import (
     TimingLinearization,
 )
 from .expansion import ExpansionRefinementResult, refine_timing_expansion
+from .geometry import (
+    GeometryCertificationError,
+    GeometryDiagnosticWarning,
+    GeometryThresholds,
+    JointGeometryReport,
+    TransportCenterAxis,
+    box_hyper_probe_points,
+    certify_joint_geometry,
+    read_geometry_report,
+    transport_center_report,
+    write_geometry_report,
+)
 from .evaluator import (
     TimingCapabilities,
     TimingEvaluation,
@@ -67,6 +79,16 @@ __all__ = [
     "ExpansionOutsidePriorInteriorError",
     "refine_timing_expansion",
     "ExpansionRefinementResult",
+    "GeometryThresholds",
+    "JointGeometryReport",
+    "TransportCenterAxis",
+    "GeometryCertificationError",
+    "GeometryDiagnosticWarning",
+    "certify_joint_geometry",
+    "transport_center_report",
+    "box_hyper_probe_points",
+    "write_geometry_report",
+    "read_geometry_report",
     "WhiteningConfig",
     "LocalPosteriorMetric",
     "StaticTransportRecord",
