@@ -276,6 +276,40 @@ def test_z_prior_enterprise_assembly_builds_and_evaluates():
     assert np.isfinite(pta.get_lnprior(x0))
 
 
+def test_z_prior_enterprise_can_sample_wm_coefficients():
+    """``enterprise_signal(sample_z_coefficients=True)`` promotes the W_m block
+    from an integrated GP to a sampled ``GPCoefficients`` parameter whose prior
+    is the exact unit normal ``-1/2 c^T c`` and whose delay is ``W_m @ c``."""
+    from enterprise.signals import parameter, signal_base, white_signals
+
+    ntm = NonLinearTimingModel(
+        engines="jug",
+        inference=TimingInference.groups(z_prior=["DM"]),
+        whitening=WhiteningConfig(),
+        name="timing",
+    )
+    white = white_signals.MeasurementNoise(efac=parameter.Constant(1.0))
+    pta = signal_base.PTA(
+        [(white + ntm.enterprise_signal(sample_z_coefficients=True))(_Pulsar())]
+    )
+    names = list(pta.param_names)
+    coeff = [i for i, n in enumerate(names) if "zprior_coefficients" in n]
+    # exactly one z-marginalized axis (DM) -> one sampled coefficient.
+    assert len(coeff) == 1
+
+    # The coefficient prior is the exact unit normal: moving c 0 -> a shifts the
+    # log-prior by -1/2 a^2, independent of the other (whitened x) coordinates.
+    base = np.zeros(len(names))
+    lp0 = pta.get_lnprior(base)
+    for a in (1.0, 2.0, -1.5):
+        x = base.copy()
+        x[coeff[0]] = a
+        assert np.isclose(pta.get_lnprior(x) - lp0, -0.5 * a * a, atol=1e-9)
+
+    # The sampled-coefficient likelihood evaluates (the W_m @ c delay path).
+    assert np.isfinite(pta.get_lnlikelihood(base))
+
+
 def test_local_timing_block_is_negative_autodiff_jacobian():
     _, ctx = _joint_ctx()
     blk = ctx.local_timing_block()

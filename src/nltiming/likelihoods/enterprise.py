@@ -279,15 +279,24 @@ def _zmarg_fixed(ctx):
     return zm_indices, zm_fixed
 
 
-def _make_zprior_signal(*, ctx_fn, name: str):
-    """Proper unit-normal basis GP on ``W_m`` (get_phi = ones; §5.6).
+def _make_zprior_signal(*, ctx_fn, name: str, coefficients: bool = False):
+    """Proper unit-normal ``W_m`` block, ``c ~ Normal(0, I)`` (§5.6).
 
-    Unlike the delta-flat improper TimingModel, this is a genuinely proper GP:
-    the coefficient prior is identity, so ``log|Phi| = 0`` is trivially retained.
+    Two modes, matching Enterprise's basis-GP convention:
+
+    - ``coefficients=False`` (default) — analytically marginalized: ``get_phi``
+      returns ``ones`` (identity coefficient prior; ``log|Phi| = 0`` retained),
+      and the Enterprise normal machinery integrates the coefficients out.
+    - ``coefficients=True`` — the coefficients are sampled as a ``GPCoefficients``
+      parameter; the delay is ``W_m @ c`` and the unit-normal prior
+      ``-1/2 c^T c`` lives on that parameter. Use this when the ``W_m`` block is
+      sampled jointly (e.g. a dynamic decentering transport) rather than
+      integrated.
+
     The basis ``W_m`` is passed unnormalized (its unit coefficient variance is
     the physical z prior).
     """
-    from enterprise.signals import signal_base
+    from enterprise.signals import parameter, signal_base
 
     class ZPriorTimingGP(signal_base.Signal, metaclass=signal_base.MetaSignal):
         signal_type = "basis"
@@ -303,26 +312,52 @@ def _make_zprior_signal(*, ctx_fn, name: str):
             self._k = int(self._basis.shape[1])
             self._phi = np.ones(self._k)
             self.name = f"{psr.name}_{name}_zprior"
-            self._params = {}
             self.basis_params = []
             self.prior_params = []
-            self.delay_params = []
             self.basis_combine = False
+            if coefficients:
+                k = self._k
+
+                def _coeff_logprior(c, **params):
+                    c = np.asarray(c, dtype=float)
+                    return -0.5 * np.sum(c * c) - 0.5 * k * np.log(2.0 * np.pi)
+
+                cpar = parameter.GPCoefficients(
+                    logprior=parameter.Function(_coeff_logprior),
+                    size=self._k,
+                )(f"{self.name}_coefficients")
+                self._coeff = cpar
+                self._params = {cpar.name: cpar}
+                self.delay_params = [cpar.name]
+            else:
+                self._coeff = None
+                self._params = {}
+                self.delay_params = []
 
         def get_basis(self, params=None):
-            return self._basis
+            return None if coefficients else self._basis
 
         def get_phi(self, params):
-            return self._phi
+            return None if coefficients else self._phi
 
         def get_phiinv(self, params):
-            return self._phi  # 1 / ones == ones
+            return None if coefficients else self._phi  # 1 / ones == ones
 
-        def get_delay(self, params):
-            return np.zeros(self._basis.shape[0], dtype=float)
+        def get_delay(self, params=None):
+            if not coefficients:
+                return np.zeros(self._basis.shape[0], dtype=float)
+            params = params or {}
+            c = (
+                np.asarray(params[self._coeff.name], dtype=float)
+                if self._coeff.name in params
+                else np.zeros(self._k)
+            )
+            return self._basis @ c
 
         def get_logsignalprior(self, params):
-            return 0.0  # log|Phi| = log|I| = 0
+            # Marginalized: log|Phi| = log|I| = 0. Sampled: the coefficient prior
+            # lives on the GPCoefficients parameter, not here.
+            return 0.0
 
         def set_default_params(self, params):
             pass
@@ -355,6 +390,7 @@ def enterprise_signal(
     static_layer: str,
     has_delta_flat: bool = True,
     has_z_prior: bool = False,
+    sample_z_coefficients: bool = False,
 ):
     """Return a deferred Enterprise signal with deterministic delay + timing GP.
 
@@ -400,6 +436,8 @@ def enterprise_signal(
     if has_z_prior:
         # Four-piece z-prior assembly (§5.6): proper unit-normal W_m GP plus the
         # fixed c_m intercept; the exact sampled delay holds z-marg at z_m,e.
-        signal = signal + _make_zprior_signal(ctx_fn=ctx_fn, name=name)
+        signal = signal + _make_zprior_signal(
+            ctx_fn=ctx_fn, name=name, coefficients=sample_z_coefficients
+        )
         signal = signal + _make_cm_signal(ctx_fn=ctx_fn, name=name)
     return signal

@@ -1301,7 +1301,13 @@ class NonLinearTimingModel:
         self._resolved_cache[key] = resolved
         return resolved
 
-    def enterprise_signal(self):
+    def enterprise_signal(self, *, sample_z_coefficients: bool = False):
+        """Build the Enterprise timing signal for this model.
+
+        With ``sample_z_coefficients=True`` the z-prior ``W_m`` block is sampled
+        (a ``GPCoefficients`` parameter with a unit-normal prior) rather than
+        analytically marginalized — for a jointly-sampled/decentered workflow.
+        """
         from .likelihoods.enterprise import enterprise_signal
 
         margs = self.inference.marginalize.values()
@@ -1315,4 +1321,5 @@ class NonLinearTimingModel:
             static_layer=self.static_layer,
             has_delta_flat=has_delta_flat,
             has_z_prior=has_z_prior,
+            sample_z_coefficients=sample_z_coefficients,
         )
