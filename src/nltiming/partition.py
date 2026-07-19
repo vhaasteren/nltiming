@@ -12,13 +12,33 @@ from .pint_compat import (
 
 @dataclass(frozen=True)
 class PartitionResult:
-    """Resolved numerically sampled vs analytically marginalized fit-parameter partition."""
+    """Resolved fit-parameter partition.
+
+    Three disjoint groups (§6.2):
+
+    - ``sampled`` — numerically sampled, in fitpar order. This is the timing
+      coordinate. It is the union of the nonlinear (``sample=``, evaluated
+      natively by the engine) and the exact-linear (``sample_linear=``, carried
+      by design columns) groups.
+    - ``linear_sampled`` — the exact-linear subset (⊆ ``sampled``). Empty in the
+      ordinary two-way partition.
+    - ``analytically_marginalized`` — integrated out through the improper GP.
+    """
 
     fitpars: tuple[str, ...]
     analytically_marginalized: tuple[str, ...]
     sampled: tuple[str, ...]
     idx_analytically_marginalized: tuple[int, ...]
     idx_sampled: tuple[int, ...]
+    linear_sampled: tuple[str, ...] = ()
+    idx_linear_sampled: tuple[int, ...] = ()
+
+    @property
+    def nonlinear_sampled(self) -> tuple[str, ...]:
+        """Sampled parameters evaluated natively by the engine (``sampled`` minus
+        the exact-linear subset)."""
+        linear = set(self.linear_sampled)
+        return tuple(p for p in self.sampled if p not in linear)
 
 
 # Component categories whose fit parameters are identically linear timing nuisances that
@@ -201,21 +221,119 @@ def default_analytically_marginalized_fitpars(pulsar) -> tuple[str, ...]:
     return tuple(analytically_marginalized)
 
 
+def _resolve_three_way(
+    pulsar, fitpars, sample, sample_linear, analytically_marginalize
+) -> tuple[tuple[str, ...], set[str]]:
+    """Three-way partition (§6.2): nonlinear (``sample=``) + exact-linear
+    (``sample_linear=``) + analytically marginalized.
+
+    Returns ``(analytically_marginalized, linear_sampled_set)``. The nonlinear
+    group is implied: ``sampled`` minus ``linear_sampled``.
+    """
+    if sample is None or sample == "default":
+        raise ValueError(
+            "sample_linear= requires an explicit sample= nonlinear group (the "
+            "parameters the engine evaluates natively); got sample="
+            f"{sample!r}"
+        )
+    if isinstance(sample, str):
+        raise ValueError(
+            "sample must be a sequence of fitpar names with sample_linear="
+        )
+    nonlinear_set = set(select_fitpars(pulsar, sample))
+
+    # Marginalized set: an explicit list, or none. In three-way (joint) mode the
+    # 'default' sentinel means "marginalize nothing" — the improper GP is empty.
+    if analytically_marginalize in ("default", None):
+        marg_set: set[str] = set()
+    elif isinstance(analytically_marginalize, str):
+        raise ValueError(
+            "analytically_marginalize must be None or a sequence of fitpars "
+            "when sample_linear= is given"
+        )
+    else:
+        marg_norm = tuple(resolve_parameter_alias(p) for p in analytically_marginalize)
+        unknown = [p for p in marg_norm if p not in fitpars]
+        if unknown:
+            raise ValueError(
+                f"Unknown fit parameters in analytically_marginalize list: {unknown}"
+            )
+        marg_set = set(marg_norm)
+
+    if isinstance(sample_linear, str):
+        if sample_linear != "remaining":
+            raise ValueError("sample_linear string must be 'remaining'")
+        linear_sampled_set = {
+            p for p in fitpars if p not in nonlinear_set and p not in marg_set
+        }
+    else:
+        linear_sampled_set = set(select_fitpars(pulsar, sample_linear))
+
+    overlap = nonlinear_set & linear_sampled_set
+    if overlap:
+        raise ValueError(
+            f"parameters appear in both sample= and sample_linear=: {sorted(overlap)}"
+        )
+    overlap_marg = (nonlinear_set | linear_sampled_set) & marg_set
+    if overlap_marg:
+        raise ValueError(
+            "parameters appear in both a sampled group and "
+            f"analytically_marginalize=: {sorted(overlap_marg)}"
+        )
+
+    analytically_marginalized = tuple(p for p in fitpars if p in marg_set)
+    return analytically_marginalized, linear_sampled_set
+
+
 def resolve_partition(
     pulsar,
     analytically_marginalize: str | list[str] | tuple[str, ...] | None = "default",
     *,
     sample: str | list[str] | tuple[str, ...] | None = None,
+    sample_linear: str | list[str] | tuple[str, ...] | None = None,
 ) -> PartitionResult:
-    """Resolve numerically sampled vs analytically marginalized names and index mappings.
+    """Resolve the fit-parameter partition and index mappings.
 
     ``sample`` takes base or exact fitpar names (suffix-aware) and marginalizes
     the complement; it is mutually exclusive with an explicit
     ``analytically_marginalize`` list.
+
+    ``sample_linear`` opts into the three-way (joint) partition (§6.2): the
+    ``sample=`` group is the nonlinear engine-native block, ``sample_linear``
+    (``"remaining"`` or an explicit list) is the exact-linear design-column
+    block, and everything else is analytically marginalized (nothing, by
+    default, in joint mode). ``sample_linear`` requires an explicit ``sample=``.
     """
     fitpars = tuple(resolve_parameter_alias(p) for p in pulsar.fitpars)
     if len(set(fitpars)) != len(fitpars):
         raise ValueError("Duplicate fit parameters after alias normalization")
+
+    linear_sampled_set: set[str] = set()
+
+    if sample_linear is not None:
+        analytically_marginalized, linear_sampled_set = _resolve_three_way(
+            pulsar, fitpars, sample, sample_linear, analytically_marginalize
+        )
+        analytically_marginalized_set = set(analytically_marginalized)
+        sampled = tuple(p for p in fitpars if p not in analytically_marginalized_set)
+        idx_analytically_marginalized = tuple(
+            i for i, p in enumerate(fitpars) if p in analytically_marginalized_set
+        )
+        idx_sampled = tuple(
+            i for i, p in enumerate(fitpars) if p not in analytically_marginalized_set
+        )
+        idx_linear_sampled = tuple(
+            i for i, p in enumerate(fitpars) if p in linear_sampled_set
+        )
+        return PartitionResult(
+            fitpars=fitpars,
+            analytically_marginalized=analytically_marginalized,
+            sampled=sampled,
+            idx_analytically_marginalized=idx_analytically_marginalized,
+            idx_sampled=idx_sampled,
+            linear_sampled=tuple(p for p in fitpars if p in linear_sampled_set),
+            idx_linear_sampled=idx_linear_sampled,
+        )
 
     if sample is not None and sample != "default":
         if isinstance(sample, str):

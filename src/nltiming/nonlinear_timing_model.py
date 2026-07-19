@@ -72,6 +72,27 @@ def _stable_json(value: object) -> str:
     return json.dumps(value, sort_keys=True, separators=(",", ":"))
 
 
+@dataclass(frozen=True)
+class LocalTimingBlock:
+    """Waveform Jacobian of the timing model in prior-normal ``z`` (§6.3).
+
+    ``basis`` is ``W_z`` such that the timing waveform subtracted from ``y`` is
+    ``W_z z`` to first order at the reference; ``prior_precision`` is the exact
+    prior precision in ``z`` (identity, by PIT construction). Passed to
+    discovery's ``array_block`` as an external transport block.
+    """
+
+    basis: np.ndarray
+    names: tuple[str, ...]
+    prior_precision: float
+    z_ref: np.ndarray
+    joint_site: str
+
+    @property
+    def dimension(self) -> int:
+        return int(np.asarray(self.basis).shape[1])
+
+
 @dataclass(frozen=True, eq=False)
 class TimingContext:
     """Pulsar-bound nonlinear timing context resolved from model config.
@@ -240,9 +261,88 @@ class TimingContext:
             + hashlib.sha256(_stable_json(payload).encode("utf-8")).hexdigest()
         )
 
-    def discovery_signals(self) -> list:
+    @property
+    def sampled_all(self) -> tuple[str, ...]:
+        """All numerically sampled timing parameters (nonlinear + exact-linear),
+        in fitpar order. Alias of :attr:`sampled` — the joint timing coordinate
+        spans this whole set."""
+        return self.partition.sampled
+
+    @property
+    def joint_site(self) -> str:
+        """Transport coefficient key for this pulsar's timing block (joint mode)."""
+        return f"{self.name_stem}_timing_z"
+
+    def local_timing_block(self) -> "LocalTimingBlock":
+        """Waveform Jacobian of the timing model in prior-normal ``z`` (§6.3).
+
+        ``W_z`` is such that the timing residual is ``r = y - W_z z`` to first
+        order at the reference. It is the Jacobian of the *exact* engine residual
+        path used by the likelihood, differentiated straight through the PIT
+        bijector: ``W_z = -∂(residual_delta_jax(δ(z)))/∂z`` at ``z_ref``. This
+        guarantees the conditioner equals the true local timing curvature
+        regardless of any engine fit↔native unit conversion (the analytic design
+        matrix and ``residual_delta_jax`` use different per-parameter scales, so
+        the plain ``-(M·J)`` form mismatches and de-whitens the transform).
+
+        The sign: ``delay = -residual_delta`` and ``r = y - delay``, so
+        ``W_z z = -residual_delta`` and ``W_z = -∂(residual_delta)/∂z``. Getting
+        this wrong flips every timing↔stochastic cross term in ``G0`` — the
+        single most likely implementation bug, so it has a dedicated test.
+
+        ``prior_precision`` is identity in ``z`` (PIT construction) — the exact
+        conditioner precision for an external block.
+        """
+        ndim = len(self.sampled)
+        if ndim == 0:
+            raise ValueError(
+                "local_timing_block requires at least one sampled timing " "parameter"
+            )
+        import jax
+        import jax.numpy as jnp
+
+        from .protocols import JaxTimingEngine
+
+        if not isinstance(self.engine, JaxTimingEngine):
+            raise ValueError(
+                "local_timing_block requires a JAX-capable engine (the joint "
+                "full-basis path is JUG-only); got "
+                f"{type(self.engine).__name__}"
+            )
+
+        idx = jnp.asarray(self.partition.idx_sampled)
+        nfit = len(self.partition.fitpars)
+        bij = self.space.prior_bijector
+        z_ref = jnp.asarray(bij.z_from_delta(np.zeros(ndim), np))
+
+        def residual_of_z(z):
+            delta_sampled = self.space.delta_from_z(z, jnp)
+            full = (
+                jnp.zeros((nfit,), dtype=delta_sampled.dtype).at[idx].set(delta_sampled)
+            )
+            return self.engine.residual_delta_jax(full)
+
+        # W_z = -∂(residual_delta)/∂z  (r = y - W_z z; see docstring).
+        W_z = -np.asarray(jax.jacfwd(residual_of_z)(z_ref), dtype=float)
+        return LocalTimingBlock(
+            basis=W_z,
+            names=tuple(self.sampled),
+            prior_precision=1.0,
+            z_ref=np.asarray(z_ref, dtype=float),
+            joint_site=self.joint_site,
+        )
+
+    def discovery_signals(self, *, joint: bool = False) -> list:
         from .likelihoods.discovery import discovery_signals
 
+        if joint and self.partition.idx_analytically_marginalized:
+            raise ValueError(
+                "discovery_signals(joint=True) expects a fully-sampled timing "
+                "partition (nothing analytically marginalized), but "
+                f"{list(self.marginalized)} are marginalized. Build the model "
+                "with sample_linear= (and analytically_marginalize=None) so the "
+                "joint transport carries every timing direction."
+            )
         return discovery_signals(
             pulsar=self.pulsar,
             space=self.space,
@@ -368,11 +468,13 @@ class NonLinearTimingModel:
         tempo2_jug_options: Mapping[str, Any] | None = None,
         transform: str = "whitening",
         sample: str | Sequence[str] | None = None,
+        sample_linear: str | Sequence[str] | None = None,
         analytically_marginalize: str | Sequence[str] | None = "default",
         priors: Mapping[str, PriorOverrideSpec] | None = None,
         prior_policy: PriorPolicy = "wide_default",
         prior_override_policy: Literal["warn", "strict"] = "warn",
         cheat_prior_scale: float = 50.0,
+        linear_prior_scale: float = 50.0,
         whitening: WhiteningConfig | None = None,
         name: str = "nonlinear_timing_model",
     ):
@@ -391,11 +493,20 @@ class NonLinearTimingModel:
                 raise ValueError(
                     "sample must be 'default', None, or a sequence of fitpar names"
                 )
-            if analytically_marginalize != "default":
+            if sample_linear is None and analytically_marginalize != "default":
                 raise ValueError(
                     "pass either sample= or analytically_marginalize=, not both"
                 )
             sample = tuple(str(name) for name in sample)
+        if sample_linear is not None and sample_linear != "remaining":
+            if isinstance(sample_linear, str):
+                raise ValueError(
+                    "sample_linear must be 'remaining', None, or a sequence of "
+                    "fitpar names"
+                )
+            sample_linear = tuple(str(name) for name in sample_linear)
+        if not (float(linear_prior_scale) > 0.0):
+            raise ValueError("linear_prior_scale must be positive")
         self.engines = normalize_engines(engines)
         self.design_matrix_method = _normalize_design_matrix_method(
             design_matrix_method
@@ -408,9 +519,11 @@ class NonLinearTimingModel:
         self.prior_override_policy = override_policy
         self.transform = transform
         self.sample = sample
+        self.sample_linear = sample_linear
         self.analytically_marginalize = analytically_marginalize
         self.prior_policy = validate_prior_policy(prior_policy)
         self.cheat_prior_scale = float(cheat_prior_scale)
+        self.linear_prior_scale = float(linear_prior_scale)
         if whitening is not None and not isinstance(whitening, WhiteningConfig):
             raise TypeError(
                 "whitening must be a WhiteningConfig (see nltiming.metric); "
@@ -517,10 +630,12 @@ class NonLinearTimingModel:
             tempo2_jug_options=self._tempo2_jug_options_raw,
             transform=self.transform,
             sample=self.sample,
+            sample_linear=self.sample_linear,
             analytically_marginalize=self.analytically_marginalize,
             prior_policy=self.prior_policy,
             prior_override_policy=self.prior_override_policy,
             cheat_prior_scale=self.cheat_prior_scale,
+            linear_prior_scale=self.linear_prior_scale,
             whitening=self.whitening,
             name=self.name,
         )
@@ -537,10 +652,16 @@ class NonLinearTimingModel:
             "sample": (
                 list(self.sample) if isinstance(self.sample, tuple) else self.sample
             ),
+            "sample_linear": (
+                list(self.sample_linear)
+                if isinstance(self.sample_linear, tuple)
+                else self.sample_linear
+            ),
             "analytically_marginalize": self.analytically_marginalize,
             "prior_policy": self.prior_policy,
             "prior_override_policy": self.prior_override_policy,
             "cheat_prior_scale": self.cheat_prior_scale,
+            "linear_prior_scale": self.linear_prior_scale,
             "whitening": self.whitening.as_dict(),
             "name": self.name,
             "prior_overrides": {
@@ -580,6 +701,7 @@ class NonLinearTimingModel:
             pulsar,
             analytically_marginalize=self.analytically_marginalize,
             sample=self.sample,
+            sample_linear=self.sample_linear,
         )
 
     def _resolve_prior_overrides(
@@ -763,6 +885,7 @@ class NonLinearTimingModel:
         wls_stds = np.sqrt(np.diag(wls.covariance))
         parfile_stds = self._parfile_cheat_stds(pulsar, block.names)
         scale = self.cheat_prior_scale
+        linear_set = set(partition.linear_sampled)
         priors = []
         for idx, (name, prior) in enumerate(
             zip(block.names, block.priors, strict=True)
@@ -775,6 +898,19 @@ class NonLinearTimingModel:
             sigma = parfile_stds.get(name)
             if sigma is None or not np.isfinite(sigma) or sigma <= 0.0:
                 sigma = float(wls_stds[idx])
+            # Exact-linear sampled nuisances get a WIDE PROPER GAUSSIAN in delta
+            # (§6.2): unbounded support, smooth PIT Jacobian, and prior precision
+            # identically 1 in z — no uniform-box boundary pathology. Its width
+            # is a recorded modeling choice, not a numerical knob (§4.3 rule 4).
+            if name in linear_set:
+                priors.append(
+                    AxisPrior(
+                        family="normal",
+                        mean=0.0,
+                        std=float(self.linear_prior_scale * sigma),
+                    )
+                )
+                continue
             half = scale * sigma
             # Flat box in delta units centered on the par-file value (delta=0),
             # matching the external reference-stack cheat-prior convention, then clipped

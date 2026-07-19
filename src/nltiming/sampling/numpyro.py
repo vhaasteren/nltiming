@@ -387,6 +387,531 @@ def model(
     return nlt_model
 
 
+def _resolve_reference_noise(reference_noise, pulsar):
+    """Resolve the ``reference_noise=`` argument of :func:`joint_model` into a
+    discovery frozen-solve operator (a ``_FrozenSolve``-like with ``.solve`` and
+    ``.description``).
+
+    - ``"toa_errors"`` -> ``discovery.transport.reference_noise(pulsar)`` (the
+      diagonal ``toaerrs**2`` default, §4.4 / cleanup §5.5);
+    - an object already exposing ``.solve`` -> passed through (e.g. a
+      ``reference_noise_frozen(kernel, params0)`` for a pinned noisedict).
+    """
+    if hasattr(reference_noise, "solve"):
+        return reference_noise
+    if reference_noise == "toa_errors":
+        from discovery import transport as dst
+
+        return dst.reference_noise(pulsar)
+    raise ValueError(
+        "reference_noise must be 'toa_errors' or a discovery frozen-solve "
+        f"object (reference_noise_frozen(...)); got {reference_noise!r}"
+    )
+
+
+def build_joint_transport(
+    likelihood,
+    ctx,
+    *,
+    reference_noise="toa_errors",
+    center=True,
+    softclip_zmax=None,
+    global_gp=None,
+    psr_slot=None,
+    npsr=None,
+    center_extsignals=None,
+):
+    """Build the per-pulsar dynamic :class:`discovery.transport.Transport` for a
+    joint full-basis run (§6.4, §7).
+
+    Blocks, in order: the external timing block (``array_block`` on the local
+    timing waveform Jacobian ``W_z`` with identity ``z`` precision), then one
+    ``gp_block`` per sampled intrinsic GP, then — for a correlated global GP —
+    the per-pulsar ``globalgp_curn_block`` (the diagonal inverse-marginal
+    conditioner view of the dense cross-pulsar prior; §4.3 rule 3, §7). Centering
+    is the damped local posterior Newton step at the reference residual, with an
+    optional timing soft-clamp and, for a deterministic ExtSignal (e.g. CW),
+    template-subtracted centering (§4.4).
+
+    ``softclip_zmax`` is **off by default**. With matched reference noise the
+    centering ``mu`` equals the conditional mode ``q_hat`` and the joint density
+    factorizes exactly as ``N(xi; 0, I) x p_marginal(eta)``; a clamp makes
+    ``mu != q_hat``, adding an eta-dependent ``-1/2 ||L^T(mu - q_hat)||^2`` to
+    the ``xi = 0`` slice. When the timing centering is large (e.g. zeroed
+    inter-PTA JUMPs), that term reaches ~1e5 and destroys the hyperparameter
+    geometry (measured on IPTA J1640+2224: hyper curvature ~1e4-1e6 with a
+    clamp at 4, vs the marginal's ~1e2 without). Clamp only when a PIT-bounded
+    coordinate genuinely saturates, and then with a generous ``zmax``.
+    """
+    from discovery import transport as dst
+
+    block_t = ctx.local_timing_block()
+    blocks = [
+        dst.array_block(
+            block_t.basis,
+            index={block_t.joint_site: slice(0, block_t.dimension)},
+            conditioner_precision=block_t.prior_precision,
+            name="timing",
+        )
+    ]
+    blocks += [dst.gp_block(gp) for gp in likelihood.sampled_gps]
+
+    if global_gp is not None:
+        if psr_slot is None or npsr is None:
+            raise ValueError(
+                "global_gp requires psr_slot and npsr (the pulsar's index in the "
+                "global GP and the total pulsar count)"
+            )
+        blocks.append(dst.globalgp_curn_block(global_gp, psr_slot, npsr))
+
+    return dst.Transport(
+        blocks,
+        reference_noise=_resolve_reference_noise(reference_noise, ctx.pulsar),
+        reference_residual=np.asarray(ctx.pulsar.residuals, dtype=float),
+        center=center,
+        softclip=(
+            {"timing": float(softclip_zmax)}
+            if (center and softclip_zmax is not None)
+            else None
+        ),
+        center_extsignals=center_extsignals,
+        psr_slot=(psr_slot if center_extsignals else None),
+    )
+
+
+def gw_residual_delay(global_gp, psr_slot):
+    """A discovery delay that subtracts one pulsar's global-GP waveform from its
+    residual **without** a prior (§7).
+
+    The global (HD) GW coefficients are sampled by the transport and conditioned
+    per-pulsar, but their prior is the *dense* cross-pulsar Gaussian added once in
+    the joint model — so the GW enters each pulsar's ``clogL`` only through the
+    data term. Add this to the pulsar's ``PulsarLikelihood`` alongside the
+    intrinsic signals; its ``.params`` is the single global-GP coefficient key
+    ``{pulsar}_{name}_coefficients(k)`` that the transport injects.
+    """
+    import jax.numpy as jnp
+
+    F = jnp.asarray(np.asarray(global_gp.Fs[psr_slot], dtype=float))
+    key = list(global_gp.index)[psr_slot]
+
+    def delay(params):
+        return F @ params[key]
+
+    delay.params = [key]
+    return delay
+
+
+def global_gp_logprior(coeff_flat, global_gp, params, xp=None):
+    """Exact dense cross-pulsar coefficient prior for a global (HD) GP (§7).
+
+    ``-½ cᵀ Φ_gw⁻¹ c - ½ log|Φ_gw|`` with the Kronecker-structured inverse
+    ``Φ_gw⁻¹ = ORF⁻¹ ⊗ diag(φ⁻¹)`` and log-determinant taken straight from
+    ``global_gp.Phi_inv`` (cost ``O(n_psr² · k_gw)`` — no dense factorization).
+    ``coeff_flat`` is the pulsar-major stack of per-pulsar GW coefficients, in
+    the same order as ``global_gp.index``.
+    """
+    if xp is None:
+        import jax.numpy as xp
+    phi_inv, logdet = global_gp.Phi_inv(params)
+    c = xp.asarray(coeff_flat)
+    return -0.5 * (c @ (xp.asarray(phi_inv) @ c)) - 0.5 * xp.asarray(logdet)
+
+
+def joint_model(
+    likelihood,
+    ctx,
+    *,
+    reference_noise: str = "toa_errors",
+    center: bool = True,
+    softclip_zmax: float | None = None,
+    center_extsignals=None,
+    priors: Mapping[str, Any] | None = None,
+    fixed: Mapping[str, float] | None = None,
+) -> Callable[[], None]:
+    """Build the joint full-basis NumPyro model (§6.4).
+
+    One standard-normal ``xi`` site is mapped through the dynamic transport to
+    the joint coordinate ``q = (z, coefficients)``; ``z`` decodes to the exact
+    nonlinear timing residual via the PIT bijector and the GP coefficient blocks
+    feed discovery's residual-form ``clogL`` directly. The exact timing prior
+    ``-½‖z‖²``, the transport log-Jacobian, and the ``N(0, I)`` base-measure
+    cancellation are all added explicitly (§4.5).
+
+    ``center_extsignals`` is an optional list of deterministic ExtSignals (e.g. a
+    CW model) used for template-subtracted centering (§4.4); the same ExtSignal
+    must also be subtracted from the residual in ``likelihood``.
+
+    Requires ``ctx`` to be built with ``transform='none'`` (or otherwise carry an
+    identity static affine layer): the dynamic transport is the ONE affine layer
+    (§5.5). The existing static :func:`model` builder is untouched.
+    """
+    import jax.numpy as jnp
+    import numpyro
+    from numpyro import distributions as dist
+
+    from ..metric import assert_static_layer_identity
+
+    if not ctx.sampled:
+        raise ValueError("joint_model requires at least one sampled timing parameter")
+    assert_static_layer_identity(ctx.space)
+
+    transport = build_joint_transport(
+        likelihood,
+        ctx,
+        reference_noise=reference_noise,
+        center=center,
+        softclip_zmax=softclip_zmax,
+        center_extsignals=center_extsignals,
+        psr_slot=0 if center_extsignals else None,
+    )
+
+    clogL_params = list(likelihood.clogL.params)
+    seen: set[str] = set()
+    dupes = sorted({p for p in clogL_params if p in seen or seen.add(p)})
+    if dupes:
+        raise ValueError(f"duplicate likelihood parameter names: {dupes}")
+
+    coeff_keys = [k for k in transport.index if k != ctx.joint_site]
+    missing_delay = [k for k in ctx.delay_keys if k not in clogL_params]
+    if missing_delay:
+        raise ValueError(
+            "ctx and likelihood were not assembled together: missing delay keys "
+            f"in likelihood.clogL.params: {missing_delay}"
+        )
+    missing_coeff = [k for k in coeff_keys if k not in clogL_params]
+    if missing_coeff:
+        raise ValueError(
+            "transport GP coefficient keys absent from likelihood.clogL.params "
+            f"(likelihood and transport disagree): {missing_coeff}"
+        )
+
+    owned = set(ctx.delay_keys) | set(coeff_keys)
+    fixed_params: dict[str, float] = {}
+    for key, value in dict(fixed or {}).items():
+        if key in owned:
+            raise ValueError(
+                f"fixed cannot pin timing/coefficient parameters (owned by the "
+                f"joint model): {key!r}"
+            )
+        if not isinstance(value, (int, float)):
+            raise TypeError(f"fixed[{key!r}] must be numeric")
+        fixed_params[key] = float(value)
+
+    priordict = dict(priors or {})
+    free = [p for p in clogL_params if p not in owned and p not in fixed_params]
+    if free:
+        from discovery import prior as ds_prior
+
+        bounds = {p: tuple(ds_prior.getprior_uniform(p, priordict)) for p in free}
+
+    xi_site = f"{ctx.name_stem}_joint_xi"
+    dim = transport.dimension
+    sampled_all = ctx.sampled_all
+    name_stem = ctx.name_stem
+    joint_site = ctx.joint_site
+
+    def nlt_joint_model() -> None:
+        params = dict(fixed_params)
+        for par in free:
+            params[par] = numpyro.sample(par, dist.Uniform(*bounds[par]))
+
+        xi = numpyro.sample(xi_site, dist.Normal(0.0, 1.0).expand([dim]).to_event(1))
+        q, ldj = transport.apply(params, xi)
+        parts = transport.split(q)
+
+        z = parts[joint_site]
+        delta = ctx.space.delta_from_z(z, jnp)
+        for i, fitpar in enumerate(sampled_all):
+            params[f"{name_stem}_{fitpar}"] = delta[i]
+            numpyro.deterministic(f"{name_stem}_{fitpar}_delta", delta[i])
+        for key in coeff_keys:
+            params[key] = parts[key]
+
+        logtarget = likelihood.clogL(params)  # data + exact GP priors
+        logtarget = logtarget - 0.5 * jnp.sum(z * z)  # exact timing prior
+        numpyro.factor("nlt_joint", logtarget + ldj + 0.5 * jnp.sum(xi * xi))
+
+    nlt_joint_model.transport = transport
+    nlt_joint_model.to_df = lambda samples: joint_samples_to_frame(samples, ctx)
+    return nlt_joint_model
+
+
+def _joint_pulsar_entry(
+    likelihood,
+    ctx,
+    *,
+    reference_noise,
+    center,
+    softclip_zmax,
+    global_gp=None,
+    psr_slot=None,
+    npsr=None,
+    center_extsignals=None,
+):
+    """Resolve one pulsar's joint pieces: transport, owned keys, clogL params."""
+    from ..metric import assert_static_layer_identity
+
+    if not ctx.sampled:
+        raise ValueError(
+            f"joint model requires >=1 sampled timing parameter for pulsar "
+            f"{ctx.pulsar.name}"
+        )
+    assert_static_layer_identity(
+        ctx.space, context=f"joint sampling ({ctx.pulsar.name})"
+    )
+    transport = build_joint_transport(
+        likelihood,
+        ctx,
+        reference_noise=reference_noise,
+        center=center,
+        softclip_zmax=softclip_zmax,
+        global_gp=global_gp,
+        psr_slot=psr_slot,
+        npsr=npsr,
+        center_extsignals=center_extsignals,
+    )
+    clogL_params = list(likelihood.clogL.params)
+    coeff_keys = [k for k in transport.index if k != ctx.joint_site]
+    missing_delay = [k for k in ctx.delay_keys if k not in clogL_params]
+    if missing_delay:
+        raise ValueError(
+            f"pulsar {ctx.pulsar.name}: ctx and likelihood not assembled "
+            f"together; missing delay keys in clogL.params: {missing_delay}"
+        )
+    missing_coeff = [k for k in coeff_keys if k not in clogL_params]
+    if missing_coeff:
+        raise ValueError(
+            f"pulsar {ctx.pulsar.name}: transport GP coefficient keys absent "
+            f"from clogL.params: {missing_coeff} (a global-GP block needs "
+            f"gw_residual_delay(global_gp, psr_slot) added to the likelihood)"
+        )
+    gw_key = None
+    if global_gp is not None:
+        gw_key = list(global_gp.index)[psr_slot]
+        if gw_key not in coeff_keys:
+            raise ValueError(
+                f"pulsar {ctx.pulsar.name}: global-GP coefficient key {gw_key!r} "
+                f"is not a transport block key {coeff_keys}"
+            )
+    return {
+        "likelihood": likelihood,
+        "ctx": ctx,
+        "transport": transport,
+        "coeff_keys": coeff_keys,
+        "clogL_params": clogL_params,
+        "owned": set(ctx.delay_keys) | set(coeff_keys),
+        "xi_site": f"{ctx.name_stem}_joint_xi",
+        "gw_key": gw_key,
+    }
+
+
+def joint_model_multi(
+    likelihoods,
+    ctxs,
+    *,
+    reference_noise: str = "toa_errors",
+    center: bool = True,
+    softclip_zmax: float | None = None,
+    global_gp=None,
+    center_extsignals=None,
+    priors: Mapping[str, Any] | None = None,
+    fixed: Mapping[str, float] | None = None,
+) -> Callable[[], None]:
+    """Joint full-basis model over several pulsars (§6.4, §7).
+
+    One :class:`discovery.transport.Transport` and one ``xi`` site per pulsar —
+    per-pulsar timing widths differ (ragged is expected) and the joint path never
+    routes through ``ArrayTransport``. Per-pulsar ``clogL`` terms sum;
+    hyperparameters shared across pulsars (e.g. a CURN amplitude that every
+    pulsar's GP names identically) are declared **once** and flow into every
+    pulsar's transport and likelihood. Each pulsar must be built with an identity
+    static affine layer (``transform='none'``).
+
+    ``global_gp`` (a discovery ``makeglobalgp_fourier`` object, HD or any ORF)
+    adds a correlated GW block: each pulsar's transport conditions its GW
+    coefficients through the per-pulsar ``globalgp_curn_block`` diagonal, the GW
+    waveform is subtracted from each residual by ``gw_residual_delay`` (which the
+    caller adds to each ``PulsarLikelihood``), and the **exact dense** cross-pulsar
+    coefficient prior is added once via :func:`global_gp_logprior`. Its pulsar
+    order must match ``likelihoods``/``ctxs``.
+
+    ``center_extsignals`` is an optional per-pulsar sequence (one entry per
+    pulsar; ``None`` to skip that pulsar) of deterministic ExtSignals used for
+    template-subtracted centering (§4.4). The same ExtSignal must also be
+    subtracted from that pulsar's residual in its ``PulsarLikelihood``.
+    """
+    import jax.numpy as jnp
+    import numpyro
+    from numpyro import distributions as dist
+
+    likelihoods = list(likelihoods)
+    ctxs = list(ctxs)
+    if len(likelihoods) != len(ctxs):
+        raise ValueError("likelihoods and ctxs must have equal length")
+    if not likelihoods:
+        raise ValueError("joint_model_multi requires at least one pulsar")
+    npsr = len(likelihoods)
+    if global_gp is not None and len(global_gp.index) != npsr:
+        raise ValueError(
+            f"global_gp spans {len(global_gp.index)} pulsars but "
+            f"{npsr} likelihoods were given"
+        )
+    if center_extsignals is not None and len(center_extsignals) != npsr:
+        raise ValueError(
+            f"center_extsignals must have one entry per pulsar ({npsr}); "
+            f"got {len(center_extsignals)}"
+        )
+
+    entries = [
+        _joint_pulsar_entry(
+            lk,
+            ctx,
+            reference_noise=reference_noise,
+            center=center,
+            softclip_zmax=softclip_zmax,
+            global_gp=global_gp,
+            psr_slot=(i if global_gp is not None else None),
+            npsr=(npsr if global_gp is not None else None),
+            center_extsignals=(
+                center_extsignals[i] if center_extsignals is not None else None
+            ),
+        )
+        for i, (lk, ctx) in enumerate(zip(likelihoods, ctxs))
+    ]
+
+    xi_sites = [e["xi_site"] for e in entries]
+    if len(set(xi_sites)) != len(xi_sites):
+        raise ValueError(
+            f"duplicate pulsar/model name_stem across the joint set (xi sites "
+            f"collide): {xi_sites}"
+        )
+
+    owned = set().union(*[e["owned"] for e in entries])
+    all_clogL = set().union(*[set(e["clogL_params"]) for e in entries])
+    if global_gp is not None:
+        # The global-GP hyperparameters drive the transport conditioner and the
+        # dense prior but never appear in any per-pulsar clogL (the GW enters
+        # prior-free, as a delay), so add them explicitly to the free set.
+        all_clogL |= set(getattr(global_gp.Phi_inv, "params", []))
+
+    fixed_params: dict[str, float] = {}
+    for key, value in dict(fixed or {}).items():
+        if key in owned:
+            raise ValueError(f"fixed cannot pin a timing/coefficient key: {key!r}")
+        if not isinstance(value, (int, float)):
+            raise TypeError(f"fixed[{key!r}] must be numeric")
+        fixed_params[key] = float(value)
+
+    priordict = dict(priors or {})
+    free = sorted(all_clogL - owned - set(fixed_params))
+    if free:
+        from discovery import prior as ds_prior
+
+        bounds = {p: tuple(ds_prior.getprior_uniform(p, priordict)) for p in free}
+
+    def nlt_joint_model_multi() -> None:
+        params = dict(fixed_params)
+        for par in free:
+            params[par] = numpyro.sample(par, dist.Uniform(*bounds[par]))
+
+        total = 0.0
+        gw_coeffs = []
+        for e in entries:
+            ctx, tr = e["ctx"], e["transport"]
+            xi = numpyro.sample(
+                e["xi_site"],
+                dist.Normal(0.0, 1.0).expand([tr.dimension]).to_event(1),
+            )
+            q, ldj = tr.apply(params, xi)
+            parts = tr.split(q)
+            z = parts[ctx.joint_site]
+            delta = ctx.space.delta_from_z(z, jnp)
+            for i, fitpar in enumerate(ctx.sampled_all):
+                params[f"{ctx.name_stem}_{fitpar}"] = delta[i]
+                numpyro.deterministic(f"{ctx.name_stem}_{fitpar}_delta", delta[i])
+            for key in e["coeff_keys"]:
+                params[key] = parts[key]
+            if e["gw_key"] is not None:
+                gw_coeffs.append(parts[e["gw_key"]])
+            total = (
+                total
+                + e["likelihood"].clogL(params)
+                - 0.5 * jnp.sum(z * z)
+                + ldj
+                + 0.5 * jnp.sum(xi * xi)
+            )
+
+        # Exact dense cross-pulsar coefficient prior for the global (HD) GP,
+        # added ONCE (the per-pulsar clogL carries no GW prior; the transport's
+        # per-pulsar diagonal only conditions it). Pulsar-major stack (§7).
+        if global_gp is not None:
+            c_flat = jnp.concatenate([jnp.asarray(c) for c in gw_coeffs])
+            total = total + global_gp_logprior(c_flat, global_gp, params, jnp)
+
+        numpyro.factor("nlt_joint", total)
+
+    nlt_joint_model_multi.transports = [e["transport"] for e in entries]
+    return nlt_joint_model_multi
+
+
+def joint_samples_to_frame(samples: Mapping[str, Any], ctx):
+    """Flatten joint-model samples into a DataFrame with exact physical decodes.
+
+    The canonical timing decode for a dynamic-transport run is the recorded
+    ``{name_stem}_{fitpar}_delta`` deterministics (the latent ``xi`` is not
+    decodable on its own, §6.6); physical values are recomputed from them
+    through ``ParameterSpace.to_physical``.
+    """
+    try:
+        import pandas as pd
+    except ImportError as exc:  # pragma: no cover
+        raise ImportError("joint_samples_to_frame requires pandas") from exc
+
+    name_stem = ctx.name_stem
+    delta_keys = [f"{name_stem}_{name}_delta" for name in ctx.sampled_all]
+    missing = [k for k in delta_keys if k not in samples]
+    if missing:
+        raise KeyError(f"joint samples missing timing delta sites: {missing}")
+
+    def _rows(arr):
+        arr = np.asarray(arr, dtype=float)
+        return arr.reshape(-1) if arr.ndim <= 1 else arr.reshape(arr.shape[0], -1)
+
+    n_rows = np.asarray(samples[delta_keys[0]], dtype=float).reshape(-1).shape[0]
+    columns: dict[str, np.ndarray] = {}
+    for name, value in samples.items():
+        flat = np.asarray(value, dtype=float)
+        flat = flat.reshape(n_rows, -1) if flat.ndim > 1 else flat.reshape(-1)
+        if flat.ndim == 1:
+            columns[name] = flat
+        else:
+            for i in range(flat.shape[1]):
+                columns[f"{name}[{i}]"] = flat[:, i]
+
+    delta = np.stack([columns[k] for k in delta_keys], axis=1)
+    theta_native = ctx.space.to_physical(delta, units="native", coord="delta")
+    theta_display = ctx.space.to_physical(delta, units="display", coord="delta")
+    for name in ctx.sampled_all:
+        columns[f"{name_stem}_{name}_theta_native"] = theta_native[name]
+        columns[f"{name_stem}_{name}_theta_display"] = theta_display[name]
+    return pd.DataFrame(columns)
+
+
+def joint_run_manifest(ctx, transport, **kwargs):
+    """Build the dynamic-transport :class:`RunManifest` for a joint run (§6.6).
+
+    Records the transport structure/digest and ``latent_decodable=false`` in the
+    manifest ``transport`` section; the caller supplies ``likelihood=``,
+    ``sampler=`` and any run metadata forwarded to ``ctx.run_manifest``.
+    """
+    from ..metric import dynamic_transport_record
+
+    return ctx.run_manifest(
+        dynamic_transport=dynamic_transport_record(transport), **kwargs
+    )
+
+
 def timing_init_values(ctx) -> dict[str, Any]:
     """Init-at-reference values for the joint timing site (zero coordinates)."""
     ndim = len(ctx.sampled)
