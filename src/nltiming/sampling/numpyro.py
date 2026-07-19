@@ -959,6 +959,34 @@ def timing_init_values(ctx) -> dict[str, Any]:
     return {ctx.latent_name_for_coord(): jnp.zeros((ndim,), dtype=jnp.float64)}
 
 
+# The NUTS integrator state fields the chain-preserving diagnostics record
+# (§10). Callers must pass these to ``mcmc.run(..., extra_fields=...)`` for
+# :func:`chain_diagnostics` to read them back.
+NUTS_EXTRA_FIELDS: tuple[str, ...] = (
+    "num_steps",
+    "diverging",
+    "accept_prob",
+    "potential_energy",
+    "energy",
+)
+
+
+def resolve_dense_mass(model_fn: Callable[[], None], dense_mass: Any) -> Any:
+    """Resolve the ``"auto"`` block-mass default for a joint model (§10, G17).
+
+    ``"auto"`` becomes ``[tuple(model.hyper_sites)]`` when the model exposes at
+    least two hyperparameters, and ``False`` otherwise. It never places the
+    vector ``xi`` site in a dense block. Any other (NumPyro-compatible) value —
+    ``bool`` or an explicit list of site groups — is forwarded unchanged.
+    """
+    if dense_mass != "auto":
+        return dense_mass
+    hyper = getattr(model_fn, "hyper_sites", None)
+    if hyper is not None and len(tuple(hyper)) >= 2:
+        return [tuple(hyper)]
+    return False
+
+
 def nuts(
     model_fn: Callable[[], None],
     ctx,
@@ -966,7 +994,7 @@ def nuts(
     num_warmup: int = 1000,
     num_samples: int = 1000,
     num_chains: int = 1,
-    dense_mass: bool = True,
+    dense_mass: Any = "auto",
     target_accept: float = 0.8,
     max_tree_depth: int = 10,
     init_strategy: Any = None,
@@ -982,6 +1010,12 @@ def nuts(
     is given explicitly, in which case it wins outright. Run the returned
     object with ``mcmc.run(jax.random.PRNGKey(seed))``.
 
+    ``dense_mass`` defaults to ``"auto"`` block adaptation: a joint model with
+    at least two hyperparameters adapts a dense block over ``model.hyper_sites``
+    only, leaving the intended-white ``xi`` vector on an identity mass
+    (:func:`resolve_dense_mass`, §10). Explicit values are forwarded unchanged.
+    The requested ``num_warmup``/``num_samples`` are never silently overridden.
+
     Callers must invoke :func:`ensure_x64` before constructing the Discovery
     likelihood, not just before calling this function — JAX arrays already
     created as float32 stay float32.
@@ -994,7 +1028,7 @@ def nuts(
 
     kernel = NUTS(
         model_fn,
-        dense_mass=dense_mass,
+        dense_mass=resolve_dense_mass(model_fn, dense_mass),
         target_accept_prob=target_accept,
         max_tree_depth=max_tree_depth,
         init_strategy=init_strategy,
@@ -1044,3 +1078,74 @@ def save_samples(
     return save_discovery_checkpoint(
         run_dir, x, manifest, final=final, n_target=n_target
     )
+
+
+def tree_depth_saturation_fraction(num_steps, max_tree_depth: int) -> float:
+    """Fraction of draws whose leapfrog count hit the tree-depth cap (§10).
+
+    A NUTS trajectory at the maximum depth ``d`` takes ``2**d - 1`` steps; a
+    high saturation fraction means the sampler is depth-limited, not that the
+    geometry is healthy. A validation run treats ``> 0.10`` as a failure.
+    """
+    ns = np.asarray(num_steps)
+    if ns.size == 0:
+        return 0.0
+    cap = 2 ** int(max_tree_depth) - 1
+    return float(np.mean(ns >= cap))
+
+
+def chain_diagnostics(mcmc, *, max_tree_depth: int = 10) -> dict[str, Any]:
+    """Chain-preserving NUTS diagnostics (§10).
+
+    Returns ``group_by_chain=True`` samples plus the recorded integrator extra
+    fields (``num_steps``, ``diverging``, ``accept_prob``, ``potential_energy``,
+    ``energy``), all shaped ``(n_chains, n_samples, ...)`` so chains are never
+    pooled before diagnosis, and the tree-depth saturation fraction/flag.
+
+    The ``MCMC`` must have been run with
+    ``mcmc.run(..., extra_fields=NUTS_EXTRA_FIELDS)``; a clear error is raised if
+    the fields were not collected.
+    """
+    extra = mcmc.get_extra_fields(group_by_chain=True)
+    missing = [f for f in NUTS_EXTRA_FIELDS if f not in extra]
+    if missing:
+        raise ValueError(
+            "chain_diagnostics requires the NUTS integrator extra fields "
+            f"{missing}; run mcmc.run(..., extra_fields=NUTS_EXTRA_FIELDS)"
+        )
+    fields = {f: np.asarray(extra[f]) for f in NUTS_EXTRA_FIELDS}
+    fraction = tree_depth_saturation_fraction(fields["num_steps"], max_tree_depth)
+    return {
+        "samples": mcmc.get_samples(group_by_chain=True),
+        **fields,
+        "max_tree_depth": int(max_tree_depth),
+        "tree_depth_saturation_fraction": fraction,
+        "tree_depth_saturated": bool(fraction > 0.10),
+    }
+
+
+def save_chain_diagnostics(path, mcmc, *, max_tree_depth: int = 10):
+    """Persist chain-preserving diagnostics to a single ``.npz`` (§10).
+
+    Writes the per-chain samples (as ``sample__<site>`` arrays), the recorded
+    integrator extra fields, and the tree-depth saturation summary — all with
+    chains preserved. Returns the resolved :class:`pathlib.Path`.
+    """
+    import pathlib
+
+    diag = chain_diagnostics(mcmc, max_tree_depth=max_tree_depth)
+    payload = {f"sample__{k}": np.asarray(v) for k, v in diag["samples"].items()}
+    for field in NUTS_EXTRA_FIELDS:
+        payload[field] = diag[field]
+    payload["max_tree_depth"] = np.asarray(diag["max_tree_depth"])
+    payload["tree_depth_saturation_fraction"] = np.asarray(
+        diag["tree_depth_saturation_fraction"]
+    )
+    payload["tree_depth_saturated"] = np.asarray(diag["tree_depth_saturated"])
+
+    path = pathlib.Path(path)
+    if path.suffix != ".npz":
+        path = path.with_suffix(".npz")
+    with open(path, "wb") as fh:
+        np.savez_compressed(fh, **payload)  # type: ignore[arg-type]
+    return path

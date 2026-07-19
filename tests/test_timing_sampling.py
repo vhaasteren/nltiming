@@ -559,3 +559,154 @@ def test_chain_layout_locates_columns_in_real_enterprise_pta(pulsar, whitening):
     assert len(layout["columns"]) == len(expected_names)
     for name, col in zip(expected_names, layout["columns"]):
         assert pta.param_names[col] == name
+
+
+# ---------------------------------------------------------------------------
+# §10 block mass default and chain-preserving diagnostics
+
+
+def _model_with_sites(hyper_sites, xi_site="timing_joint_xi"):
+    def model_fn():
+        pass
+
+    model_fn.hyper_sites = tuple(hyper_sites)
+    model_fn.xi_site = xi_site
+    return model_fn
+
+
+def test_dense_mass_auto_resolves_to_hyper_block():
+    model_fn = _model_with_sites(("log10_A", "gamma"))
+    assert nlt_numpyro.resolve_dense_mass(model_fn, "auto") == [("log10_A", "gamma")]
+
+
+def test_dense_mass_auto_single_or_no_hyper_is_false():
+    assert nlt_numpyro.resolve_dense_mass(_model_with_sites(("log10_A",)), "auto") is False
+
+    def bare():
+        pass
+
+    assert nlt_numpyro.resolve_dense_mass(bare, "auto") is False
+
+
+def test_dense_mass_auto_never_includes_xi():
+    model_fn = _model_with_sites(("a", "b"), xi_site="the_xi_vector")
+    resolved = nlt_numpyro.resolve_dense_mass(model_fn, "auto")
+    flat = [site for group in resolved for site in group]
+    assert "the_xi_vector" not in flat
+
+
+def test_dense_mass_explicit_is_forwarded_unchanged():
+    model_fn = _model_with_sites(("a", "b"))
+    assert nlt_numpyro.resolve_dense_mass(model_fn, True) is True
+    assert nlt_numpyro.resolve_dense_mass(model_fn, False) is False
+    explicit = [("a",)]
+    assert nlt_numpyro.resolve_dense_mass(model_fn, explicit) is explicit
+
+
+def test_nuts_passes_resolved_auto_block_mass_to_kernel(pulsar):
+    ctx = _binding().for_pulsar(pulsar)
+
+    def model_fn():
+        pass
+
+    model_fn.hyper_sites = ("log10_A", "gamma")
+    model_fn.xi_site = ctx.latent_name_for_coord()
+    mcmc = nlt_numpyro.nuts(model_fn, ctx)
+    assert mcmc.sampler._dense_mass == [("log10_A", "gamma")]
+
+
+def test_nuts_does_not_override_requested_warmup(pulsar):
+    ctx = _binding().for_pulsar(pulsar)
+
+    def model_fn():
+        pass
+
+    mcmc = nlt_numpyro.nuts(model_fn, ctx, num_warmup=2000, num_samples=5000)
+    assert mcmc.num_warmup == 2000
+    assert mcmc.num_samples == 5000
+
+
+def test_tree_depth_saturation_fraction():
+    # Depth-10 cap is 2**10 - 1 = 1023 leapfrog steps.
+    num_steps = np.array([[1, 3, 1023], [7, 1023, 1023]])
+    frac = nlt_numpyro.tree_depth_saturation_fraction(num_steps, max_tree_depth=10)
+    assert frac == pytest.approx(3 / 6)
+    assert nlt_numpyro.tree_depth_saturation_fraction(np.array([]), 10) == 0.0
+
+
+def test_chain_diagnostics_group_by_chain_and_extra_fields():
+    import jax
+    import numpyro
+    import numpyro.distributions as dist
+    from numpyro.infer import MCMC, NUTS
+
+    def model():
+        numpyro.sample("a", dist.Uniform(-1.0, 1.0))
+        numpyro.sample("b", dist.Uniform(-1.0, 1.0))
+        numpyro.sample("xi", dist.Normal(0.0, 1.0).expand([3]).to_event(1))
+
+    mcmc = MCMC(
+        NUTS(model),
+        num_warmup=20,
+        num_samples=15,
+        num_chains=2,
+        chain_method="sequential",
+        progress_bar=False,
+    )
+    mcmc.run(jax.random.PRNGKey(0), extra_fields=nlt_numpyro.NUTS_EXTRA_FIELDS)
+
+    diag = nlt_numpyro.chain_diagnostics(mcmc, max_tree_depth=10)
+    # Chains are preserved, never pooled: shape is (n_chains, n_samples, ...).
+    for field in nlt_numpyro.NUTS_EXTRA_FIELDS:
+        assert diag[field].shape == (2, 15)
+    assert diag["samples"]["a"].shape == (2, 15)
+    assert diag["samples"]["xi"].shape == (2, 15, 3)
+    assert 0.0 <= diag["tree_depth_saturation_fraction"] <= 1.0
+    assert isinstance(diag["tree_depth_saturated"], bool)
+    assert diag["max_tree_depth"] == 10
+
+
+def test_chain_diagnostics_requires_extra_fields():
+    import jax
+    import numpyro
+    import numpyro.distributions as dist
+    from numpyro.infer import MCMC, NUTS
+
+    def model():
+        numpyro.sample("a", dist.Uniform(-1.0, 1.0))
+
+    mcmc = MCMC(NUTS(model), num_warmup=10, num_samples=10, progress_bar=False)
+    mcmc.run(jax.random.PRNGKey(0))  # no extra_fields collected
+    with pytest.raises(ValueError, match="extra_fields"):
+        nlt_numpyro.chain_diagnostics(mcmc)
+
+
+def test_save_chain_diagnostics_roundtrip_preserves_chains(tmp_path):
+    import jax
+    import numpyro
+    import numpyro.distributions as dist
+    from numpyro.infer import MCMC, NUTS
+
+    def model():
+        numpyro.sample("a", dist.Uniform(-1.0, 1.0))
+        numpyro.sample("xi", dist.Normal(0.0, 1.0).expand([2]).to_event(1))
+
+    mcmc = MCMC(
+        NUTS(model),
+        num_warmup=20,
+        num_samples=15,
+        num_chains=2,
+        chain_method="sequential",
+        progress_bar=False,
+    )
+    mcmc.run(jax.random.PRNGKey(0), extra_fields=nlt_numpyro.NUTS_EXTRA_FIELDS)
+
+    out = nlt_numpyro.save_chain_diagnostics(tmp_path / "diag", mcmc)
+    assert out.suffix == ".npz"
+    loaded = np.load(out)
+    # Samples keep chains; extra fields present.
+    assert loaded["sample__a"].shape == (2, 15)
+    assert loaded["sample__xi"].shape == (2, 15, 2)
+    for field in nlt_numpyro.NUTS_EXTRA_FIELDS:
+        assert loaded[field].shape == (2, 15)
+    assert int(loaded["max_tree_depth"]) == 10
