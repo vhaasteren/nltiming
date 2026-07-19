@@ -424,6 +424,57 @@ def _model_fingerprint(model, ctx) -> str:
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
+class _CompiledTarget:
+    """Compile the unconstrained potential's grad/Hessian/value once, reuse them
+    across all probe points (§8.3 performance).
+
+    The model's unconstrained potential is a fixed function of the flattened
+    ``[xi, hyper]`` coordinate, so ``jax.grad``/``jax.hessian``/the potential are
+    XLA-compiled a single time and evaluated at every probe — instead of
+    recompiling per probe. ``xi`` is a ``Normal`` site (identity unconstrained
+    transform), so a probe's unconstrained point is ``concat(xi_probe,
+    u_hyper)`` with ``u_hyper`` computed once per hyper point.
+    """
+
+    def __init__(self, model, hyper_example: Mapping[str, float], *, dim: int):
+        import jax
+
+        self.xi_site, self.hyper_sites = _require_site_metadata(model)
+        hyper_example = {k: float(hyper_example[k]) for k in self.hyper_sites}
+        pf, z0, order, shapes = _unconstrained_potential(
+            model, np.zeros(dim), hyper_example
+        )
+        self._order = order
+        self._shapes = shapes
+        self.xi_dim = int(np.prod(shapes[self.xi_site])) if shapes[self.xi_site] else 1
+
+        def pot(u):
+            return pf(_unflatten(u, order, shapes))
+
+        self._grad = jax.jit(jax.grad(pot))
+        self._hess = jax.jit(jax.hessian(pot))
+        self._pot = jax.jit(pot)
+
+    def u_hyper(self, model, hyper: Mapping[str, float]) -> np.ndarray:
+        """Flattened unconstrained hyper block at a constrained hyper point."""
+        hyper = {k: float(hyper[k]) for k in self.hyper_sites}
+        _, z0, _, _ = _unconstrained_potential(model, np.zeros(self.xi_dim), hyper)
+        parts = [np.reshape(np.asarray(z0[k], dtype=float), (-1,)) for k in self.hyper_sites]
+        return np.concatenate(parts) if parts else np.zeros((0,))
+
+    def _u_at(self, xi: np.ndarray, u_hyper: np.ndarray):
+        import jax.numpy as jnp
+
+        return jnp.concatenate([jnp.asarray(xi, dtype=float), jnp.asarray(u_hyper)])
+
+    def grad_hessian(self, xi: np.ndarray, u_hyper: np.ndarray):
+        u = self._u_at(xi, u_hyper)
+        return np.asarray(self._grad(u), dtype=float), np.asarray(self._hess(u), dtype=float)
+
+    def potential(self, xi: np.ndarray, u_hyper: np.ndarray) -> float:
+        return float(self._pot(self._u_at(xi, u_hyper)))
+
+
 def certify_joint_geometry(
     model,
     ctx,
@@ -477,6 +528,12 @@ def certify_joint_geometry(
     max_cross = 0.0
     max_spread = 0.0
 
+    # Compile the unconstrained grad/Hessian/potential once and reuse them across
+    # every probe at every hyper point (§8.3): recompiling per probe dominates the
+    # cost at J1640 scale.
+    compiled = _CompiledTarget(model, hyper_points[0], dim=dim)
+    zeros_xi = np.zeros(dim)
+
     for pi, raw_point in enumerate(hyper_points):
         point = {k: float(v) for k, v in raw_point.items()}
 
@@ -507,15 +564,29 @@ def certify_joint_geometry(
             point_rms = max(point_rms, rms)
             point_std = max(point_std, std_toa)
 
-        # Target metrics at xi=0 (§8.3 items 3–5) and identity spread (item 6).
-        arrays = _target_arrays_at(model, xi=np.zeros(dim), hyper=point)
-        grad_xi = arrays["grad_xi"]
-        eigs = arrays["hxixi_eigs"]
+        u_hyper = compiled.u_hyper(model, point)
+
+        # Target metrics at xi=0 (§8.3 items 3–5).
+        grad, hess = compiled.grad_hessian(zeros_xi, u_hyper)
+        xi_dim = compiled.xi_dim
+        grad_xi = grad[:xi_dim]
+        h_xixi = hess[:xi_dim, :xi_dim]
+        h_xieta = hess[:xi_dim, xi_dim:]
+        eigs = np.linalg.eigvalsh(0.5 * (h_xixi + h_xixi.T))
         grad_inf = float(np.max(np.abs(grad_xi))) if grad_xi.size else 0.0
         e_min = float(eigs.min()) if eigs.size else 0.0
         e_max = float(eigs.max()) if eigs.size else 0.0
-        cross = float(arrays["cross_norm"])
-        spread = conditional_identity_spread(model, hyper=point, xi_points=probes)
+        cross = float(np.linalg.norm(h_xieta, 2)) if h_xieta.size else 0.0
+
+        # Conditional-identity spread over probes (§8.3 item 6): D = log p(xi,eta)
+        # - log p(0,eta) + 1/2||xi||^2 = -(pot(u_xi) - pot(u_0)) + 1/2||xi||^2, from
+        # the shared jitted potential (hyper logdet-Jacobian cancels; xi is identity).
+        pot0 = compiled.potential(zeros_xi, u_hyper)
+        identities = [
+            -(compiled.potential(xi, u_hyper) - pot0) + 0.5 * float(np.dot(xi, xi))
+            for xi in probes
+        ]
+        spread = float(max(identities) - min(identities)) if identities else 0.0
 
         max_rms = max(max_rms, point_rms)
         max_std_toa = max(max_std_toa, point_std)

@@ -29,6 +29,10 @@ _DISPLAY_SUFFIX = "_theta_display"
 
 
 def _run_meta_tempo2_native(ntm) -> str | dict[str, Any] | None:
+    # Record the resolved mode (§18): omitted tempo2_native is fixed_state_stripped.
+    resolved = getattr(ntm, "resolved_tempo2_native", None)
+    if resolved is not None:
+        return resolved
     value = getattr(ntm, "tempo2_native", None)
     if value is None:
         return None

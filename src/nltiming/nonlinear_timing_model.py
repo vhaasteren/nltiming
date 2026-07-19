@@ -731,14 +731,27 @@ class NonLinearTimingModel:
         }
         return hashlib.sha256(_stable_json(payload).encode("utf-8")).hexdigest()
 
-    def _tempo2_native_fingerprint(self) -> str | None:
+    @property
+    def resolved_tempo2_native(self) -> str:
+        """The tempo2-native mode after default resolution (§18).
+
+        Omitting ``tempo2_native`` resolves to ``"fixed_state_stripped"`` — the
+        production default — through every layer: this value is what the JUG
+        engine is built with and what the config fingerprint and run manifest
+        record. Any other value is an explicit user choice. The raw
+        ``self.tempo2_native`` (``None`` when omitted) is retained only as the
+        "user set a mode" signal for :meth:`_uses_jug`.
+        """
         if self.tempo2_native is None:
-            return None
+            return "fixed_state_stripped"
         return str(self.tempo2_native)
+
+    def _tempo2_native_fingerprint(self) -> str:
+        return self.resolved_tempo2_native
 
     def _timing_engine_kwargs(self) -> dict[str, Any]:
         return {
-            "tempo2_native": self.tempo2_native,
+            "tempo2_native": self.resolved_tempo2_native,
             "tempo2_jug_options": self.tempo2_jug_options,
             "prime_sessions": True,
             "verify_wiring": False,

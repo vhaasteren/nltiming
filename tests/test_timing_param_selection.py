@@ -175,3 +175,33 @@ def test_with_engines_carries_inference_and_priors(pulsar):
     ctx = other.for_pulsar(pulsar)
     assert ctx.sampled == ("PB_a", "TASC_a", "PB_b", "TASC_b")
     assert ctx.priors.sources["TASC_a"] == "override"
+
+
+# ---------------------------------------------------------------------------
+# tempo2_native default resolution (§18)
+
+
+def test_omitted_tempo2_native_resolves_to_fixed_state_stripped():
+    ntm = NonLinearTimingModel(engines="jug", name="timing")
+    # Raw field stays None (the "user set a mode" signal for _uses_jug);
+    # the resolved mode is the production default and is what layers see.
+    assert ntm.tempo2_native is None
+    assert ntm.resolved_tempo2_native == "fixed_state_stripped"
+    assert ntm._timing_engine_kwargs()["tempo2_native"] == "fixed_state_stripped"
+
+
+def test_explicit_tempo2_native_is_an_explicit_choice():
+    ntm = NonLinearTimingModel(
+        engines="jug", tempo2_native="fixed_state", name="timing")
+    assert ntm.resolved_tempo2_native == "fixed_state"
+    assert ntm._timing_engine_kwargs()["tempo2_native"] == "fixed_state"
+
+
+def test_resolved_tempo2_native_is_fingerprinted():
+    default = NonLinearTimingModel(engines="jug", name="timing")
+    explicit = NonLinearTimingModel(
+        engines="jug", tempo2_native="fixed_state", name="timing")
+    # The resolved mode enters the config fingerprint, so a non-default mode
+    # produces a distinct fingerprint from the resolved default.
+    assert default._tempo2_native_fingerprint() == "fixed_state_stripped"
+    assert default._config_fingerprint() != explicit._config_fingerprint()
