@@ -161,17 +161,18 @@ def _outside_prior_interior(priors, delta_e, names) -> list[str]:
     return bad
 
 
-def _waveform_of_sampled_z(engine, space, idx_sampled, nfit, xp):
-    """Return ``d(z_s) = -residual_delta(delta(z_s))`` as an ``xp`` callable."""
+def _waveform_of_z(engine, space, idx, nfit, xp):
+    """Return ``d(z) = -residual_delta(delta(z))`` over ``space``'s axes as an
+    ``xp`` callable (``idx`` are the fitpar positions of those axes)."""
 
-    idx = xp.asarray(np.asarray(idx_sampled, dtype=int))
+    idx = xp.asarray(np.asarray(idx, dtype=int))
 
-    def d_of_zs(z_s):
-        delta_sampled = space.delta_from_z(z_s, xp)
-        full = xp.zeros((nfit,), dtype=delta_sampled.dtype).at[idx].set(delta_sampled)
+    def d_of_z(z):
+        delta = space.delta_from_z(z, xp)
+        full = xp.zeros((nfit,), dtype=delta.dtype).at[idx].set(delta)
         return -engine.residual_delta_jax(full)
 
-    return d_of_zs
+    return d_of_z
 
 
 def _stencil_jacobian(f, z_e, *, h: float) -> np.ndarray:
@@ -196,30 +197,41 @@ def build_linearization(
     *,
     engine,
     plan,
-    space,
+    proper_space,
     delta_expansion: np.ndarray,
     source: ExpansionSource,
 ) -> TimingLinearization:
-    """Build the fixed linearization at ``delta_expansion`` (proper/sampled order).
+    """Build the fixed linearization at ``delta_expansion`` (proper order, §5.2).
 
-    z-prior marginalization is not yet wired, so the proper set is exactly the
-    sampled set and the marginalized-z blocks are empty.
+    ``d(z)`` is differentiated over every proper axis (sampled ∪ z-marginalized)
+    at the common expansion point; the columns are split into the sampled block
+    ``W_s`` and the z-marginalized block ``W_m`` (with intercept ``c_m =
+    -W_m z_m,e``). Delta-flat axes are held at zero (their improper columns come
+    from the engine design matrix, §5.4).
     """
     from .protocols import JaxTimingEngine
 
-    sampled_names = tuple(plan.sampled)
-    k_s = len(sampled_names)
+    proper_axes = [
+        a for a in plan.axes
+        if a.disposition in ("sample", "marginalize_z_prior")
+    ]
+    proper_names = tuple(a.name for a in proper_axes)
+    sampled_cols = [i for i, a in enumerate(proper_axes) if a.disposition == "sample"]
+    zm_cols = [i for i, a in enumerate(proper_axes) if a.disposition != "sample"]
+    sampled_names = tuple(proper_names[i] for i in sampled_cols)
+    zm_names = tuple(proper_names[i] for i in zm_cols)
+    idx_proper = np.asarray([a.fitpar_index for a in proper_axes], dtype=int)
+    k_p = len(proper_names)
     nfit = len(plan.fitpars)
 
     delta_e = np.asarray(delta_expansion, dtype=float)
-    if delta_e.shape != (k_s,):
+    if delta_e.shape != (k_p,):
         raise ValueError(
-            f"delta_expansion has shape {delta_e.shape}, expected {(k_s,)} "
-            "(proper/sampled axes in fitpar order)"
+            f"delta_expansion has shape {delta_e.shape}, expected {(k_p,)} "
+            "(proper axes in fitpar order)"
         )
 
-    if k_s == 0:
-        # No sampled axes: derive n_toa from a zero-delta residual.
+    if k_p == 0:
         n_toa = int(np.asarray(engine.residual_delta(np.zeros(nfit))).shape[0])
         return TimingLinearization(
             proper_names=(), sampled_names=(), marginalized_z_names=(),
@@ -231,29 +243,27 @@ def build_linearization(
             marginalized_z_intercept=np.zeros(n_toa),
             source=source)
 
-    bad = _outside_prior_interior(space.prior_bijector.priors, delta_e, sampled_names)
+    bad = _outside_prior_interior(
+        proper_space.prior_bijector.priors, delta_e, proper_names)
     if bad:
         raise ExpansionOutsidePriorInteriorError(bad, source)
-    z_e = np.asarray(space.z_from_delta(delta_e, np), dtype=float)
+    z_e = np.asarray(proper_space.z_from_delta(delta_e, np), dtype=float)
     if not np.all(np.isfinite(z_e)):
         raise ExpansionOutsidePriorInteriorError(
-            [sampled_names[i] for i in range(k_s) if not np.isfinite(z_e[i])], source
-        )
+            [proper_names[i] for i in range(k_p) if not np.isfinite(z_e[i])], source)
 
     if isinstance(engine, JaxTimingEngine):
         import jax
         import jax.numpy as jnp
 
-        d_of_zs = _waveform_of_sampled_z(engine, space, plan.idx_sampled, nfit, jnp)
-        d_e = np.asarray(d_of_zs(jnp.asarray(z_e)), dtype=float)
-        W_s = np.asarray(jax.jacfwd(d_of_zs)(jnp.asarray(z_e)), dtype=float)
+        d_of_z = _waveform_of_z(engine, proper_space, idx_proper, nfit, jnp)
+        d_e = np.asarray(d_of_z(jnp.asarray(z_e)), dtype=float)
+        W = np.asarray(jax.jacfwd(d_of_z)(jnp.asarray(z_e)), dtype=float)
     else:
-        idx = np.asarray(plan.idx_sampled, dtype=int)
-
-        def d_np(z_s):
-            delta_sampled = np.asarray(space.delta_from_z(z_s, np), dtype=float)
+        def d_np(z):
+            delta = np.asarray(proper_space.delta_from_z(z, np), dtype=float)
             full = np.zeros(nfit)
-            full[idx] = delta_sampled
+            full[idx_proper] = delta
             return -np.asarray(engine.residual_delta(full), dtype=float)
 
         d_e = d_np(z_e)
@@ -265,20 +275,26 @@ def build_linearization(
                 "five-point stencil timing Jacobian did not converge to relative "
                 "tolerance 1e-5 across h=1e-4 and h=5e-5"
             )
-        W_s = W_a
+        W = W_a
 
     n_toa = int(np.asarray(d_e).shape[0])
+    W_s = W[:, sampled_cols] if sampled_cols else np.zeros((n_toa, 0))
+    W_m = W[:, zm_cols] if zm_cols else np.zeros((n_toa, 0))
+    z_s_e = z_e[sampled_cols] if sampled_cols else np.zeros(0)
+    z_m_e = z_e[zm_cols] if zm_cols else np.zeros(0)
+    c_m = -(W_m @ z_m_e) if zm_cols else np.zeros(n_toa)
+
     return TimingLinearization(
-        proper_names=sampled_names,
+        proper_names=proper_names,
         sampled_names=sampled_names,
-        marginalized_z_names=(),
+        marginalized_z_names=zm_names,
         z_expansion=z_e,
         delta_expansion=delta_e,
-        sampled_z_expansion=z_e,
+        sampled_z_expansion=z_s_e,
         sampled_waveform_expansion=d_e,
         sampled_basis=W_s,
-        marginalized_z_basis=np.zeros((n_toa, 0)),
-        marginalized_z_intercept=np.zeros(n_toa),
+        marginalized_z_basis=W_m,
+        marginalized_z_intercept=c_m,
         source=source,
     )
 

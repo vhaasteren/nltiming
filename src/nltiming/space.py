@@ -97,6 +97,41 @@ class ParameterSpace:
             pint_model=pint_model,
         )
 
+    def select(self, names) -> "ParameterSpace":
+        """Extract the subspace over ``names`` (a subset of this space's axes).
+
+        Preserves each axis's prior and exact reference. Requires an identity
+        static layer — subspaces are selected before static whitening is built,
+        so a non-block-diagonal ``WhiteningLinear`` can never be sliced here.
+        """
+        names = tuple(names)
+        pos = {n: i for i, n in enumerate(self.names)}
+        missing = [n for n in names if n not in pos]
+        if missing:
+            raise ValueError(f"select: unknown axes {missing}")
+        C = np.asarray(self.linear.C, dtype=float)
+        z0 = np.asarray(self.linear.z0, dtype=float)
+        if C.size and not (
+            np.allclose(C, np.eye(C.shape[0])) and np.allclose(z0, 0.0)
+        ):
+            raise ValueError(
+                "ParameterSpace.select requires an identity static layer; select "
+                "subspaces before static whitening is built (§4.5)"
+            )
+        idx = [pos[n] for n in names]
+        sub_priors = tuple(self.prior_bijector.priors[i] for i in idx)
+        sub_bijector = PriorBijector(names=names, priors=sub_priors)
+        full = self.theta_ref.as_mapping()
+        sub_ref = ExactNativeRef.from_mapping({n: full[n] for n in names})
+        return ParameterSpace(
+            names=names,
+            theta_ref=sub_ref,
+            prior_bijector=sub_bijector,
+            linear=WhiteningLinear.identity(len(idx)),
+            static_layer=self.static_layer,
+            pint_model=self.pint_model,
+        )
+
     def z_from_x(self, x, xp):
         return self.linear.z_from_x(x, xp)
 

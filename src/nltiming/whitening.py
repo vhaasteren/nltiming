@@ -63,8 +63,15 @@ def schur_delta_wls(
     partition,
     variance: np.ndarray,
     design_matrix: np.ndarray | None = None,
+    idx_kept=None,
+    idx_marginalized=None,
 ) -> DeltaWLS:
-    """Return sampled-block Fisher, covariance, and WLS mean in delta units."""
+    """Return kept-block Fisher, covariance, and WLS mean in delta units.
+
+    The kept block defaults to the sampled axes and the marginalized block to the
+    analytically delta-flat axes; pass ``idx_kept``/``idx_marginalized`` to Schur
+    over a different split (e.g. the full proper set for cheat-prior widths).
+    """
     mmat = (
         np.asarray(design_matrix, dtype=float)
         if design_matrix is not None
@@ -73,10 +80,12 @@ def schur_delta_wls(
     residuals = np.asarray(pulsar.residuals, dtype=float)
     weights = 1.0 / np.asarray(variance, dtype=float)
 
-    sampled = _as_columns(mmat, tuple(partition.idx_sampled))
-    analytically_marginalized_cols = _as_columns(
-        mmat, tuple(partition.idx_analytically_marginalized)
-    )
+    if idx_kept is None:
+        idx_kept = partition.idx_sampled
+    if idx_marginalized is None:
+        idx_marginalized = partition.idx_analytically_marginalized
+    sampled = _as_columns(mmat, tuple(idx_kept))
+    analytically_marginalized_cols = _as_columns(mmat, tuple(idx_marginalized))
     ndim = sampled.shape[1]
     if ndim == 0:
         empty = np.eye(0, dtype=float)

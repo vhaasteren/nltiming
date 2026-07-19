@@ -215,16 +215,65 @@ def test_transform_keyword_is_rejected():
         )
 
 
-def test_z_prior_axis_is_rejected_until_adapters_exist():
-    """A plan with a marginalize_z_prior axis must not silently vanish from the
-    likelihood: building a context raises until the Stage 5 adapters exist."""
+def test_z_prior_context_builds_with_wm_block_and_discovery_gp():
+    """A marginalize_z_prior axis is live for Discovery: the context builds, the
+    linearization carries a W_m block, and discovery_signals emits the proper
+    unit-normal (standard-normal) GP for it."""
     ntm = NonLinearTimingModel(
         engines="jug",
         inference=TimingInference.groups(z_prior=["DM"]),
         name="timing",
     )
-    with pytest.raises(NotImplementedError, match="marginalize_z_prior"):
-        ntm.for_pulsar(_Pulsar())
+    ctx = ntm.for_pulsar(_Pulsar())
+    assert ctx.plan.marginalized_z == ("DM",)
+    assert ctx.plan.sampled == ("F0", "F1")
+    assert ctx.plan.proper == ("F0", "F1", "DM")
+    lin = ctx.linearization
+    assert lin.marginalized_z_names == ("DM",)
+    assert lin.marginalized_z_basis.shape[1] == 1
+    assert lin.sampled_basis.shape[1] == 2
+    # the z subspace is a real, separate ParameterSpace
+    assert ctx.marginal_z_space.names == ("DM",)
+    assert ctx.space.names == ("F0", "F1")
+    # discovery emits a standard-normal GP for the z-prior block
+    sigs = ctx.discovery_signals()
+    gpnames = [getattr(s, "gpname", "") for s in sigs]
+    assert any("zprior" in (gn or "") for gn in gpnames)
+
+
+def test_discovery_signals_joint_rejects_any_marginalization():
+    # joint=True must sample every timing direction; a z-prior (or delta-flat)
+    # marginal block would be the wrong model, so it fails loudly.
+    ntm = NonLinearTimingModel(
+        engines="jug",
+        inference=TimingInference.groups(z_prior=["DM"]),
+        name="timing",
+    )
+    ctx = ntm.for_pulsar(_Pulsar())
+    with pytest.raises(ValueError, match="sample_all"):
+        ctx.discovery_signals(joint=True)
+
+
+def test_z_prior_enterprise_assembly_builds_and_evaluates():
+    """Enterprise consumes the z-prior block: the exact sampled delay (z-marg
+    fixed), the proper unit-normal W_m GP, and the fixed c_m intercept assemble
+    into a full PTA whose likelihood evaluates (DM analytically marginalized)."""
+    from enterprise.signals import parameter, signal_base, white_signals
+
+    ntm = NonLinearTimingModel(
+        engines="jug",
+        inference=TimingInference.groups(z_prior=["DM"]),
+        whitening=WhiteningConfig(),
+        name="timing",
+    )
+    white = white_signals.MeasurementNoise(efac=parameter.Constant(1.0))
+    pta = signal_base.PTA([(white + ntm.enterprise_signal())(_Pulsar())])
+    # only F0/F1 are sampled; DM is marginalized via the W_m GP (no DM param).
+    assert not any("DM" in p for p in pta.param_names)
+    x0 = np.hstack(
+        [np.asarray(p.sample(), dtype=float).reshape(-1) for p in pta.params])
+    assert np.isfinite(pta.get_lnlikelihood(x0))
+    assert np.isfinite(pta.get_lnprior(x0))
 
 
 def test_local_timing_block_is_negative_autodiff_jacobian():

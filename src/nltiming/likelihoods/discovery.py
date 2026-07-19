@@ -41,11 +41,23 @@ def _build_delay_callable(
     engine: JaxTimingEngine,
     partition: TimingParameterPlan,
     name: str,
+    zm_indices=(),
+    zm_fixed_delta=None,
 ) -> Callable[[dict[str, object]], object]:
+    """Exact sampled delay ``d_anchor(z_s) = d(z_s, z_m,e)``.
+
+    z-marginalized axes are held at their fixed expansion delta ``z_m,e``
+    (``zm_fixed_delta``); delta-flat axes stay at zero. The remaining z-marginal
+    variation is carried by the separate ``W_m`` standard-normal GP block.
+    """
     sampled_names = tuple(partition.sampled)
     sampled_indices = tuple(partition.idx_sampled)
     keys = [_sample_key(pulsar.name, name, fitpar) for fitpar in sampled_names]
     ndim = len(partition.fitpars)
+    zm_indices = tuple(int(i) for i in zm_indices)
+    zm_fixed = (
+        None if zm_fixed_delta is None else np.asarray(zm_fixed_delta, dtype=float)
+    )
 
     def delay(params: dict[str, object]):
         try:
@@ -59,6 +71,8 @@ def _build_delay_callable(
         full_delta = jnp.zeros((ndim,), dtype=delta_sampled.dtype)
         for i, col in enumerate(sampled_indices):
             full_delta = full_delta.at[col].set(delta_sampled[i])
+        for i, col in enumerate(zm_indices):  # z-marginal axes fixed at z_m,e
+            full_delta = full_delta.at[col].set(float(zm_fixed[i]))
 
         # Discovery uses detres = residuals - delay, so delay = -delta_residual.
         return -engine.residual_delta_jax(full_delta)
@@ -67,10 +81,31 @@ def _build_delay_callable(
     return delay
 
 
+def _build_cm_delay(pulsar, name: str, c_m: np.ndarray):
+    """Parameter-free deterministic delay carrying the fixed z-marginal intercept
+    ``c_m = -W_m z_m,e`` (§5.5)."""
+    c = np.asarray(c_m, dtype=float)
+
+    def delay(params: dict[str, object]):
+        import jax.numpy as jnp
+
+        return jnp.asarray(c)
+
+    delay.params = []
+    delay.gpname = f"{name}_zprior_intercept"
+    return delay
+
+
 def discovery_signals(
-    *, pulsar, space, engine, partition: TimingParameterPlan, name: str, design_matrix=None
+    *, pulsar, space, engine, partition: TimingParameterPlan, name: str,
+    design_matrix=None, linearization=None,
 ) -> list:
-    """Return Discovery-native timing signals: GP (optional) + nonlinear delay.
+    """Return the Discovery-native timing signals for the plan (§5.5).
+
+    Up to four pieces: the exact sampled nonlinear delay ``d_anchor(z_s)`` (with
+    z-marginalized axes held at their fixed expansion delta), the delta-flat
+    improper ``M_f`` GP, the proper unit-normal z-prior ``W_m`` GP
+    (``makegp_standard_normal``), and the parameter-free ``c_m`` intercept delay.
 
     Parameters
     ----------
@@ -135,6 +170,42 @@ def discovery_signals(
             )
         )
 
+    # z-prior marginal block: proper unit-normal coefficients on W_m, plus the
+    # fixed c_m intercept as a parameter-free delay (§5.5).
+    zm_indices: tuple[int, ...] = ()
+    zm_fixed_delta = None
+    if partition.marginalized_z:
+        if linearization is None:
+            raise ValueError(
+                "discovery_signals requires the context linearization to emit the "
+                "z-prior W_m block; call ctx.discovery_signals()"
+            )
+        from discovery.signals import makegp_standard_normal
+
+        W_m = np.asarray(linearization.marginalized_z_basis, dtype=float)
+        signals.append(
+            makegp_standard_normal(pulsar, W_m, name=f"{name}_zprior")
+        )
+        c_m = np.asarray(linearization.marginalized_z_intercept, dtype=float)
+        if np.any(c_m != 0.0):
+            signals.append(_build_cm_delay(pulsar, name, c_m))
+        # z-marginal axes are held at their fixed expansion delta in the exact
+        # sampled delay; recover those deltas in proper order.
+        proper_axes = [
+            a for a in partition.axes
+            if a.disposition in ("sample", "marginalize_z_prior")
+        ]
+        zm_indices = tuple(
+            a.fitpar_index for a in proper_axes
+            if a.disposition == "marginalize_z_prior"
+        )
+        zm_fixed_delta = np.asarray(
+            [linearization.delta_expansion[i]
+             for i, a in enumerate(proper_axes)
+             if a.disposition == "marginalize_z_prior"],
+            dtype=float,
+        )
+
     if not partition.sampled:
         return signals
 
@@ -149,6 +220,8 @@ def discovery_signals(
             engine=engine,
             partition=partition,
             name=name,
+            zm_indices=zm_indices,
+            zm_fixed_delta=zm_fixed_delta,
         )
     )
     return signals

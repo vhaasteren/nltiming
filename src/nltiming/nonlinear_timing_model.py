@@ -121,16 +121,10 @@ class TimingContext:
     delay_keys: tuple[str, ...]
     design_matrix: np.ndarray
     linearization: "TimingLinearization"
+    proper_space: ParameterSpace
+    marginal_z_space: ParameterSpace
     metric: LocalPosteriorMetric | None = None
     transport: StaticTransportRecord | None = None
-
-    @property
-    def proper_space(self) -> ParameterSpace:
-        """ParameterSpace over the proper-prior axes (sampled ∪ z-marginalized).
-
-        z-prior marginalization is not yet wired, so this equals :attr:`space`.
-        """
-        return self.space
 
     def with_expansion(
         self,
@@ -170,7 +164,7 @@ class TimingContext:
         linearization = build_linearization(
             engine=self.engine,
             plan=self.plan,
-            space=self.proper_space,
+            proper_space=self.proper_space,
             delta_expansion=delta_array,
             source=source,
         )
@@ -407,13 +401,13 @@ class TimingContext:
     def discovery_signals(self, *, joint: bool = False) -> list:
         from .likelihoods.discovery import discovery_signals
 
-        if joint and self.plan.idx_analytically_marginalized:
+        if joint and (self.plan.marginalized_delta or self.plan.marginalized_z):
             raise ValueError(
-                "discovery_signals(joint=True) expects a fully-sampled timing "
-                "plan (nothing analytically marginalized), but "
-                f"{list(self.marginalized)} are marginalized. Build the model "
-                "with inference=TimingInference.sample_all() so the joint "
-                "transport carries every timing direction."
+                "discovery_signals(joint=True) requires a fully-sampled timing "
+                "plan (TimingInference.sample_all()); the joint transport samples "
+                "every timing direction and integrates none. Got marginalized_delta="
+                f"{list(self.plan.marginalized_delta)}, marginalized_z="
+                f"{list(self.plan.marginalized_z)}."
             )
         return discovery_signals(
             pulsar=self.pulsar,
@@ -422,6 +416,7 @@ class TimingContext:
             partition=self.plan,
             name=self.model.name,
             design_matrix=self.design_matrix,
+            linearization=self.linearization,
         )
 
     def delta_from_params(
@@ -783,7 +778,9 @@ class NonLinearTimingModel:
         matching (possibly PTA-suffixed) sampled fitpar. ``scale=`` references
         resolve suffix-consistently with the target parameter.
         """
-        sampled_set = set(partition.sampled)
+        # Proper-prior axes (sampled ∪ z-marginalized) accept overrides;
+        # delta-flat targets are rejected separately below.
+        sampled_set = set(partition.proper)
         expansion = {
             name: match_fitpars(pulsar, name, partition.fitpars)
             for name in self._prior_overrides
@@ -844,7 +841,7 @@ class NonLinearTimingModel:
         prior_ctx = PriorBuildContext(
             refs=ref_exact,
             fitpars=partition.fitpars,
-            sampled=partition.sampled,
+            sampled=partition.proper,
         )
         resolved: dict[str, AxisPrior] = {}
         for name, spec in self._prior_overrides.items():
@@ -901,15 +898,15 @@ class NonLinearTimingModel:
     ) -> PriorBlock:
         ref_exact = engine.reference_theta_exact()
         sampled_refs = {
-            name: ref_exact[name] for name in partition.sampled if name in ref_exact
+            name: ref_exact[name] for name in partition.proper if name in ref_exact
         }
-        missing = [name for name in partition.sampled if name not in sampled_refs]
+        missing = [name for name in partition.proper if name not in sampled_refs]
         if missing:
             raise ValueError(
                 f"reference_theta_exact missing sampled parameters: {missing}"
             )
         block = PriorBlock.from_fitpars(
-            partition.sampled,
+            partition.proper,
             policy=self.prior_policy,
             overrides=self._resolve_prior_overrides(
                 pulsar=pulsar,
@@ -924,7 +921,8 @@ class NonLinearTimingModel:
         linear_names = frozenset(
             a.name
             for a in partition.axes
-            if a.disposition == "sample" and a.name in linearity.effective_names
+            if a.disposition in ("sample", "marginalize_z_prior")
+            and a.name in linearity.effective_names
         )
         return self._fill_wls_cheat_priors(
             pulsar=pulsar,
@@ -1043,15 +1041,21 @@ class NonLinearTimingModel:
         theta_ref_native: dict[str, float] | None = None,
         design_matrix: np.ndarray | None = None,
     ) -> PriorBlock:
-        if not partition.sampled or "cheat_wls" not in block.sources.values():
+        if not partition.proper or "cheat_wls" not in block.sources.values():
             return block
         theta_ref_native = theta_ref_native or {}
         variance = np.asarray(pulsar.toaerrs, dtype=float) ** 2
+        idx_proper = tuple(
+            sorted(partition.indices("sample")
+                   + partition.indices("marginalize_z_prior"))
+        )
         wls = schur_delta_wls(
             pulsar=pulsar,
             partition=partition,
             variance=variance,
             design_matrix=design_matrix,
+            idx_kept=idx_proper,
+            idx_marginalized=partition.indices("marginalize_delta_flat"),
         )
         wls_stds = np.sqrt(np.diag(wls.covariance))
         parfile_stds = self._parfile_cheat_stds(pulsar, block.names)
@@ -1188,18 +1192,6 @@ class NonLinearTimingModel:
         """Build the unconditioned base context (identity transport, §5.2)."""
         linearity = self._resolve_linearity(pulsar, engine)
         partition = self._plan(pulsar, engine, linearity)
-        if partition.marginalized_z:
-            # The z-prior marginal block (proper unit-normal coefficients) is not
-            # yet wired into the Discovery/Enterprise likelihood assembly
-            # (geometry §5.5-§5.6, Stage 5). Refuse to build a context that would
-            # silently drop those axes from the likelihood rather than integrate
-            # them; use delta_flat marginalization or sample them until then.
-            raise NotImplementedError(
-                "marginalize_z_prior axes "
-                f"{list(partition.marginalized_z)} are not yet consumed by the "
-                "likelihood adapters (geometry §5.5-§5.6, Stage 5). Use "
-                "Marginalize.delta_flat() or sample these axes for now."
-            )
         design_matrix = _timing_design_matrix(
             pulsar,
             engine,
@@ -1220,21 +1212,26 @@ class NonLinearTimingModel:
         partition = self._tag_charts(partition, prior_block, prior_bijector)
         self._emit_coordinate_warnings(partition, linearity)
         ref_exact = engine.reference_theta_exact()
-        sampled_ref_exact = {name: ref_exact[name] for name in partition.sampled}
-        # Unconditioned: the linear layer is identity until with_transport runs.
-        space = ParameterSpace.build(
-            sampled_ref_exact,
+        # The proper space spans the proper-prior axes (sampled ∪ z-marginalized)
+        # and carries the priors/charts/linearization; the sampled subspace is the
+        # sampler coordinate and drives the exact delays, and the z subspace backs
+        # the marginalized-z W_m block. All are identity until with_transport runs.
+        proper_ref_exact = {name: ref_exact[name] for name in partition.proper}
+        proper_space = ParameterSpace.build(
+            proper_ref_exact,
             prior_bijector=prior_bijector,
             static_layer=self.static_layer,
-            linear_transform=WhiteningLinear.identity(len(partition.sampled)),
+            linear_transform=WhiteningLinear.identity(len(partition.proper)),
             pint_model=pulsar.pint_model(),
         )
+        space = proper_space.select(partition.sampled)
+        marginal_z_space = proper_space.select(partition.marginalized_z)
         coord = coord_for_static_layer(self.static_layer)
         linearization = build_linearization(
             engine=engine,
             plan=partition,
-            space=space,
-            delta_expansion=self._expansion_delta(space, partition),
+            proper_space=proper_space,
+            delta_expansion=self._expansion_delta(proper_space, partition),
             source=self.expansion.mode,
         )
         return TimingContext(
@@ -1245,6 +1242,8 @@ class NonLinearTimingModel:
             linearity=linearity,
             prior_block=prior_block,
             space=space,
+            proper_space=proper_space,
+            marginal_z_space=marginal_z_space,
             coord=coord,
             latent_name=f"{pulsar.name}_{self.name}_{coord}",
             delay_keys=tuple(
@@ -1305,8 +1304,15 @@ class NonLinearTimingModel:
     def enterprise_signal(self):
         from .likelihoods.enterprise import enterprise_signal
 
+        margs = self.inference.marginalize.values()
+        has_delta_flat = self.inference.preset == "default_delta" or any(
+            m.coordinate == "delta" for m in margs
+        )
+        has_z_prior = any(m.coordinate == "z" for m in margs)
         return enterprise_signal(
             ctx_fn=self.for_pulsar,
             name=self.name,
             static_layer=self.static_layer,
+            has_delta_flat=has_delta_flat,
+            has_z_prior=has_z_prior,
         )

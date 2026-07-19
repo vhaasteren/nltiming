@@ -268,3 +268,38 @@ def test_discovery_nuts_and_enterprise_ptmcmc_recover_the_same_posterior(
     assert np.all(
         np.abs(np.log(disc_samples.std(axis=0) / ent_samples.std(axis=0))) < 0.7
     )
+
+
+def test_affine_normal_z_prior_marginalization_is_expansion_independent(pulsar):
+    """For a globally-linear (affine_normal) z-prior axis, the analytical
+    marginalization is exact, so the marginal log-likelihood is identical whether
+    the block is linearized at the engine reference or at a shifted expansion
+    (geometry §14.4). DM here is identically linear with a Gaussian delta prior."""
+    noisedict = {f"{pulsar.name}_efac": 1.0, f"{pulsar.name}_log10_t2equad": -8.0}
+    ntm = NonLinearTimingModel(
+        engines="jug",
+        inference=TimingInference.groups(z_prior=["DM"]),
+        name="timing",
+    )
+
+    def _logL_at(ctx, values):
+        like = ds.PulsarLikelihood(
+            [pulsar.residuals,
+             ds.makenoise_measurement_simple(pulsar, noisedict),
+             *ctx.discovery_signals()])
+        params = dict(noisedict)
+        for key, v in zip(ctx.delay_keys, values):
+            params[key] = float(v)
+        return float(like.logL(params))
+
+    base = ntm.for_pulsar(pulsar, condition=False)
+    shifted = base.with_expansion(
+        delta={"F0": 0.0, "F1": 0.0, "DM": 5.0e-4}, source="explicit_delta")
+
+    # F0/F1 sampled point (engine-native delta); DM is analytically marginalized.
+    values = [1.0e-13, 2.0e-21]
+    assert base.plan.sampled == ("F0", "F1")
+    l0 = _logL_at(base, values)
+    l1 = _logL_at(shifted, values)
+    assert np.isfinite(l0)
+    np.testing.assert_allclose(l0, l1, rtol=1e-8, atol=1e-8)

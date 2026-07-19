@@ -153,6 +153,7 @@ def _make_waveform(
         sampled_names = tuple(partition.sampled)
         sampled_indices = tuple(partition.idx_sampled)
         ndim = len(partition.fitpars)
+        zm_indices, zm_fixed = _zmarg_fixed(ctx)
 
         if coord in {"delta", "z"}:
 
@@ -168,6 +169,8 @@ def _make_waveform(
                 full_delta = np.zeros((ndim,), dtype=float)
                 for i, col in enumerate(sampled_indices):
                     full_delta[col] = delta_sampled[i]
+                for i, col in enumerate(zm_indices):  # z-marg fixed at z_m,e
+                    full_delta[col] = zm_fixed[i]
                 return -_residual_delta(engine, full_delta)
 
             delay_body = _explicit_scalar_delay_function(sampled_names, _evaluate)
@@ -190,6 +193,8 @@ def _make_waveform(
             full_delta = np.zeros((ndim,), dtype=float)
             for i, col in enumerate(sampled_indices):
                 full_delta[col] = delta_sampled[i]
+            for i, col in enumerate(zm_indices):
+                full_delta[col] = zm_fixed[i]
             return -_residual_delta(engine, full_delta)
 
         kwargs = {"x": _vector_user_parameter(space=space)}
@@ -256,11 +261,100 @@ def _make_marginalizing_signal(
     return MarginalizingTimingModel
 
 
+def _zmarg_fixed(ctx):
+    """z-marginalized fitpar indices and their fixed expansion deltas ``z_m,e``."""
+    proper_axes = [
+        a for a in ctx.plan.axes
+        if a.disposition in ("sample", "marginalize_z_prior")
+    ]
+    zm_indices = tuple(
+        a.fitpar_index for a in proper_axes if a.disposition == "marginalize_z_prior"
+    )
+    zm_fixed = np.asarray(
+        [ctx.linearization.delta_expansion[i]
+         for i, a in enumerate(proper_axes)
+         if a.disposition == "marginalize_z_prior"],
+        dtype=float,
+    )
+    return zm_indices, zm_fixed
+
+
+def _make_zprior_signal(*, ctx_fn, name: str):
+    """Proper unit-normal basis GP on ``W_m`` (get_phi = ones; §5.6).
+
+    Unlike the delta-flat improper TimingModel, this is a genuinely proper GP:
+    the coefficient prior is identity, so ``log|Phi| = 0`` is trivially retained.
+    The basis ``W_m`` is passed unnormalized (its unit coefficient variance is
+    the physical z prior).
+    """
+    from enterprise.signals import signal_base
+
+    class ZPriorTimingGP(signal_base.Signal, metaclass=signal_base.MetaSignal):
+        signal_type = "basis"
+        signal_name = "z-prior timing"
+        signal_id = f"{name}_zprior"
+
+        def __init__(self, psr):
+            super().__init__(psr)
+            ctx = ctx_fn(psr)
+            self._basis = np.asarray(
+                ctx.linearization.marginalized_z_basis, dtype=float
+            )
+            self._k = int(self._basis.shape[1])
+            self._phi = np.ones(self._k)
+            self.name = f"{psr.name}_{name}_zprior"
+            self._params = {}
+            self.basis_params = []
+            self.prior_params = []
+            self.delay_params = []
+            self.basis_combine = False
+
+        def get_basis(self, params=None):
+            return self._basis
+
+        def get_phi(self, params):
+            return self._phi
+
+        def get_phiinv(self, params):
+            return self._phi  # 1 / ones == ones
+
+        def get_delay(self, params):
+            return np.zeros(self._basis.shape[0], dtype=float)
+
+        def get_logsignalprior(self, params):
+            return 0.0  # log|Phi| = log|I| = 0
+
+        def set_default_params(self, params):
+            pass
+
+    return ZPriorTimingGP
+
+
+def _make_cm_signal(*, ctx_fn, name: str):
+    """Parameter-free deterministic ``c_m = -W_m z_m,e`` intercept (§5.6)."""
+    from enterprise.signals import deterministic_signals, parameter
+
+    def waveform(signal_name, psr=None):
+        ctx = ctx_fn(psr)
+        c_m = np.asarray(ctx.linearization.marginalized_z_intercept, dtype=float)
+
+        def _body(toas, psr=None, mask=None):
+            return c_m
+
+        return parameter.Function(_body)(signal_name, psr=psr)
+
+    return deterministic_signals.Deterministic(
+        waveform, name=f"{name}_zprior_intercept"
+    )
+
+
 def enterprise_signal(
     *,
     ctx_fn,
     name: str,
     static_layer: str,
+    has_delta_flat: bool = True,
+    has_z_prior: bool = False,
 ):
     """Return a deferred Enterprise signal with deterministic delay + timing GP.
 
@@ -298,6 +392,14 @@ def enterprise_signal(
 
     coord = coord_for_static_layer(static_layer)
     waveform = _make_waveform(ctx_fn=ctx_fn, coord=coord)
-    delay_signal = deterministic_signals.Deterministic(waveform, name=name)
-    timing_model = _make_marginalizing_signal(ctx_fn=ctx_fn, name=name)
-    return delay_signal + timing_model
+    signal = deterministic_signals.Deterministic(waveform, name=name)
+    # A GP block is only composed when its axes exist: an empty basis breaks
+    # Enterprise's SignalCollection (``Fmat[:, []]`` treats [] as float indices).
+    if has_delta_flat:  # improper delta-flat M_f TimingModel
+        signal = signal + _make_marginalizing_signal(ctx_fn=ctx_fn, name=name)
+    if has_z_prior:
+        # Four-piece z-prior assembly (§5.6): proper unit-normal W_m GP plus the
+        # fixed c_m intercept; the exact sampled delay holds z-marg at z_m,e.
+        signal = signal + _make_zprior_signal(ctx_fn=ctx_fn, name=name)
+        signal = signal + _make_cm_signal(ctx_fn=ctx_fn, name=name)
+    return signal
