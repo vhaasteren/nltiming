@@ -14,11 +14,12 @@ JAX-capable timing engine, or PTMCMCSampler). Much of this was inspired by
 
 Like Vela.jl, the timing model parameters are not sampled directly; due to high
 covariances and parameter scale differences, the sampler sees a transformed set
-of parameters in some latent space. The Vela.jl `"standardized"` parameter
-transformation is available where each parameter is transformed individually,
-and the `"whitening`" transformation is available that transforms the whole
-space simultaneously. When sampling with with `enterprise`/`PTMCMCSampler` this
-requires some extra boilerplate.
+of parameters in a latent space. Each sampled axis carries an explicit
+*coordinate chart* mapping the physical parameter to a prior-normal coordinate,
+and one static affine layer maps that to the sampler coordinate — `whitening=None`
+(the default) is the identity static layer used by the dynamic joint transport,
+and `WhiteningConfig()` is a static posterior-whitening layer. See
+[Inference plans, coordinate charts, and geometry](#inference-plans-coordinate-charts-and-geometry).
 
 ## Ownership: `nltiming` owns model semantics, not sampler execution
 
@@ -34,18 +35,91 @@ requires some extra boilerplate.
   Sample the resulting `PTA` exactly like any other Enterprise analysis —
   `enterprise_extensions.sampler.setup_sampler` needs no `nltiming` import.
 
-The `x -> z -> delta_theta` transform, the physical prior, and the Jacobian
-are model semantics and live only in `nltiming.ParameterSpace`; they are
-never reimplemented in a sampler wrapper. Choosing `transform="none"`,
-`"standardized"`, or `"whitening"` changes the Enterprise parameter layout
-(`pta.param_names`) and the NumPyro coordinate — never the top-level sampling
-script.
+The `xi -> z -> delta_theta` chart-and-layer, the physical prior, and the
+Jacobian are model semantics and live only in `nltiming.ParameterSpace`; they are
+never reimplemented in a sampler wrapper. The static-layer choice (`whitening=None`
+vs `WhiteningConfig()`) changes the Enterprise parameter layout (`pta.param_names`)
+and the NumPyro coordinate — never the top-level sampling script.
 
 The pulsar object must satisfy the `TimingPulsar` protocol (also exported under
 the original `TimingPulsar` name): frozen TOA arrays, `pint_model()`,
 `timing_engine()`; single-pulsar and multi-PTA composite pulsars (e.g.
 [MetaPulsar](https://github.com/vhaasteren/metapulsar)) both work —
 PTA-suffixed parameter names are matched by base name.
+
+## Inference plans, coordinate charts, and geometry
+
+What to sample is a **typed inference plan**, not a `sample=` list. You name what
+is *marginalized*; every other timing axis is sampled:
+
+```python
+from nltiming import NonLinearTimingModel, TimingInference
+
+TimingInference.sample_all()                                # sample every axis (joint NUTS)
+TimingInference.default()                                   # preset: marginalize the linear nuisances
+TimingInference.groups(delta_flat=["DM1"], z_prior=["DM"])  # name the marginalized axes + how
+```
+
+Each fitpar gets exactly one disposition — `sample`, `marginalize_delta_flat`
+(improper flat-in-δ GP) or `marginalize_z_prior` (proper unit-normal GP: a
+different measure and fingerprint). Marginalization is **orthogonal** to linearity.
+
+### Three coordinate layers
+
+```
+delta_theta   <-- chart -->   z   <-- static layer -->   xi
+ (physical)     per-axis     (prior-normal,   one           (sampler)
+                              N(0,1))          affine layer
+```
+
+The **physical prior lives on δ**; the per-axis chart maps δ↔z so the prior on
+`z` is standard normal; one static layer maps z↔ξ. For the dynamic joint
+transport use `whitening=None` (identity static layer, coordinate `z`) — the
+transport is then the single affine layer.
+
+### Charts: which physical prior gives which map
+
+| Physical prior on δ | Chart | Identically-linear default? | Globally affine in z? |
+|---|---|---:|---:|
+| Normal | `affine_normal` | yes | yes |
+| Uniform | `prior_pit` | no (explicit prior honored, warned) | no |
+| Log-uniform | `prior_pit` | no | no |
+| Truncated normal | `prior_pit` | no | no |
+
+A parameter is **identically linear** when its engine waveform is exactly affine
+in δ → a Gaussian delta prior → a globally-affine `affine_normal` chart. nltiming
+ships a conservative, engine-independent fallback registry (`{DM, DM1, DM2,
+OFFSET, PHOFF}` + `DMX`/`JUMP`/`FD` prefixes); the engine may add more; the user
+may override with `identically_linear=` — **authoritative**: the explicit list
+*replaces* the auto-derived set, so union with `ctx.identically_linear` to add.
+
+### Disposition ≠ linearity — the geometry lesson
+
+`F0`/`F1` are physically linear in *phase*, but the conservative registry does
+not certify them, so **by default they are sampled on wide uniform `prior_pit`
+charts**. Off the mode — exactly where the geometry certifier probes — that chart
+reaches into the prior tails where spin sensitivity explodes and the joint
+target's curvature blows up. This is the `F0` axis (width ≈ 2.5) that broke the
+earlier decentering run.
+
+The fix is a modeling decision, not a threshold nudge. Declaring the linear axes
+identically linear flips them to `affine_normal` and collapses the off-mode
+geometry — on an isolated pulsar by ~10⁶×, from a failing report (a *negative*
+Hessian eigenvalue, residual RMS in the hundreds) to a clean `Hessian ≈ I` pass:
+
+```python
+# Certify BEFORE sampling — never called by nuts; passed=False is a design signal.
+report = certify_joint_geometry(jm, ctx, hyper_points=box_hyper_probe_points(center, bounds))
+# default:  H_eig ≈ [-4e3, 3e6]   rms ≈ 6e2    (F0/F1 on uniform prior_pit)
+# declared: H_eig ≈ [1, 1]        rms ≈ 4e-3   (identically_linear unions in F0, F1, …)
+```
+
+`|z|` large is a boundary diagnostic **only** for `prior_pit` charts; an
+`affine_normal` chart has no finite boundary. A certifier failure that *survives*
+this fix (e.g. a white-noise-only reference that cannot precondition
+timing↔red-noise cross-curvature) names the next thing to build — never a reason
+to loosen `GeometryThresholds` or raise the tree depth. Worked example:
+`examples/notebooks-prototype/02_geometry_certification_and_pivot.ipynb` §2b.
 
 ## Discovery workflows
 
