@@ -14,7 +14,7 @@ reimplementation of it.
 
 | Layer | Owner |
 |-------|-------|
-| NLT math (ParameterSpace, bijectors, whitening, priors, partition) | **nltiming** |
+| NLT math (ParameterSpace, bijectors, whitening, priors, inference plan) | **nltiming** |
 | Engine interface + engines (pint, libstempo, jug, vela) | **nltiming** |
 | Multi-PTA composite engine (session assembly over row slices) | **nltiming** |
 | Discovery + Enterprise likelihood interfaces, probabilistic model helpers and optional sampler recipes, run products | **nltiming** |
@@ -44,15 +44,17 @@ scale. Whitening / standardized coordinates are sampler reparameterization
 only; they do not change the physical prior measure. Document identically in
 every likelihood interface.
 
-**Analytical marginalization** — the partition policy
-(`sample=`/`analytically_marginalize=`, default linear nuisances +
-position-only astrometry) and the improper-GP basis columns must match across
-likelihood interfaces for the same pulsar and config. Both likelihood interfaces column-normalize the
-marginalized basis (`whitening.normalized_basis`) — span-preserving under the
-improper prior, required for float64 conditioning with the 1e40 weight.
+**Analytical marginalization** — the typed inference plan
+(`TimingInference` / `TimingParameterPlan`: dispositions `sample` /
+`marginalize_delta_flat` / `marginalize_z_prior`) and the GP basis columns must
+match across likelihood interfaces for the same pulsar and config. Both
+likelihood interfaces column-normalize the marginalized basis
+(`whitening.normalized_basis`) — span-preserving under the improper prior,
+required for float64 conditioning with the 1e40 weight. There is no
+`sample=` / `analytically_marginalize=` / `transform=` constructor surface.
 
 **Frontend consistency (hard-won)** — the Enterprise likelihood interface must consume the
-`TimingContext` (engine, partition, space, design matrix), never re-query
+`TimingContext` (engine, `plan`, space, design matrix), never re-query
 `pulsar.timing_engine(...)` with partial kwargs: a engine rebuilt without
 `subtract_tzr=False` evaluates a delay wrong by its own order of magnitude.
 Both likelihood interfaces evaluate the delay via `residual_delta_jax` when the engine

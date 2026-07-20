@@ -5,11 +5,12 @@ Nonlinear pulsar-timing likelihood components for
 [Enterprise](https://github.com/nanograv/enterprise).
 
 Instead of holding every timing parameter fixed at its par-file value (or
-linearizing around it), `nltiming` *numerically samples* a chosen subset of
-timing parameters inside the likelihood while the remaining linear nuisance
-parameters are analytically marginalized. The same model configuration drives
-both likelihood interfaces and both sampler stacks (NumPyro NUTS via a
-JAX-capable timing engine, or PTMCMCSampler). Much of this was inspired by
+only analytically marginalizing a linear timing model), `nltiming` lets you
+choose — per fitpar — whether to *numerically sample* that axis or
+*analytically marginalize* it (two measures: improper delta-flat or proper
+z-prior). The same model configuration drives both likelihood interfaces and
+both sampler stacks (NumPyro NUTS via a JAX-capable timing engine, or
+PTMCMCSampler). Much of this was inspired by
 [Vela.jl](https://github.com/abhisrkckl/Vela.jl), and earlier work in TempoNest.
 
 Like Vela.jl, the timing model parameters are not sampled directly; due to high
@@ -25,15 +26,17 @@ and `WhiteningConfig()` is a static posterior-whitening layer. See
 
 `nltiming` supplies native objects at the two likelihood interfaces:
 
-- **Discovery:** `sampling.numpyro.model(...)` returns an ordinary
-  zero-argument NumPyro model (with `.to_df` for decoded timing columns).
-  Sample it with `sampling.numpyro.nuts`, Discovery's
-  `makesampler_nuts` + `run_nuts_with_checkpoints`, or — as a power-user
-  option — raw `numpyro.infer.NUTS`/`MCMC`. All three run the identical model.
+- **Discovery:** build a NumPyro model with `sampling.numpyro.joint_model`
+  (full-basis / dynamic transport, `whitening=None`) or
+  `sampling.numpyro.model` (static whitening path). Both return an ordinary
+  zero-argument NumPyro model with `.to_df` for decoded timing columns. Sample
+  with `sampling.numpyro.nuts`, Discovery's `makesampler_nuts` +
+  `run_nuts_with_checkpoints`, or raw `numpyro.infer.NUTS`/`MCMC`.
 - **Enterprise:** `ntm.enterprise_signal()` returns ordinary Enterprise
-  `Parameter` objects (a joint vector parameter under full whitening).
-  Sample the resulting `PTA` exactly like any other Enterprise analysis —
-  `enterprise_extensions.sampler.setup_sampler` needs no `nltiming` import.
+  `Parameter` objects (per-axis scalars when `whitening=None`, or one joint
+  vector under `WhiteningConfig`). Sample the resulting `PTA` exactly like any
+  other Enterprise analysis — `enterprise_extensions.sampler.setup_sampler`
+  needs no `nltiming` import.
 
 The `xi -> z -> delta_theta` chart-and-layer, the physical prior, and the
 Jacobian are model semantics and live only in `nltiming.ParameterSpace`; they are
@@ -68,24 +71,63 @@ See [`examples/notebooks/README.md`](examples/notebooks/README.md) for setup
 
 ## Inference plans, coordinate charts, and geometry
 
-What to sample is a **typed inference plan**, not a `sample=` list. You name what
-is *marginalized*; every other timing axis is sampled:
+**Coordinate charts.** Timing parameters are awkward to sample in their native
+units: `F0` and `DM2` live on wildly different scales, and they are strongly
+covariant. So `nltiming` does not walk the sampler through raw par-file values.
+For each fitpar it works with an offset **δ** from the par-file reference, then
+maps that axis into a standardized coordinate **z** in which the physical prior
+looks like a unit Gaussian. We call that per-parameter map a **coordinate
+chart**: it assigns a coordinate representation to a physical parameter point
+(δ → z). A subsequent **transport** (the optional static affine layer, or the
+dynamic joint map) then moves between coordinate representations chosen for
+inference (z ↔ ξ). In ordinary statistical language this is a prior-normalizing
+reparameterization — the same idea as
+[Vela.jl](https://github.com/abhisrkckl/Vela.jl)'s prior-normal coordinates.
+The geometric word “chart” (Lee 2013) emphasizes that δ is the physical point
+and z is merely its coordinate; each axis is treated as a one-dimensional
+interval, so we do not lean on a full manifold atlas beyond that.
+
+Two charts appear in practice:
+
+- **`affine_normal`** — for a Gaussian prior on δ (typical when the delay is
+  identically linear, or *numerically* so for PTA MSPs — e.g. spindown): a
+  simple linear rescaling, well-behaved everywhere. This is the Vela-style chart.
+- **`prior_pit`** — for a bounded or non-Gaussian prior (e.g. a wide uniform
+  “cheat” prior): a nonlinear map through the prior CDF so `z` is still
+  standard-normal under the prior. The map itself is exact throughout the
+  interior of the prior support. What is only local is a *static whitening*
+  layer built from this chart’s Jacobian and the likelihood curvature at one
+  expansion point. **`prior_pit` is `nltiming`-only** — Vela.jl does not use
+  this transformation (priors are used directly there).
+
+The chart is fixed by the prior you chose for that axis (one prior → one chart).
+Separately, an optional static affine **layer** can map `z → ξ` for the sampler
+(`whitening=None` keeps that layer as the identity, which is what joint
+full-basis NUTS wants). Longer walkthrough:
+[`examples/notebooks/01_nonlinear_timing_charts.ipynb`](examples/notebooks/01_nonlinear_timing_charts.ipynb)
+§3. Reference: J. M. Lee, *Introduction to Smooth Manifolds*, 2nd ed., GTM 218,
+Springer (2013), DOI
+[10.1007/978-1-4419-9982-5](https://doi.org/10.1007/978-1-4419-9982-5).
+
+What to sample is a **typed inference plan** (`inference=`). You name what is
+*marginalized*; every other timing axis is sampled:
 
 ```python
-from nltiming import NonLinearTimingModel, TimingInference
+from nltiming import NonLinearTimingModel, TimingInference, InferencePreset
 
-# Everyday presets — string or InferencePreset also work on the model:
-NonLinearTimingModel(engines="jug")                 # == inference="default"
-NonLinearTimingModel(engines="jug", inference="all")
+# Everyday presets (strings or InferencePreset):
+NonLinearTimingModel(engines="jug")                      # == inference="default"
+NonLinearTimingModel(engines="jug", inference="all")     # sample every axis
+NonLinearTimingModel(engines="jug", inference=InferencePreset.ALL)
 
-TimingInference.sample_all()                                # sample every axis (joint NUTS)
-TimingInference.default()                                   # preset: marginalize the linear nuisances
-TimingInference.groups(delta_flat=["DM1"], z_prior=["DM"])  # name the marginalized axes + how
+# Mixed mode — name marginalized axes + measure; unmentioned axes are sampled:
+TimingInference.groups(delta_flat=["DM1"], z_prior=["DM"])
 ```
 
 Each fitpar gets exactly one disposition — `sample`, `marginalize_delta_flat`
 (improper flat-in-δ GP) or `marginalize_z_prior` (proper unit-normal GP: a
-different measure and fingerprint). Marginalization is **orthogonal** to linearity.
+different measure and fingerprint). Marginalization is **orthogonal** to
+identical linearity (`identically_linear=`).
 
 ### Three coordinate layers
 
@@ -96,9 +138,17 @@ delta_theta   <-- chart -->   z   <-- static layer -->   xi
 ```
 
 The **physical prior lives on δ**; the per-axis chart maps δ↔z so the prior on
-`z` is standard normal; one static layer maps z↔ξ. For the dynamic joint
-transport use `whitening=None` (identity static layer, coordinate `z`) — the
-transport is then the single affine layer.
+`z` is standard normal; one static layer maps z↔ξ. Keep these three objects
+distinct:
+
+```text
+δ ↦ z            exact prior reparameterization (the chart)
+Dδ/Dz |_{z_e}    local Jacobian at the expansion point
+z = c + C ξ      local affine whitening (static layer)
+```
+
+For the dynamic joint transport use `whitening=None` (identity static layer,
+coordinate `z`) — the transport is then the single affine layer.
 
 ### Charts: which physical prior gives which map
 
@@ -106,8 +156,11 @@ transport is then the single affine layer.
 prior CDF, then through the standard-normal quantile function, so
 `z ~ Normal(0, 1)` under the physical prior. For a Gaussian delta prior that map
 is globally affine (`affine_normal`); for bounded or otherwise non-Gaussian
-priors it is the nonlinear PIT chart, named `prior_pit` in the API (exact as a
-prior transform, only local for whitening).
+priors it is the nonlinear PIT chart, named `prior_pit` in the API. The
+prior-normalizing map is exact throughout the interior of the prior support;
+a static whitening transform constructed from its Jacobian and the likelihood
+curvature at one expansion point is only a local approximation to posterior
+geometry.
 
 | Physical prior on δ | Chart | Identically-linear default? | Globally affine in z? |
 |---|---|---:|---:|
@@ -125,17 +178,23 @@ may override with `identically_linear=` — **authoritative**: the explicit list
 
 ### Disposition ≠ linearity — the geometry lesson
 
-`F0`/`F1` are physically linear in *phase*, but the conservative registry does
-not certify them, so **by default they are sampled on wide uniform `prior_pit`
-charts**. Off the mode — exactly where the geometry certifier probes — that chart
-reaches into the prior tails where spin sensitivity explodes and the joint
-target's curvature blows up. This is the `F0` axis (width ≈ 2.5) that broke the
-earlier decentering run.
+Spindown parameters are **not** identically linear in the timing residual.
+Rotational phase is a Taylor series in `F0`/`F1`, but the residual is the phase
+offset divided by frequency (`r ∼ ΔΦ/F0` in the usual timing equation), so `F0`
+enters nonlinearly. For PTA MSPs near a good solution, though, `δF0/F0` is tiny
+and the residual is *numerically* extremely close to linear — close enough that
+treating spin (and similarly sky position) as identically linear is the right
+modeling choice for sampling geometry. The conservative fallback registry still
+does **not** auto-certify them, so **by default they are sampled on wide uniform
+`prior_pit` charts**. Off the mode — exactly where the geometry certifier probes
+— that chart reaches into the prior tails where spin sensitivity explodes and
+the joint target's curvature blows up.
 
-The fix is a modeling decision, not a threshold nudge. Declaring the linear axes
-identically linear flips them to `affine_normal` and collapses the off-mode
-geometry — on an isolated pulsar by ~10⁶×, from a failing report (a *negative*
-Hessian eigenvalue, residual RMS in the hundreds) to a clean `Hessian ≈ I` pass:
+The fix is a modeling decision, not a threshold nudge. Declaring those
+near-linear axes identically linear flips them to `affine_normal` and collapses
+the off-mode geometry — on an isolated pulsar by ~10⁶×, from a failing report (a
+*negative* Hessian eigenvalue, residual RMS in the hundreds) to a clean
+`Hessian ≈ I` pass:
 
 ```python
 # Certify BEFORE sampling — never called by nuts; passed=False is a design signal.
@@ -153,11 +212,13 @@ to loosen `GeometryThresholds` or raise the tree depth. Worked example:
 
 ## Discovery workflows
 
-All three workflows below sample the **exact same** NumPyro model. Enable
-float64 **before** constructing the Discovery likelihood — JAX arrays
+Enable float64 **before** constructing the Discovery likelihood — JAX arrays
 already created as float32 stay float32.
 
-### Shared setup
+### Shared setup — joint full-basis (primary path)
+
+The usual modern workflow samples every timing axis with the dynamic joint
+transport (`whitening=None`, the default). See notebooks `01`–`03`.
 
 ```python
 from pathlib import Path
@@ -168,63 +229,73 @@ import discovery as ds
 import discovery.samplers.numpyro as ds_numpyro
 from numpyro.infer import init_to_value
 
-from nltiming import NonLinearTimingModel, priors, sampling
+from nltiming import NonLinearTimingModel, sampling
 
 sampling.numpyro.ensure_x64()
 
 ntm = NonLinearTimingModel(
     engines="jug",
-    transform="whitening",
-    sample=["PB", "TASC", "A1"],         # base names; the rest is marginalized
-    priors={"TASC": priors.delta_uniform(-0.5, 0.5, scale="PB")},
+    inference="all",          # sample every timing axis
+    # whitening=None          # default: identity static layer (sampler coord z)
 )
-ctx = ntm.for_pulsar(pulsar)               # pulsar: any TimingPulsar
+ctx = ntm.for_pulsar(pulsar)  # pulsar: TimingPulsar (MetaPulsar today)
 
 likelihood = ds.PulsarLikelihood([
     pulsar.residuals,
     ds.makenoise_measurement_simple(pulsar, noisedict),
-    *ctx.discovery_signals(),
+    ds.makegp_fourier(pulsar, ds.powerlaw, 10, name="rednoise"),
+    *ctx.discovery_signals(joint=True),
 ])
 
-numpyro_model = sampling.numpyro.model(
+numpyro_model = sampling.numpyro.joint_model(
     likelihood,
-    context,
-    priors=noise_prior_overrides,   # optional: overrides for free non-timing params
-    fixed=noisedict,                # pins numeric entries found in the likelihood
+    ctx,
+    fixed=noisedict,          # pin white-noise (and optionally RN) numbers
+    # priors=...,             # free non-timing param bounds when not fixed
 )
 ```
 
-`numpyro_model` is an ordinary zero-argument NumPyro model. It also exposes
-`.to_df(samples)`, which decodes timing coordinates to physical columns.
-That is the only NLT-specific sampling integration point: Discovery (and raw NumPyro)
-never reimplement the whitening transform.
+`numpyro_model` is an ordinary zero-argument NumPyro model. It exposes
+`.to_df(samples)` (physical timing columns) plus `xi_site` / `hyper_sites`
+metadata used by `dense_mass="auto"`. Discovery never reimplements the chart
+or transport.
+
+**Static whitening path** (Enterprise-style preconditioning in Discovery): pass
+`whitening=WhiteningConfig()`, assemble `*ctx.discovery_signals()` (default
+`joint=False`), and build with `sampling.numpyro.model(...)` instead of
+`joint_model`. Mixed marginalization uses
+`inference=TimingInference.groups(delta_flat=[...], z_prior=[...])`.
 
 Do **not** sample the raw likelihood with Discovery's flat `makemodel`
 helper (`ds_numpyro.makemodel(likelihood.logL)`): it samples every
 `logL.params` entry as an independent `Uniform`, which cannot recover the
-joint whitening transform.
+chart, static layer, or joint dynamic transport.
 
 ### 1. `sampling.numpyro.nuts` — shortest path (no checkpointing)
 
 Opinionated convenience: builds a NumPyro `MCMC` with init-at-reference and
-sensible NUTS defaults. No Discovery I/O.
+sensible NUTS defaults. `dense_mass=True` still means “full dense mass” as in
+NumPyro. The `nuts` default is `dense_mass="auto"`, which densifies only
+`model.hyper_sites` (when there are ≥2) and leaves the intended-white `xi` on
+an identity mass — usually what you want for joint full-basis runs.
 
 ```python
 mcmc = sampling.numpyro.nuts(
     numpyro_model,
-    context,
+    ctx,
     num_warmup=1_000,
     num_samples=2_000,
     num_chains=4,
-    dense_mass=True,
+    dense_mass=True,          # or omit for dense_mass="auto"
     target_accept=0.85,
     chain_method="parallel",
 )
 
-mcmc.run(jax.random.PRNGKey(42))
+mcmc.run(jax.random.PRNGKey(42), extra_fields=sampling.numpyro.NUTS_EXTRA_FIELDS)
 mcmc.print_summary()
 
 posterior = mcmc.to_df()   # wired from numpyro_model.to_df
+diag = sampling.numpyro.chain_diagnostics(mcmc)  # per-chain; never pool first
 ```
 
 ### 2. Discovery checkpoint runner — recommended Discovery path
@@ -309,7 +380,7 @@ mcmc = MCMC(
     chain_method="parallel",
     progress_bar=True,
 )
-mcmc.run(jax.random.PRNGKey(42))
+mcmc.run(jax.random.PRNGKey(42), extra_fields=sampling.numpyro.NUTS_EXTRA_FIELDS)
 posterior = numpyro_model.to_df(mcmc.get_samples())
 ```
 
@@ -320,10 +391,11 @@ supported Discovery construction path.
 
 ## Enterprise workflow
 
-This is the canonical Enterprise example. It jointly samples every free
-noise and timing parameter in `pta.param_names` — nothing here is
-NLT-specific except adding the signal and (optionally) writing decoding
-metadata:
+Canonical Enterprise path with **static posterior whitening**
+(`WhiteningConfig`) and a few DM axes analytically marginalized. Nothing else
+is NLT-specific except adding the signal and (optionally) writing decoding
+metadata. For identity-layer / full-basis sampling, use `inference="all"` and
+omit `whitening` (per-fitpar scalar parameters in chart coordinate `z`).
 
 ```python
 from pathlib import Path
@@ -332,7 +404,8 @@ import numpy as np
 from enterprise.signals import gp_signals, parameter, signal_base, utils, white_signals
 from enterprise_extensions import sampler as ee_sampler
 
-from nltiming import NonLinearTimingModel, priors, sampling
+from nltiming import NonLinearTimingModel, TimingInference, WhiteningConfig, sampling
+from nltiming import priors
 
 outdir = Path("chains/J1909-3744")
 
@@ -351,8 +424,8 @@ red = gp_signals.FourierBasisGP(
 
 ntm = NonLinearTimingModel(
     engines={"tempo2": "jug", "pint": "jug"},
-    transform="whitening",
-    sample=["PB", "TASC", "A1"],
+    inference=TimingInference.groups(delta_flat=["DM", "DM1"]),
+    whitening=WhiteningConfig(),   # joint vector Parameter in sampler coord x
     priors={"TASC": priors.delta_uniform(-0.5, 0.5, scale="PB")},
 )
 ctx = ntm.for_pulsar(pulsar)
@@ -374,25 +447,27 @@ ctx.write(outdir, likelihood="enterprise", sampler="ptmcmc", chain_layout=layout
 sampler.sample(x0, Niter=1_000_000, SCAMweight=30, AMweight=15, DEweight=50)
 ```
 
-### What whitening changes
+### What the static layer changes (Enterprise layout)
 
-Only the Enterprise parameter layout and proposal behavior change; the
-user's model-building and sampling calls above do not, for any transform:
+Only the Enterprise parameter layout and proposal behavior change with the
+static affine layer; the user's model-building and sampling calls above do not:
 
-| `transform` | Enterprise parameters | `pta.param_names` |
+| Static layer (`whitening=`) | Enterprise parameters | `pta.param_names` |
 |---|---|---|
-| `"none"` | one scalar `UserParameter` per sampled fitpar, physical delta prior | `..._timing_A1`, `..._timing_PB`, `..._timing_TASC` |
-| `"standardized"` | one scalar per fitpar, diagonal-standardized `x_i`; priors stay independent | same names, standardized values |
-| `"whitening"` | **one joint vector** `UserParameter`, `size=len(sampled)`, correlated prior | `..._timing_x_0`, `..._timing_x_1`, ... |
+| `None` (identity) | one scalar `UserParameter` per sampled fitpar in chart coordinate `z` | `..._timing_<fitpar>` |
+| `WhiteningConfig(...)` | **one joint vector** `UserParameter`, `size=len(sampled)`, correlated prior in whitened `x` | `..._timing_x_0`, `..._timing_x_1`, ... |
 
-Under `"whitening"`, `Parameter.prior_draw_mode == "joint"` on that vector
+(There is no separate `"standardized"` constructor flag — diagonal scaling is
+not a public static-layer mode.)
+
+Under `WhiteningConfig`, `Parameter.prior_draw_mode == "joint"` on that vector
 parameter, so `enterprise_extensions.JumpProposal.draw_from_prior` (and the
 other generic prior-draw proposals) replace the whole correlated block
 together rather than one component at a time — the block's log density does
 not factor across components, so a partial update would be invalid. SCAM,
 adaptive-metropolis, and differential-evolution proposals need no special
-case: their acceptance ratio already runs on `pta.get_lnlikelihood`/
-`get_lnprior`, which are correct for any transform.
+case: their acceptance ratio already runs on `pta.get_lnlikelihood` /
+`get_lnprior`, which are correct for either static layer.
 
 ### Direct `PTMCMCSampler`, without `enterprise_extensions`
 
@@ -408,13 +483,13 @@ sampler.sample(x0, Niter=1_000_000)
 ```
 
 This uses symmetric/adaptive PTMCMC proposals and is valid for full
-whitening; `prior_draw_mode` only matters to proposal code that explicitly
-calls `Parameter.sample()`.
+static whitening; `prior_draw_mode` only matters to proposal code that
+explicitly calls `Parameter.sample()`.
 
 ### Multiple pulsars
 
-Each pulsar gets its own bound NLT signal instance and, under full
-whitening, its own joint vector parameter with a uniquely prefixed name:
+Each pulsar gets its own bound NLT signal instance and, under
+`WhiteningConfig`, its own joint vector parameter with a uniquely prefixed name:
 
 ```python
 ntm = NonLinearTimingModel(...)
@@ -433,23 +508,20 @@ timing-only PTMCMC run with everything else pinned.
 
 ### The timing coordinate
 
-Sampled timing parameters flow through two maps:
+Sampled timing parameters flow through the three layers of §“Three coordinate
+layers” above:
 
 ```text
-delta = engine-native offset from the exact par-file reference
-z     = C @ x + c            affine sampler coordinate  (x is what NUTS sees)
-delta = prior_bijector(z)    probability-integral-transform (PIT) map;
-                             under it the timing prior is z ~ N(0, I)
+delta  --chart-->  z  --static affine (C, c)-->  xi
 ```
 
-`ParameterSpace` owns these maps and their Jacobians. `transform=` selects how
-the affine layer `(C, c)` is built:
+`ParameterSpace` owns the chart and the static affine layer and their Jacobians.
+The static layer is selected by the constructor kwarg **`whitening=`**:
 
-| `transform` | affine layer `C` | sampler coordinate |
+| `whitening=` | affine layer `C` | sampler coordinate |
 |---|---|---|
-| `"none"` | identity (no whitening; sample `delta` directly) | `delta` |
-| `"standardized"` | diagonal — each axis scaled to its posterior marginal σ | `x` |
-| `"whitening"` (default) | lower-triangular Cholesky factor of the full posterior covariance | `x` |
+| `None` *(default)* | identity — required for `sampling.numpyro.joint_model` | `z` (prior-normal) |
+| `WhiteningConfig(...)` | lower-triangular factor of the local posterior covariance in `z` (`C C^T = (F_z + I)^{-1}`) | `x` (statically whitened) |
 
 ### The posterior metric `F_z + I`
 
@@ -469,17 +541,16 @@ mode and no `numerical_floor` knob anywhere in the API.
 
 ### `WhiteningConfig`
 
-Whitening is configured with a small frozen dataclass (there is no
-stringly-typed dict):
+The static whitening layer is configured with a small frozen dataclass:
 
 ```python
 from nltiming import NonLinearTimingModel, WhiteningConfig
 
 ntm = NonLinearTimingModel(
-    transform="whitening",
+    inference="default",                # or TimingInference.default()
     whitening=WhiteningConfig(
         reference_noise="toa_errors",   # which precision builds F_delta
-        expansion_point="reference",    # where F_delta / the PIT Jacobian are evaluated
+        expansion_point="reference",    # where F_delta / the chart Jacobian are evaluated
         origin="auto",                  # where x = 0 maps (the affine center c)
     ),
 )
@@ -532,12 +603,13 @@ ctx    = base.with_transport(metric)               # conditioned, finalize-once
 ```
 
 An **unconditioned** base answers every pulsar-bound query a likelihood
-interface needs (`partition`, `priors`, `discovery_signals()`, the design
+interface needs (`ctx.plan`, priors, `discovery_signals()`, the design
 matrix, `local_metric` inputs) with an identity affine layer. Only sampler and
-run-manifest construction require a **conditioned** context. Re-conditioning an
-already-conditioned context raises; build a fresh base to re-condition.
-`ctx.metric` and `ctx.transport` carry the metric provenance and the transport
-record; both are folded into `ctx.fingerprint()`.
+run-manifest construction require a **conditioned** context when
+`whitening=WhiteningConfig(...)`. Re-conditioning an already-conditioned
+context raises; build a fresh base to re-condition. `ctx.metric` and the static
+transport record carry the metric provenance; both are folded into
+`ctx.fingerprint()`.
 
 `LocalPosteriorMetric` is the typed, fingerprinted hand-off. The built-ins
 `toa_errors_metric(...)` and `frozen_white_metric(...)` cover classes 1–2; an
@@ -586,13 +658,17 @@ The manifest's `transport` section records one of two classes:
   `(C, c)`. The latent chain is independently decodable through `run.space`;
   this is what the static timing whitening above produces.
 - **`dynamic_transport`** (`latent_decodable = false`) — a joint full-basis
-  transport `q = mu(eta) + L(eta)^{-T} xi` whose map depends on sampled
-  hyperparameters, so `xi` alone has no physical meaning. `load_display()` reads
-  the **required** stored per-draw physical values and refuses to reinterpret
-  `xi` through `run.space`. Joint runs are written with
-  `save_dynamic_checkpoint`, which refuses to promote a final checkpoint that
-  lacks those canonical decoded values, and the one-affine-layer invariant keeps
-  the static timing layer at identity when a dynamic transport is active.
+  transport `q = mu(eta) + L(eta)^{-T} xi` whose map is a *parameterized family*
+  of affine maps indexed by sampled hyperparameters η. For each fixed η the map
+  is ordinary coordinate transport; jointly, `(xi, eta) ↦ (q, eta)`, so `xi`
+  alone has no physical meaning. That hyperparameter dependence makes the
+  transport dynamic/conditional — it does not make the per-axis δ↔z charts any
+  less exact. `load_display()` reads the **required** stored per-draw physical
+  values and refuses to reinterpret `xi` through `run.space`. Joint runs are
+  written with `save_dynamic_checkpoint`, which refuses to promote a final
+  checkpoint that lacks those canonical decoded values, and the one-affine-layer
+  invariant keeps the static timing layer at identity when a dynamic transport
+  is active.
 
 ## Interactive evaluator
 
@@ -698,16 +774,21 @@ and requires **Python ≥ 3.12**.
 
 - `nonlinear_timing_model.py` — `NonLinearTimingModel` (configuration) and
   `TimingContext` (`ntm.for_pulsar(pulsar)`, all pulsar-bound queries)
+- `inference.py` — `TimingInference` / `InferencePreset` / `Marginalize`, plan
+  resolution and fingerprints
 - `protocols.py` — `PulsarData` / `TimingPulsar` and timing engine interfaces
 - `evaluator.py` — mapping-based evaluation, metadata, scans, Jacobians, and
   immutable local weighted fits
 - `engines/` — PINT, libstempo, and JUG engines plus the multi-PTA
   composite engine
 - `likelihoods/` — Discovery and Enterprise likelihood interfaces
-- `sampling/` — NumPyro model helpers and PTMCMC helpers (probabilistic model
-  helpers and optional sampler recipes, not sampler ownership)
-- `space.py`, `bijectors.py`, `whitening.py`, `priors.py`, `partition.py`,
-  `units.py` — parameter-space math (transforms, priors, partition policy)
+- `sampling/` — `numpyro.joint_model` / `model` / `nuts`, PTMCMC helpers
+  (model glue and recipes, not sampler ownership)
+- `space.py`, `bijectors.py`, `whitening.py`, `priors.py`, `units.py` —
+  parameter-space math (charts, static affine layer, priors)
+- `linearity.py`, `coordinates.py`, `linearization.py`, `expansion.py`,
+  `geometry.py` — identical-linearity policy, expansion / linearization
+  records, optional geometry certifier
 - `metric.py` — `WhiteningConfig`, `LocalPosteriorMetric`, reference-noise metric
   builders, and the static/dynamic transport records
 - `run_io.py` — the `nlt-run-meta-v3` run-metadata format, `RunResults`,

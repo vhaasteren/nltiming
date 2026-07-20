@@ -30,6 +30,11 @@ from typing import Literal, Sequence
 from .pint_compat import resolve_parameter_alias
 from .selection import canonical_fitpars, match_fitpars, select_fitpars
 
+# Deliberately omits spindown (F0, F1, …) and astrometry: those are *not*
+# identically linear in the timing residual (r ∼ ΔΦ/F0 for spin), even though
+# for PTA MSPs near a good solution they are numerically extremely close. Users
+# who want the affine_normal chart should pass identically_linear= explicitly
+# (unioned with ctx.identically_linear so the DM/JUMP/FD set is retained).
 FALLBACK_IDENTICALLY_LINEAR_EXACT = frozenset(
     {"DM", "DM1", "DM2", "OFFSET", "PHOFF"}
 )
