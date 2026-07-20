@@ -777,3 +777,56 @@ def load_run(
 ) -> RunResults:
     """Load a run directory's metadata + parameter space into ``RunResults``."""
     return RunResults.load(run_dir, verify=verify, force=force)
+
+
+def save_ptmcmc_decentered_checkpoint(
+    run_dir: str | Path,
+    chain: np.ndarray,
+    ctx,
+    transport,
+    manifest: RunManifest,
+    *,
+    hyper_names,
+    final: bool,
+    n_target: int | None = None,
+) -> Path:
+    """Decode a decentered PTMCMC chain and persist a dynamic checkpoint (E25).
+
+    ``chain`` is the PTMCMC array (rows in memory or loaded from ``chain_1.txt``);
+    the last 4 columns (``lnpost, lnlike, accept, pt-accept``) are stripped by
+    count. The parameter block is ``[xi (k) | eta (m)]`` (E20/E23); ``xi``/``eta``
+    are decoded row-wise via :func:`nltiming.decentering.decode_decentered_chain`
+    (each row reconstructs the transport at its own eta), then handed to the same
+    :func:`save_dynamic_checkpoint` writer as the NumPyro dynamic path. No new
+    storage layout is invented.
+    """
+    from .decentering import decode_decentered_chain
+
+    chain = np.asarray(chain, dtype=float)
+    hyper_names = tuple(hyper_names)
+    k = len(ctx.plan.sampled)
+    m = len(hyper_names)
+    params_block = chain[:, :-4]  # strip lnpost/lnlike/accept/pt-accept
+    chain_xi = params_block[:, :k]
+    chain_eta = params_block[:, k : k + m]
+    log_density = chain[:, -4]  # lnpost
+
+    timing_delta = decode_decentered_chain(
+        chain_xi, chain_eta, hyper_names, transport, ctx.space
+    )
+    theta_native = ctx.space.to_physical(timing_delta, units="native", coord="delta")
+    theta_display = ctx.space.to_physical(timing_delta, units="display", coord="delta")
+    hyperparameters = {n: chain_eta[:, i] for i, n in enumerate(hyper_names)}
+
+    return save_dynamic_checkpoint(
+        run_dir,
+        manifest,
+        xi=chain_xi,
+        final=final,
+        hyperparameters=hyperparameters,
+        timing_delta=timing_delta,
+        theta_native=theta_native,
+        theta_display=theta_display,
+        log_density=log_density,
+        n_target=n_target,
+    )

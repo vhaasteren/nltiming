@@ -181,3 +181,173 @@ def timing_only_sampler(
         verbose=verbose,
         **ptmcmc_kwargs,
     )
+
+
+# ---------------------------------------------------------------------------
+# Marginalized dynamic decentering (Enterprise/PTMCMC parity, feature §6)
+#
+# NOTE (E19 deferred): the static helpers above (eval_params/timing_param_names/
+# initial_cov/timing_only_sampler) are NOT migrated here. The proposal §6.0
+# assumed the geometry plan deleted ctx.sampled / ctx.model.transform, but
+# ctx.sampled is retained (== ctx.plan.sampled) and eval_params already keys off
+# ctx.model.static_layer; the static-whitening Enterprise assembly moreover uses
+# per-axis `_x_i` parameters (not ctx.delay_keys), so the §6.0 "delta scalars
+# keyed by delay_keys" claim holds only for whitening=None. Migration is a doc
+# reconciliation, not a code fix; it is out of scope for the decentered mode
+# below (which never touches those helpers).
+# ---------------------------------------------------------------------------
+
+
+def decentered_param_names(ctx, hyper_names) -> tuple[str, ...]:
+    """PTMCMC vector layout ``[xi_0 .. xi_{k-1}, eta ..]`` (E20, sorted eta)."""
+    k = len(ctx.plan.sampled)
+    xi = tuple(f"{ctx.name_stem}_timing_xi_{i}" for i in range(k))
+    return xi + tuple(hyper_names)
+
+
+def decentered_target(pta, ctx, transport, *, hyper_names, hyper_bounds, fixed):
+    """``(lnlike_fn, lnprior_fn)`` over ``vec = [xi | eta]`` for ``PTSampler``.
+
+    Accounting (§3, E2-E4): ``lnlike`` is the Enterprise marginalized likelihood
+    at ``delta(z(xi, eta))``; ``lnprior`` carries the eta boxes, the exact timing
+    prior ``-1/2||z||^2``, and ``ldJ(eta)`` — untempered. ``pta.get_lnprior`` is
+    NEVER called in this mode (the delay ``UserParameter``s carry physical priors
+    that would double-count the timing prior, E4).
+    """
+    hyper_names = tuple(hyper_names)
+    if hyper_names != tuple(sorted(hyper_names)):
+        raise ValueError("hyper_names must be in sorted order (E8/D20)")
+    if hyper_names != tuple(transport.params):
+        raise ValueError(
+            f"hyper_names {hyper_names} != transport.params "
+            f"{tuple(transport.params)}; build both from "
+            f"enterprise_marginal_products(...).params"
+        )
+    overlap = set(fixed) & (set(hyper_names) | set(ctx.delay_keys))
+    if overlap:
+        raise ValueError(
+            f"fixed must not pin sampled hypers or delay keys: {sorted(overlap)}"
+        )
+    k = transport.dimension
+    lo = np.array([hyper_bounds[n][0] for n in hyper_names])
+    hi = np.array([hyper_bounds[n][1] for n in hyper_names])
+    logwidth = float(np.sum(np.log(hi - lo)))
+    fixed = dict(fixed)
+
+    def _split(vec):
+        vec = np.asarray(vec, dtype=float)
+        return vec[:k], dict(zip(hyper_names, vec[k:]))
+
+    def lnprior(vec):
+        xi, eta = _split(vec)
+        ev = np.asarray(list(eta.values()))
+        if np.any(ev < lo) or np.any(ev > hi):
+            return -np.inf
+        z, ldj = transport.apply(eta, xi)
+        return -0.5 * float(z @ z) + ldj - logwidth
+
+    def lnlike(vec):
+        xi, eta = _split(vec)
+        ev = np.asarray(list(eta.values()))
+        if np.any(ev < lo) or np.any(ev > hi):
+            return -np.inf
+        z, _ = transport.apply(eta, xi)  # memo hit after lnprior (E9)
+        delta = np.asarray(ctx.space.delta_from_z(z, np), dtype=float)
+        params = {**fixed, **eta}
+        for key, value in zip(ctx.delay_keys, delta):
+            params[key] = float(value)
+        return float(pta.get_lnlikelihood(params))
+
+    return lnlike, lnprior
+
+
+def decentered_initial_cov(ctx, hyper_names, hyper_sigmas=None, default=0.3):
+    """Proposal covariance: identity on the xi block (E22), diag(sigma^2) on eta.
+
+    The xi block is identity BY CONSTRUCTION — that is the point of the dynamic
+    decentering. ``hyper_sigmas`` comes from the marginal-Hessian sigma of the
+    WN-first MPE pipeline when available.
+    """
+    k = len(ctx.plan.sampled)
+    sig = np.array([(hyper_sigmas or {}).get(n, default) for n in hyper_names])
+    return np.diag(np.concatenate([np.ones(k), sig**2]))
+
+
+def decentered_initial_point(ctx, transport, hyper_names, eta_mpe) -> np.ndarray:
+    """Init at ``(xi=0, eta=MPE)`` (E22, the validated J1640 recipe)."""
+    missing = sorted(set(hyper_names) - set(eta_mpe))
+    if missing:
+        raise ValueError(f"eta_mpe missing hyperparameters: {missing}")
+    return np.concatenate(
+        [
+            np.zeros(transport.dimension),
+            np.array([float(eta_mpe[n]) for n in hyper_names]),
+        ]
+    )
+
+
+def decentered_chain_layout(ctx, hyper_names, *, chain_file: str = CHAIN_FILENAME):
+    """Run-metadata layout for a decentered PTMCMC chain (E23).
+
+    ``chain_1.txt`` carries 4 trailing bookkeeping columns
+    (``lnpost, lnlike, accept, pt-accept``); the columns below index the
+    parameter block only, and the decoder strips the trailing columns by count.
+    """
+    k = len(ctx.plan.sampled)
+    return {
+        "kind": "ptmcmc-decentered",
+        "file": chain_file,
+        "xi_columns": list(range(k)),
+        "hyper_columns": list(range(k, k + len(hyper_names))),
+        "hyper_names": list(hyper_names),
+    }
+
+
+def decentered_sampler(
+    pta,
+    ctx,
+    transport,
+    outdir,
+    *,
+    hyper_names,
+    hyper_bounds,
+    fixed,
+    cov=None,
+    groups=None,
+    verbose: bool = True,
+    **ptmcmc_kwargs,
+):
+    """Configured ``PTSampler`` over ``vec = [xi | eta]`` (E14).
+
+    Default jump ``groups`` separate the xi block from the eta block: eta moves
+    refactorize ``Sigma(eta)`` (expensive), while xi-only moves at fixed eta are
+    near-free (memo hit, E9) and mix the whitened block rapidly. A caller-supplied
+    ``groups`` is forwarded unchanged.
+    """
+    from PTMCMCSampler.PTMCMCSampler import PTSampler
+
+    lnlike, lnprior = decentered_target(
+        pta,
+        ctx,
+        transport,
+        hyper_names=hyper_names,
+        hyper_bounds=hyper_bounds,
+        fixed=fixed,
+    )
+    k, m = transport.dimension, len(hyper_names)
+    if cov is None:
+        cov = decentered_initial_cov(ctx, hyper_names)
+    if groups is None:
+        groups = [list(range(k)), list(range(k, k + m))]
+    outdir = Path(outdir)
+    outdir.mkdir(parents=True, exist_ok=True)
+    return PTSampler(
+        k + m,
+        lnlike,
+        lnprior,
+        cov,
+        groups=groups,
+        outDir=str(outdir),
+        verbose=verbose,
+        **ptmcmc_kwargs,
+    )

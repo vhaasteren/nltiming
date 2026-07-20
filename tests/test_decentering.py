@@ -4,14 +4,27 @@ products, and the Enterprise products builder.
 
 T-E2 (dense oracle) and T-E3 (finite-difference Jacobian) are pure NumPy/SciPy
 against an independent Woodbury oracle; T-E5 (products accounting) exercises
-``enterprise_marginal_products`` on the linear JUG duck. T-E1/T-E4/T-E6/T-E7 land
+``enterprise_marginal_products`` on the linear JUG duck. T-E4 (decode/checkpoint
+round-trip), T-E6 (target validation), and T-E7 (tempering accounting) land here
 in PR-E2.
+
+T-E1 (cross-frontend density parity — the merge gate) is NOT yet included: it
+requires the Discovery and Enterprise assemblies to describe the identical
+``C(eta)``, i.e. exact alignment of the Fourier-GP convention (powerlaw PSD
+``df``/``fref`` normalization) and the white-noise equad convention across the
+two frameworks. A first probe shows a ~0.6 (xi- and eta-dependent) spread, so the
+two frontends do not yet share ``C(eta)``; closing that to the required 1e-6 is a
+focused convention-alignment task and must not be met by loosening the gate.
 """
 
 import numpy as np
 import pytest
 
-from nltiming.decentering import MarginalProducts, NumpyMarginalTransport
+from nltiming.decentering import (
+    MarginalProducts,
+    NumpyMarginalTransport,
+    decode_decentered_chain,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -334,3 +347,238 @@ def test_products_handles_dense_phiinv(_enterprise_setup, monkeypatch):
     # The old broadcast bug (TNT + np.diag(dense), where np.diag of a 2-D array
     # returns the 1-D diagonal) is not even SPD here, so it would crash the
     # builder rather than pass this assertion — either way the branch is pinned.
+
+
+# ---------------------------------------------------------------------------
+# T-E6 / T-E7: decentered_target validation + tempering accounting (no PTA)
+# ---------------------------------------------------------------------------
+
+
+def _stub_ctx(delay_keys):
+    class _Space:
+        def delta_from_z(self, z, xp):
+            return np.asarray(z, dtype=float)  # identity delta for the toy
+
+    class _Plan:
+        sampled = tuple(f"s{i}" for i in range(len(delay_keys)))
+
+    ctx = type("_Ctx", (), {})()
+    ctx.delay_keys = tuple(delay_keys)
+    ctx.space = _Space()
+    ctx.plan = _Plan()
+    ctx.name_stem = "stub"
+    return ctx
+
+
+class _StubPTA:
+    def __init__(self):
+        self.ll_calls = 0
+
+    def get_lnlikelihood(self, params):
+        self.ll_calls += 1
+        return -1.234
+
+    def get_lnprior(self, params):
+        raise AssertionError("get_lnprior must never be called in this mode (E4)")
+
+
+class _Landmine:
+    """A transport that refuses to factorize — proves the box guard short-circuits
+    before any transport evaluation."""
+
+    dimension = 3
+    params = ("gamma", "log10_A")
+
+    def apply(self, params, xi):
+        raise AssertionError("transport must not factorize outside the eta box")
+
+
+_BOUNDS = {"gamma": (0.0, 7.0), "log10_A": (-18.0, -11.0)}
+
+
+def test_te6_target_validation():
+    """T-E6: decentered_target rejects unsorted hyper_names, hyper_names !=
+    transport.params, and fixed overlapping hypers/delay keys; lnprior/lnlike
+    return -inf outside the eta boxes WITHOUT factorizing the transport."""
+    from nltiming.sampling.ptmcmc import decentered_target
+
+    ctx = _stub_ctx(("d0", "d1", "d2"))
+    pta = _StubPTA()
+    tr = _Landmine()
+
+    with pytest.raises(ValueError, match="sorted"):
+        decentered_target(
+            pta,
+            ctx,
+            tr,
+            hyper_names=("log10_A", "gamma"),
+            hyper_bounds=_BOUNDS,
+            fixed={},
+        )
+    with pytest.raises(ValueError, match="transport.params"):
+        decentered_target(
+            pta,
+            ctx,
+            tr,
+            hyper_names=("gamma", "other"),
+            hyper_bounds={"gamma": (0, 7), "other": (0, 1)},
+            fixed={},
+        )
+    with pytest.raises(ValueError, match="fixed"):
+        decentered_target(
+            pta,
+            ctx,
+            tr,
+            hyper_names=("gamma", "log10_A"),
+            hyper_bounds=_BOUNDS,
+            fixed={"gamma": 1.0},
+        )
+    with pytest.raises(ValueError, match="fixed"):
+        decentered_target(
+            pta,
+            ctx,
+            tr,
+            hyper_names=("gamma", "log10_A"),
+            hyper_bounds=_BOUNDS,
+            fixed={"d0": 0.0},
+        )
+
+    lnlike, lnprior = decentered_target(
+        pta, ctx, tr, hyper_names=("gamma", "log10_A"), hyper_bounds=_BOUNDS, fixed={}
+    )
+    bad = np.concatenate([np.zeros(3), [10.0, -14.0]])  # gamma=10 > 7
+    assert lnprior(bad) == -np.inf  # no _Landmine.apply -> no AssertionError
+    assert lnlike(bad) == -np.inf
+    assert pta.ll_calls == 0
+
+
+def test_te7_tempering_accounting():
+    """T-E7: lnprior carries the timing prior -1/2||z||^2 + ldJ + box normalizer
+    (untempered, no likelihood term); lnlike is the marginalized likelihood only
+    and NEVER calls pta.get_lnprior (E4)."""
+    from nltiming.sampling.ptmcmc import decentered_target
+
+    rng = np.random.default_rng(6)
+    toy = _toy(rng)
+    tr = NumpyMarginalTransport(
+        _products_fn(toy), dimension=toy["k"], key="timing", params=("gamma", "log10_A")
+    )
+    ctx = _stub_ctx(tuple(f"d{i}" for i in range(toy["k"])))
+    pta = _StubPTA()
+    lnlike, lnprior = decentered_target(
+        pta, ctx, tr, hyper_names=("gamma", "log10_A"), hyper_bounds=_BOUNDS, fixed={}
+    )
+
+    xi = np.array([0.3, -0.2, 0.5])
+    eta = {"gamma": 3.0, "log10_A": -14.0}
+    vec = np.concatenate([xi, [eta["gamma"], eta["log10_A"]]])
+
+    z, ldj = tr.apply(eta, xi)
+    logwidth = np.log(7.0) + np.log(7.0)  # (7-0) and (-11 - -18)
+    expected_lnprior = -0.5 * float(z @ z) + ldj - logwidth
+    # lnprior is exactly the transport-derived timing prior + ldJ + box norm --
+    # NO likelihood term, so PT tempering (which scales lnlike/T) never touches it.
+    assert np.isclose(lnprior(vec), expected_lnprior, rtol=1e-12)
+
+    # lnlike is the marginalized likelihood only; get_lnprior is never called
+    # (the stub would raise). Tempering scales this term alone.
+    assert lnlike(vec) == -1.234
+    for temperature in (1.0, 4.0):
+        assert np.isfinite(lnlike(vec) / temperature + lnprior(vec))
+
+
+# ---------------------------------------------------------------------------
+# T-E4: decode round-trip + checkpoint (needs the duck ctx + run_io)
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def _duck_ctx():
+    import jax
+
+    jax.config.update("jax_enable_x64", True)
+    pytest.importorskip("jug")
+    pytest.importorskip("discovery")
+    import discovery as ds
+
+    ds.config(kernels="metamath")
+    import sys
+
+    sys.path.insert(0, str(__import__("pathlib").Path(__file__).parent))
+    from test_decentered_model import _DiscoveryPulsar
+
+    from nltiming import TimingInference
+    from nltiming.nonlinear_timing_model import NonLinearTimingModel
+
+    mp = _DiscoveryPulsar()
+    ntm = NonLinearTimingModel(
+        engines="jug",
+        inference=TimingInference.groups(delta_flat=["DM"]),
+        name="timing",
+    )
+    return ntm.for_pulsar(mp)
+
+
+def test_te4_decode_and_checkpoint_roundtrip(tmp_path, _duck_ctx):
+    """T-E4: decode_decentered_chain matches per-row apply/delta_from_z; the
+    checkpoint round-trips through RunResults with latent_decodable=False and the
+    canonical decoded values equal the direct decode."""
+    from nltiming.metric import dynamic_transport_record
+    from nltiming.run_io import (
+        DYNAMIC_FINAL_NAME,
+        build_run_manifest,
+        load_run,
+        save_ptmcmc_decentered_checkpoint,
+    )
+    from nltiming.sampling.ptmcmc import decentered_chain_layout
+
+    ctx = _duck_ctx
+    k = len(ctx.plan.sampled)  # 2 (F0, F1)
+    hyper_names = ("gamma", "log10_A")
+    rng = np.random.default_rng(20260720)
+    toy = _toy(rng, k=k)
+    tr = NumpyMarginalTransport(
+        _products_fn(toy), dimension=k, key=ctx.joint_site, params=hyper_names
+    )
+
+    # Synthetic 50-row chain: [xi (k) | eta (m) | lnpost, lnlike, accept, pt-accept].
+    n = 50
+    chain_xi = rng.standard_normal((n, k))
+    chain_eta = np.column_stack(
+        [rng.uniform(1.0, 5.0, n), rng.uniform(-16.0, -12.0, n)]
+    )
+    trailing = rng.standard_normal((n, 4))
+    chain = np.column_stack([chain_xi, chain_eta, trailing])
+
+    # Row-wise decode matches manual apply/delta_from_z.
+    delta = decode_decentered_chain(chain_xi, chain_eta, hyper_names, tr, ctx.space)
+    for i in range(n):
+        z, _ = tr.apply(dict(zip(hyper_names, chain_eta[i])), chain_xi[i])
+        np.testing.assert_allclose(
+            delta[i], np.asarray(ctx.space.delta_from_z(z, np), dtype=float), rtol=1e-12
+        )
+
+    manifest = build_run_manifest(
+        ctx,
+        likelihood="enterprise",
+        sampler="ptmcmc-decentered",
+        dynamic_transport=dynamic_transport_record(tr),
+        chain_layout=decentered_chain_layout(ctx, hyper_names),
+        checkpoint={"kind": "npz", "path": DYNAMIC_FINAL_NAME},
+    )
+    manifest.write(tmp_path)
+    save_ptmcmc_decentered_checkpoint(
+        tmp_path, chain, ctx, tr, manifest, hyper_names=hyper_names, final=True
+    )
+
+    run = load_run(tmp_path)
+    assert run.latent_decodable is False
+    # Canonical decoded physical values equal the direct decode.
+    expected_native = ctx.space.to_physical(delta, units="native", coord="delta")
+    got_native = run.load_native()
+    for name, col in expected_native.items():
+        np.testing.assert_allclose(
+            np.asarray(got_native[name], dtype=float),
+            np.asarray(col, dtype=float),
+            rtol=1e-12,
+        )
