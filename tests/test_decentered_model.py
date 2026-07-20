@@ -327,11 +327,19 @@ def test_certify_decentered_geometry_passes_on_linear_duck(tmp_path):
     assert report.max_xi_eta_cross_operator_norm < 1e-6
     assert report.max_conditional_identity_spread < 1e-6
 
-    # Report binds to the certified context; the built model exposes its own
-    # stable structure digest.
+    # The report binds to the certified context and to the geometry structure
+    # digest (xi/hyper/dim/index/linearization). That digest is a DIFFERENT
+    # schema from the model's own nlt-decentered-model-v1 fingerprint
+    # (ctx + transport + free hypers + center) — assert both explicitly rather
+    # than a tautology.
+    from nltiming.geometry import _model_fingerprint as _geom_model_fingerprint
+
     assert report.context_fingerprint == ctx.fingerprint()
-    assert isinstance(report.model_fingerprint, str) and report.model_fingerprint
-    assert model.model_fingerprint() == model.model_fingerprint()
+    assert report.model_fingerprint == _geom_model_fingerprint(model, ctx)
+    model_fp = model.model_fingerprint()
+    assert isinstance(model_fp, str) and len(model_fp) == 64
+    assert model.model_fingerprint() == model_fp  # deterministic
+    assert report.model_fingerprint != model_fp  # distinct schemas, by design
 
     # Standalone report persistence round-trips.
     out = tmp_path / "j1234_decentered_geometry"
