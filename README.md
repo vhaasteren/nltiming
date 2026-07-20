@@ -43,9 +43,28 @@ and the NumPyro coordinate — never the top-level sampling script.
 
 The pulsar object must satisfy the `TimingPulsar` protocol (also exported under
 the original `TimingPulsar` name): frozen TOA arrays, `pint_model()`,
-`timing_engine()`; single-pulsar and multi-PTA composite pulsars (e.g.
-[MetaPulsar](https://github.com/vhaasteren/metapulsar)) both work —
+`timing_engine()`; single-pulsar and multi-PTA composite pulsars both work —
 PTA-suffixed parameter names are matched by base name.
+
+**Today, MetaPulsar is required.** The only production `TimingPulsar`
+implementation is
+[MetaPulsar](https://github.com/vhaasteren/metapulsar) — even for a single PTA
+dataset. Examples and docs therefore build pulsars with `create_metapulsar`.
+Once Discovery and/or Enterprise ship a native `TimingPulsar`, that dependency
+can be dropped; the `nltiming` API does not change.
+
+## Examples
+
+Introductory notebooks (ground-up, for PTA users who have not sampled a timing
+model before) live in [`examples/notebooks/`](examples/notebooks/):
+
+1. `01_nonlinear_timing_charts.ipynb` — inference plan, charts, short NUTS, Enterprise
+2. `02_geometry_certification_and_pivot.ipynb` — geometry certifier, `identically_linear`, pivot RN
+3. `03_j1640_decentering_validation.ipynb` — full-basis on real IPTA DR2 J1640
+4. `04_j1640_marginalization_validation.ipynb` — delta-flat vs z-prior on J1640
+
+See [`examples/notebooks/README.md`](examples/notebooks/README.md) for setup
+(MetaPulsar + JUG environment) and suggested order.
 
 ## Inference plans, coordinate charts, and geometry
 
@@ -54,6 +73,10 @@ is *marginalized*; every other timing axis is sampled:
 
 ```python
 from nltiming import NonLinearTimingModel, TimingInference
+
+# Everyday presets — string or InferencePreset also work on the model:
+NonLinearTimingModel(engines="jug")                 # == inference="default"
+NonLinearTimingModel(engines="jug", inference="all")
 
 TimingInference.sample_all()                                # sample every axis (joint NUTS)
 TimingInference.default()                                   # preset: marginalize the linear nuisances
@@ -78,6 +101,13 @@ transport use `whitening=None` (identity static layer, coordinate `z`) — the
 transport is then the single affine layer.
 
 ### Charts: which physical prior gives which map
+
+**PIT** means *probability integral transform*: map a physical draw through its
+prior CDF, then through the standard-normal quantile function, so
+`z ~ Normal(0, 1)` under the physical prior. For a Gaussian delta prior that map
+is globally affine (`affine_normal`); for bounded or otherwise non-Gaussian
+priors it is the nonlinear PIT chart, named `prior_pit` in the API (exact as a
+prior transform, only local for whitening).
 
 | Physical prior on δ | Chart | Identically-linear default? | Globally affine in z? |
 |---|---|---:|---:|
@@ -119,7 +149,7 @@ report = certify_joint_geometry(jm, ctx, hyper_points=box_hyper_probe_points(cen
 this fix (e.g. a white-noise-only reference that cannot precondition
 timing↔red-noise cross-curvature) names the next thing to build — never a reason
 to loosen `GeometryThresholds` or raise the tree depth. Worked example:
-`examples/notebooks-prototype/02_geometry_certification_and_pivot.ipynb` §2b.
+[`examples/notebooks/02_geometry_certification_and_pivot.ipynb`](examples/notebooks/02_geometry_certification_and_pivot.ipynb) §2b.
 
 ## Discovery workflows
 
@@ -408,7 +438,8 @@ Sampled timing parameters flow through two maps:
 ```text
 delta = engine-native offset from the exact par-file reference
 z     = C @ x + c            affine sampler coordinate  (x is what NUTS sees)
-delta = prior_bijector(z)    PIT map; under it the timing prior is z ~ N(0, I)
+delta = prior_bijector(z)    probability-integral-transform (PIT) map;
+                             under it the timing prior is z ~ N(0, I)
 ```
 
 `ParameterSpace` owns these maps and their Jacobians. `transform=` selects how

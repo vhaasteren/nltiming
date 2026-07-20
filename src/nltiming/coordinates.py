@@ -20,8 +20,9 @@ _NONAFFINE_POLICIES = ("warn", "ignore")
 
 
 class NonAffineIdenticallyLinearWarning(UserWarning):
-    """An identically-linear axis carries a non-Gaussian (PIT) prior, so its
-    chart is only a local surrogate (§4.4). The user's prior is honored."""
+    """An identically-linear axis carries a non-Gaussian prior, so its
+    probability-integral-transform (PIT) chart is only a local surrogate (§4.4).
+    The user's prior is honored."""
 
 
 class LocallyMarginalizedTimingWarning(UserWarning):

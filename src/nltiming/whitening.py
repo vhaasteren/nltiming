@@ -146,7 +146,7 @@ def schur_marginalized_mean_given_sampled(
 
 
 def _z_space_wls(wls: DeltaWLS, prior_bijector) -> tuple[np.ndarray, np.ndarray]:
-    """Map delta-space WLS mean/covariance into local PIT z coordinates."""
+    """Map delta-space WLS mean/covariance into local probability-integral-transform (PIT) z coordinates."""
     if prior_bijector is None:
         return wls.mean, wls.covariance
     mean_z = np.asarray(prior_bijector.z_from_delta(wls.mean, np), dtype=float)
@@ -194,19 +194,19 @@ def _linear_transform_from_wls(
 
 
 # Interior guard for a proposed local-posterior center in z coordinates. The
-# PIT delta<->z maps clip the CDF at 1e-12, so |z| ~ 7.03 is the support edge;
-# 6.0 keeps a smooth margin inside it (§4.1/§4.2).
+# probability-integral-transform (PIT) delta<->z maps clip the CDF at 1e-12, so
+# |z| ~ 7.03 is the support edge; 6.0 keeps a smooth margin inside it (§4.1/§4.2).
 _Z_GUARD = 6.0
 
 
 def _reference_z_and_jac(prior_bijector, ndim: int) -> tuple[np.ndarray, np.ndarray]:
     """Expansion point ``z_e = z(delta=0)`` and ``d(delta)/d(z)`` diag there.
 
-    The PIT Jacobian is evaluated at the deterministic reference, never at a
-    WLS point (§4.3: evaluating it at the WLS solution is what drives J1640 PIT
-    coordinates to clipping boundaries and magnifies ``C``). With no prior
-    bijector the sampled coordinate is delta itself (identity PIT): ``z_e`` is
-    the origin and the Jacobian is unity.
+    The probability-integral-transform (PIT) Jacobian is evaluated at the
+    deterministic reference, never at a WLS point (§4.3: evaluating it at the
+    WLS solution is what drives J1640 PIT coordinates to clipping boundaries and
+    magnifies ``C``). With no prior bijector the sampled coordinate is delta
+    itself (identity PIT): ``z_e`` is the origin and the Jacobian is unity.
     """
     if prior_bijector is None:
         return np.zeros(ndim, dtype=float), np.ones(ndim, dtype=float)

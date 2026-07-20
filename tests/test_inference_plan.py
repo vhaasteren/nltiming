@@ -6,8 +6,10 @@ import pytest
 
 from nltiming.coordinates import TimingCoordinatePolicy
 from nltiming.inference import (
+    InferencePreset,
     Marginalize,
     TimingInference,
+    coerce_timing_inference,
     resolve_inference_plan,
 )
 from nltiming.linearity import resolve_linearity
@@ -120,3 +122,59 @@ def test_identically_linear_applies_to_sampled_delta_flat_and_z_marginal_axes():
     # F1 is neither identically linear nor mentioned.
     assert plan.axis("F1").disposition == "sample"
     assert plan.axis("F1").linearity_sources == ()
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        None,
+        "default",
+        "DEFAULT",
+        InferencePreset.DEFAULT,
+        TimingInference.default(),
+    ],
+)
+def test_coerce_timing_inference_default_presets(value):
+    assert coerce_timing_inference(value) == TimingInference.default()
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        "all",
+        "sample_all",
+        "ALL",
+        InferencePreset.ALL,
+        TimingInference.sample_all(),
+    ],
+)
+def test_coerce_timing_inference_sample_all_presets(value):
+    assert coerce_timing_inference(value) == TimingInference.sample_all()
+
+
+def test_coerce_timing_inference_rejects_unknown_and_wrong_type():
+    with pytest.raises(ValueError, match="unknown inference preset"):
+        coerce_timing_inference("PB")
+    with pytest.raises(TypeError, match="TimingInference"):
+        coerce_timing_inference(123)
+
+
+def test_timing_inference_repr_round_trips_common_forms():
+    assert repr(TimingInference.default()) == "TimingInference.default()"
+    assert repr(TimingInference.sample_all()) == "TimingInference.sample_all()"
+    assert (
+        repr(TimingInference.groups(delta_flat=["DM1", "DM2"], z_prior=["DM"]))
+        == "TimingInference.groups(delta_flat=['DM1', 'DM2'], z_prior=['DM'])"
+    )
+
+
+def test_timing_parameter_plan_repr_summarizes_dispositions():
+    plan = _plan(
+        _host(),
+        TimingInference.groups(delta_flat=["JUMP1"], z_prior=["DM"]),
+    )
+    text = repr(plan)
+    assert text.startswith("TimingParameterPlan(")
+    assert "sampled=('F1',)" in text
+    assert "marginalized_delta=('JUMP1_a', 'JUMP1_b')" in text
+    assert "marginalized_z=('DM',)" in text

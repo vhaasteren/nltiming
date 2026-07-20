@@ -229,11 +229,11 @@ Promote the prior-transform map to a documented, validated public surface:
   multivariate (needs a full transport Jacobian, not the per-axis diagonal).
 
 For every accepted proper, continuous scalar prior the transform Jacobian is
-analytic via the PIT identity `d delta / d z = phi_N(z) / p(delta)`, which needs
-only `ppf` and `logpdf` in the forward direction (`cdf` supplies the inverse)
-— no differentiation through SciPy. The families
-`nltiming` already supports (normal, uniform, log-uniform, truncated normal)
-satisfy this today.
+analytic via the probability-integral-transform (PIT) identity
+`d delta / d z = phi_N(z) / p(delta)`, which needs only `ppf` and `logpdf` in
+the forward direction (`cdf` supplies the inverse) — no differentiation through
+SciPy. The families `nltiming` already supports (normal, uniform, log-uniform,
+truncated normal) satisfy this today.
 
 ### 5. Charter statement (docs only)
 

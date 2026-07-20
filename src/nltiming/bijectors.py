@@ -1,4 +1,10 @@
-"""Coordinate bijectors for timing-parameter transforms."""
+"""Coordinate bijectors for timing-parameter transforms.
+
+The non-Gaussian chart ``prior_pit`` is a *probability integral transform*
+(PIT): ``delta = F_delta^{-1}(Phi(z))`` so that ``z ~ Normal(0, 1)`` under the
+physical prior on ``delta``. A Gaussian delta prior collapses to the globally
+affine ``affine_normal`` chart instead.
+"""
 
 from __future__ import annotations
 
@@ -52,7 +58,7 @@ def _standard_normal_pdf(x, xp):
 
 @dataclass(frozen=True)
 class AxisPrior:
-    """Per-parameter prior used for PIT-style delta<->z maps."""
+    """Per-parameter prior used for probability-integral-transform (PIT) delta↔z maps."""
 
     family: str
     lower: float | None = None
@@ -63,7 +69,11 @@ class AxisPrior:
 
 
 class PriorBijector:
-    """Per-axis prior bijector mapping standardized z to physical delta."""
+    """Per-axis prior bijector mapping standardized ``z`` to physical ``delta``.
+
+    For non-Gaussian families the map is the probability integral transform
+    (PIT); for a normal family it is the affine ``mean + std * z``.
+    """
 
     def __init__(self, names: tuple[str, ...], priors: tuple[AxisPrior, ...]):
         if len(names) != len(priors):
@@ -93,8 +103,8 @@ class PriorBijector:
 
     def chart_kinds(self) -> tuple[str, ...]:
         """Per-axis chart kind (§4.4): ``affine_normal`` for a Gaussian delta
-        prior (globally affine in ``z``), ``prior_pit`` otherwise (a local PIT
-        chart)."""
+        prior (globally affine in ``z``), ``prior_pit`` otherwise (a local
+        probability-integral-transform / PIT chart)."""
         return tuple(
             "affine_normal" if prior.family == "normal" else "prior_pit"
             for prior in self.priors

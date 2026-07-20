@@ -9,8 +9,8 @@ Priors
 Sampled-parameter priors come from the bound ``ParameterSpace`` and are
 evaluated through Enterprise ``UserParameter`` hooks that call
 ``PriorBijector.logprior_physical`` / ``ParameterSpace.logprior_coord``,
-including the PIT Jacobian for bounded families (``uniform``, truncated
-normal, etc.).
+including the probability-integral-transform (PIT) Jacobian for bounded
+families (``uniform``, truncated normal, etc.).
 
 With ``prior_policy="fallback"``, unresolved sampled priors use the reference-stack
 *cheat* prior convention—not Gaussians at the WLS scale. Each axis is a flat

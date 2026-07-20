@@ -4,7 +4,8 @@
 ``NonLinearTimingModel`` (partition, ``ParameterSpace``, priors) into
 Enterprise/Discovery signal objects. Timing priors are owned by
 ``ParameterSpace``; see the module docstrings in ``discovery`` and
-``enterprise`` for how fallback cheat priors and PIT bounds are handled.
+``enterprise`` for how fallback cheat priors and
+probability-integral-transform (PIT) bounds are handled.
 """
 
 from .discovery import discovery_signals

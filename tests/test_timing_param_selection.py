@@ -126,9 +126,36 @@ def test_model_inference_groups_selects_plan(pulsar):
     assert ctx.marginalized == ("F1",)
 
 
+def test_model_inference_string_and_enum_presets(pulsar):
+    from nltiming import InferencePreset
+
+    default_ctx = NonLinearTimingModel(engines="jug", name="timing").for_pulsar(pulsar)
+    assert (
+        NonLinearTimingModel(engines="jug", inference="default", name="timing")
+        .for_pulsar(pulsar)
+        .plan.fingerprint()
+        == default_ctx.plan.fingerprint()
+    )
+    all_ctx = NonLinearTimingModel(
+        engines="jug", inference="all", name="timing"
+    ).for_pulsar(pulsar)
+    assert all_ctx.sampled == tuple(pulsar.fitpars)
+    assert all_ctx.plan.marginalized_delta == ()
+    assert (
+        NonLinearTimingModel(
+            engines="jug", inference=InferencePreset.ALL, name="timing"
+        )
+        .for_pulsar(pulsar)
+        .plan.fingerprint()
+        == all_ctx.plan.fingerprint()
+    )
+
+
 def test_model_inference_type_rejected():
-    with pytest.raises(TypeError, match="TimingInference"):
+    with pytest.raises(ValueError, match="unknown inference preset"):
         NonLinearTimingModel(engines="jug", inference="PB")
+    with pytest.raises(TypeError, match="TimingInference"):
+        NonLinearTimingModel(engines="jug", inference=123)
 
 
 def test_constructor_priors_expand_to_suffixed_targets(pulsar):

@@ -258,7 +258,8 @@ class TransportCenterAxis:
     the conditional centering places the coordinate when the sampler is at the
     origin. Its meaning differs by chart: a large ``center_z`` on an
     ``affine_normal`` axis is an ordinary Gaussian mean shift (always interior),
-    while on a ``prior_pit`` axis it approaches a bounded-prior edge.
+    while on a ``prior_pit`` axis (probability integral transform for a
+    bounded/non-Gaussian prior) it approaches a bounded-prior edge.
     """
 
     name: str
@@ -276,8 +277,9 @@ def transport_center_report(
     """Per-axis transport-center report over the sampled timing block (§7).
 
     ``params`` is a constrained hyperparameter point. Only ``prior_pit`` axes
-    participate in the interior limit; ``affine_normal`` axes are interior for
-    every finite center and carry ``local_chart_ratio=None``.
+    (probability-integral-transform charts) participate in the interior limit;
+    ``affine_normal`` axes are interior for every finite center and carry
+    ``local_chart_ratio=None``.
     """
     import jax.numpy as jnp
 

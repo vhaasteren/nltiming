@@ -29,8 +29,10 @@ from .coordinates import (
 )
 from .linearization import TimingLinearization, build_linearization
 from .inference import (
+    InferencePreset,
     TimingInference,
     TimingParameterPlan,
+    coerce_timing_inference,
     resolve_inference_plan,
 )
 from .linearity import LinearityResolution, resolve_linearity
@@ -85,8 +87,9 @@ class LocalTimingBlock:
 
     ``basis`` is ``W_z`` such that the timing waveform subtracted from ``y`` is
     ``W_z z`` to first order at the reference; ``prior_precision`` is the exact
-    prior precision in ``z`` (identity, by PIT construction). Passed to
-    discovery's ``array_block`` as an external transport block.
+    prior precision in ``z`` (identity, by probability-integral-transform / PIT
+    construction). Passed to discovery's ``array_block`` as an external
+    transport block.
     """
 
     basis: np.ndarray
@@ -299,7 +302,8 @@ class TimingContext:
         """Identically-linear proper axes whose chart is not ``affine_normal``.
 
         These are declared identically linear yet carry a bounded/non-Gaussian
-        prior, so their PIT chart is only a local surrogate (§4.4).
+        prior, so their probability-integral-transform (PIT) chart is only a
+        local surrogate (§4.4).
         """
         return tuple(
             axis.name
@@ -530,7 +534,7 @@ class NonLinearTimingModel:
         design_matrix_method: str = "analytic",
         tempo2_native: str | None = None,
         tempo2_jug_options: Mapping[str, Any] | None = None,
-        inference: TimingInference | None = None,
+        inference: TimingInference | InferencePreset | str | None = None,
         identically_linear: Sequence[str] | None = None,
         priors: Mapping[str, PriorOverrideSpec] | None = None,
         prior_policy: PriorPolicy = "wide_default",
@@ -546,14 +550,7 @@ class NonLinearTimingModel:
                 "prior_override_policy must be 'warn' or 'strict'; "
                 f"got {prior_override_policy!r}"
             )
-        if inference is None:
-            inference = TimingInference.default()
-        elif not isinstance(inference, TimingInference):
-            raise TypeError(
-                "inference must be a TimingInference (see nltiming.inference); "
-                "the old sample=/sample_linear=/analytically_marginalize= switches "
-                "were removed (§4.1)"
-            )
+        inference = coerce_timing_inference(inference)
         if identically_linear is not None:
             if isinstance(identically_linear, str):
                 raise TypeError(
@@ -953,7 +950,8 @@ class NonLinearTimingModel:
 
         - ``NonAffineIdenticallyLinearWarning``: an identically-linear proper axis
           whose resolved chart is not ``affine_normal`` (a bounded/non-Gaussian
-          prior makes its PIT chart a local surrogate).
+          prior makes its probability-integral-transform / PIT chart a local
+          surrogate).
         - ``LocallyMarginalizedTimingWarning``: a marginalized axis not certified
           identically linear (its analytical integration uses a fixed local affine
           likelihood). The constructor default may legitimately trigger this for
@@ -972,8 +970,9 @@ class NonLinearTimingModel:
             warnings.warn(
                 NonAffineIdenticallyLinearWarning(
                     "identically-linear timing axes carry a non-Gaussian prior, so "
-                    f"their chart is only a local PIT surrogate: {nonaffine}. The "
-                    "prior is honored; pass coordinate_policy with "
+                    "their probability-integral-transform (PIT) chart is only a "
+                    f"local surrogate: {nonaffine}. The prior is honored; pass "
+                    "coordinate_policy with "
                     "nonaffine_identically_linear='ignore' to silence."
                 ),
                 stacklevel=3,

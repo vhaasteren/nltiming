@@ -470,8 +470,9 @@ def build_joint_transport(
     the ``xi = 0`` slice. When the timing centering is large (e.g. zeroed
     inter-PTA JUMPs), that term reaches ~1e5 and destroys the hyperparameter
     geometry (measured on IPTA J1640+2224: hyper curvature ~1e4-1e6 with a
-    clamp at 4, vs the marginal's ~1e2 without). Clamp only when a PIT-bounded
-    coordinate genuinely saturates, and then with a generous ``zmax``.
+    clamp at 4, vs the marginal's ~1e2 without). Clamp only when a
+    probability-integral-transform (PIT) bounded coordinate genuinely
+    saturates, and then with a generous ``zmax``.
     """
     from discovery import transport as dst
 
@@ -566,8 +567,9 @@ def joint_model(
 
     One standard-normal ``xi`` site is mapped through the dynamic transport to
     the joint coordinate ``q = (z, coefficients)``; ``z`` decodes to the exact
-    nonlinear timing residual via the PIT bijector and the GP coefficient blocks
-    feed discovery's residual-form ``clogL`` directly. The exact timing prior
+    nonlinear timing residual via the probability-integral-transform (PIT)
+    bijector and the GP coefficient blocks feed discovery's residual-form
+    ``clogL`` directly. The exact timing prior
     ``-½‖z‖²``, the transport log-Jacobian, and the ``N(0, I)`` base-measure
     cancellation are all added explicitly (§4.5).
 

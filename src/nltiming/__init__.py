@@ -25,9 +25,11 @@ from .metric import (
 )
 from .nonlinear_timing_model import NonLinearTimingModel, TimingContext
 from .inference import (
+    InferencePreset,
     Marginalize,
     TimingInference,
     TimingParameterPlan,
+    coerce_timing_inference,
 )
 from .coordinates import TimingCoordinatePolicy, TimingExpansionSpec
 from .linearization import (
@@ -70,9 +72,11 @@ from .space import ParameterSpace
 __all__ = [
     "NonLinearTimingModel",
     "TimingContext",
+    "InferencePreset",
     "Marginalize",
     "TimingInference",
     "TimingParameterPlan",
+    "coerce_timing_inference",
     "TimingCoordinatePolicy",
     "TimingExpansionSpec",
     "TimingLinearization",

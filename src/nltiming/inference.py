@@ -19,6 +19,7 @@ from __future__ import annotations
 import hashlib
 import json
 from dataclasses import dataclass, field
+from enum import Enum
 from typing import Literal, Mapping, Sequence
 
 from .bijectors import AxisPrior
@@ -32,7 +33,26 @@ from .selection import canonical_fitpars, select_fitpars
 
 MarginalCoordinate = Literal["delta", "z"]
 Disposition = Literal["sample", "marginalize_delta_flat", "marginalize_z_prior"]
+# prior_pit = probability integral transform (non-Gaussian / bounded delta prior)
 ChartKind = Literal["affine_normal", "prior_pit"]
+InferencePresetName = Literal["default", "all", "sample_all"]
+
+
+class InferencePreset(str, Enum):
+    """Named inference presets accepted by ``NonLinearTimingModel(inference=...)``."""
+
+    DEFAULT = "default"
+    ALL = "all"
+
+    @classmethod
+    def _missing_(cls, value: object):
+        if isinstance(value, str):
+            key = value.strip().lower()
+            if key in ("default",):
+                return cls.DEFAULT
+            if key in ("all", "sample_all"):
+                return cls.ALL
+        return None
 
 
 @dataclass(frozen=True)
@@ -102,6 +122,64 @@ class TimingInference:
                 for name, marg in sorted(self.marginalize.items())
             },
         }
+
+    def __repr__(self) -> str:
+        if self.preset == "default_delta":
+            return "TimingInference.default()"
+        if not self.marginalize:
+            return "TimingInference.sample_all()"
+        delta_flat = [
+            name
+            for name, marg in self.marginalize.items()
+            if marg.coordinate == "delta"
+        ]
+        z_prior = [
+            name for name, marg in self.marginalize.items() if marg.coordinate == "z"
+        ]
+        parts: list[str] = []
+        if delta_flat:
+            parts.append(f"delta_flat={delta_flat!r}")
+        if z_prior:
+            parts.append(f"z_prior={z_prior!r}")
+        return f"TimingInference.groups({', '.join(parts)})"
+
+
+def coerce_timing_inference(
+    inference: TimingInference | InferencePreset | str | None,
+) -> TimingInference:
+    """Normalize constructor ``inference=`` values to a ``TimingInference``.
+
+    Accepted forms:
+
+    - ``None`` / omitted → ``TimingInference.default()``
+    - ``TimingInference`` instance (unchanged)
+    - ``"default"`` / ``InferencePreset.DEFAULT`` → ``TimingInference.default()``
+    - ``"all"`` / ``"sample_all"`` / ``InferencePreset.ALL`` → ``TimingInference.sample_all()``
+    """
+    if inference is None:
+        return TimingInference.default()
+    if isinstance(inference, TimingInference):
+        return inference
+    if isinstance(inference, InferencePreset):
+        if inference is InferencePreset.DEFAULT:
+            return TimingInference.default()
+        return TimingInference.sample_all()
+    if isinstance(inference, str):
+        try:
+            preset = InferencePreset(inference)
+        except ValueError as exc:
+            raise ValueError(
+                f"unknown inference preset {inference!r}; use 'default', 'all' "
+                "(or 'sample_all'), InferencePreset, or a TimingInference"
+            ) from exc
+        if preset is InferencePreset.DEFAULT:
+            return TimingInference.default()
+        return TimingInference.sample_all()
+    raise TypeError(
+        "inference must be a TimingInference, InferencePreset, or preset string "
+        "('default' / 'all'); the old sample=/sample_linear=/analytically_marginalize= "
+        "switches were removed (§4.1)"
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -286,6 +364,14 @@ class TimingParameterPlan:
             axes=tuple(axes),
             inference=self.inference,
             coordinate_policy=self.coordinate_policy,
+        )
+
+    def __repr__(self) -> str:
+        return (
+            "TimingParameterPlan("
+            f"sampled={self.sampled!r}, "
+            f"marginalized_delta={self.marginalized_delta!r}, "
+            f"marginalized_z={self.marginalized_z!r})"
         )
 
     def fingerprint(self) -> str:
