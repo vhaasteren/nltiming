@@ -275,8 +275,9 @@ timing axis and *all* GP coefficients stay inside `likelihood.logL` and are
 whitened away against the live marginalized covariance `C(η)` by a
 `discovery.transport.MarginalTransport` (the η-dependent generalization of the
 static posterior-metric whitening). The sampled dimension stays at the small
-`k_s` (e.g. 12 sampled timing axes on J1640 instead of the full-basis 43) while
-the target is the exact marginal. Certify with `certify_decentered_geometry(...)`
+`k_s` (plan-dependent — e.g. just the 6 nonlinear binary axes on J1640 once the
+linear axes are marginalized, instead of the full-basis 43) while the target is
+the exact marginal. Certify with `certify_decentered_geometry(...)`
 (same report / thresholds as the joint certifier, measured against live `C(η)`)
 and init the `ξ` site with `decentered_init_values(ctx, model.transport)`.
 Expansion is a geometry-plan concern (`refine_timing_expansion` /

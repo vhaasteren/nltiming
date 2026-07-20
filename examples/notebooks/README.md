@@ -30,8 +30,9 @@ editable-installed).
    that the sampling geometry is healthy before a long run; declaring linear
    axes; pivot-amplitude red noise.
 3. **`03_j1640_decentering_validation.ipynb`** (real IPTA DR2 J1640+2224) —
-   full-basis sampling on real data: charts, geometry check, modest NUTS,
-   pivot amplitude.
+   full-basis sampling on real data (charts, geometry check, modest NUTS, pivot
+   amplitude), then the **marginalized dynamic decentering** mode and a
+   three-mode comparison (full-basis / decentered / static).
 4. **`04_j1640_marginalization_validation.ipynb`** (real J1640) — the two
    analytical-marginalization measures (delta-flat vs z-prior) as distinct
    models.
