@@ -529,7 +529,9 @@ def enterprise_marginal_products(pta, ctx, *, fixed_wn_params):
             return memo["value"]
         full = {**p0, **{n: v for n, v in zip(hyper_names, key)}}
         phiinv = np.asarray(pta.get_phiinv(full, logdet=False)[0], dtype=float)
-        sigma = TNT + np.diag(phiinv)
+        # get_phiinv may be a (m,) diagonal or a dense (m, m) matrix
+        # (common-signal / non-diagonal Phi). Match Enterprise's own branch.
+        sigma = TNT + (np.diag(phiinv) if phiinv.ndim == 1 else phiinv)
         cf = sl.cho_factor(sigma, lower=True)
         SW = sl.cho_solve(cf, TNW)  # (m, k)
         out = MarginalProducts(G=WNW - TNW.T @ SW, b=WNy - SW.T @ TNy)

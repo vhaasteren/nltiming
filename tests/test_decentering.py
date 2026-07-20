@@ -286,3 +286,51 @@ def test_te5_products_accounting(_enterprise_setup):
     o3 = products(changed)
     assert o3 is not o1
     assert isinstance(o3, MarginalProducts)
+
+
+def test_products_handles_dense_phiinv(_enterprise_setup, monkeypatch):
+    """P1: get_phiinv may return a dense (m, m) matrix (common-signal / non-
+    diagonal Phi); Sigma must add it as a MATRIX, not misread its diagonal and
+    broadcast. Mirrors Enterprise's own `phiinv.ndim == 1` branch."""
+    import scipy.linalg as sl
+
+    from nltiming.likelihoods.enterprise import enterprise_marginal_products
+
+    pta, ctx, mp = (_enterprise_setup[k] for k in ("pta", "ctx", "mp"))
+    fixed_wn = {f"{mp.name}_efac": 1.0}
+    eta = {
+        f"{mp.name}_rednoise_log10_A": -14.0,
+        f"{mp.name}_rednoise_gamma": 3.0,
+    }
+    full = {**fixed_wn, **eta}
+
+    # Real 1-D phiinv -> a genuinely dense SPD version with off-diagonal terms.
+    phi1d = np.asarray(pta.get_phiinv(full, logdet=False)[0], dtype=float)
+    m = phi1d.shape[0]
+    rng = np.random.default_rng(0)
+    off = 0.01 * rng.standard_normal((m, m))
+    dense = np.diag(phi1d) + off @ off.T  # SPD, genuinely dense
+    monkeypatch.setattr(pta, "get_phiinv", lambda p, logdet=False: [dense])
+
+    products = enterprise_marginal_products(pta, ctx, fixed_wn_params=fixed_wn)
+    out = products(full)
+
+    # Independent oracle with the dense phiinv added as a MATRIX.
+    ndiag = pta.get_ndiag(fixed_wn)[0]
+    lin = ctx.linearization
+    W = np.asarray(lin.sampled_basis, dtype=float)
+    y_t = np.asarray(
+        lin.transport_effective_residual(np.asarray(mp.residuals)), dtype=float
+    )
+    T = np.asarray(pta.get_basis(fixed_wn)[0], dtype=float)
+    WNW = np.asarray(ndiag.solve(W, left_array=W), dtype=float)
+    TNW = np.asarray(ndiag.solve(W, left_array=T), dtype=float)
+    WNy = np.asarray(ndiag.solve(y_t, left_array=W), dtype=float)
+    TNy = np.asarray(ndiag.solve(y_t, left_array=T), dtype=float)
+    TNT = np.asarray(pta.get_TNT(fixed_wn)[0], dtype=float)
+    SW = sl.cho_solve(sl.cho_factor(TNT + dense, lower=True), TNW)
+    np.testing.assert_allclose(out.G, WNW - TNW.T @ SW, rtol=1e-10)
+    np.testing.assert_allclose(out.b, WNy - SW.T @ TNy, rtol=1e-10)
+    # The old broadcast bug (TNT + np.diag(dense), where np.diag of a 2-D array
+    # returns the 1-D diagonal) is not even SPD here, so it would crash the
+    # builder rather than pass this assertion — either way the branch is pinned.
