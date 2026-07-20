@@ -27,8 +27,10 @@ and `WhiteningConfig()` is a static posterior-whitening layer. See
 `nltiming` supplies native objects at the two likelihood interfaces:
 
 - **Discovery:** build a NumPyro model with `sampling.numpyro.joint_model`
-  (full-basis / dynamic transport, `whitening=None`) or
-  `sampling.numpyro.model` (static whitening path). Both return an ordinary
+  (full-basis / dynamic transport, `whitening=None`),
+  `sampling.numpyro.decentered_model` (marginalized dynamic decentering — the
+  small sampled timing block whitened against the live `C(η)`), or
+  `sampling.numpyro.model` (static whitening path). All return an ordinary
   zero-argument NumPyro model with `.to_df` for decoded timing columns. Sample
   with `sampling.numpyro.nuts`, Discovery's `makesampler_nuts` +
   `run_nuts_with_checkpoints`, or raw `numpyro.infer.NUTS`/`MCMC`.
@@ -63,7 +65,8 @@ model before) live in [`examples/notebooks/`](examples/notebooks/):
 
 1. `01_nonlinear_timing_charts.ipynb` — inference plan, charts, short NUTS, Enterprise
 2. `02_geometry_certification_and_pivot.ipynb` — geometry certifier, `identically_linear`, pivot RN
-3. `03_j1640_decentering_validation.ipynb` — full-basis on real IPTA DR2 J1640
+3. `03_j1640_decentering_validation.ipynb` — full-basis **and** marginalized
+   dynamic decentering (the three-mode comparison) on real IPTA DR2 J1640
 4. `04_j1640_marginalization_validation.ipynb` — delta-flat vs z-prior on J1640
 
 See [`examples/notebooks/README.md`](examples/notebooks/README.md) for setup
@@ -259,6 +262,26 @@ numpyro_model = sampling.numpyro.joint_model(
 `.to_df(samples)` (physical timing columns) plus `xi_site` / `hyper_sites`
 metadata used by `dense_mass="auto"`. Discovery never reimplements the chart
 or transport.
+
+**Marginalized dynamic decentering path** (the small-block sampler for
+nonlinear timing): keep `whitening=None` (the default identity static layer)
+and a plan that marginalizes the well-determined axes
+(`inference=TimingInference.default()`, or
+`groups(delta_flat=[...], z_prior=[...])`); assemble the *marginalized*
+`*ctx.discovery_signals()` (default `joint=False`) and build with
+`sampling.numpyro.decentered_model(...)`. Only the plan's sampled timing block
+(dimension `k_s`) and the free hyperparameters are sampled — every marginalized
+timing axis and *all* GP coefficients stay inside `likelihood.logL` and are
+whitened away against the live marginalized covariance `C(η)` by a
+`discovery.transport.MarginalTransport` (the η-dependent generalization of the
+static posterior-metric whitening). The sampled dimension stays at the small
+`k_s` (e.g. 12 sampled timing axes on J1640 instead of the full-basis 43) while
+the target is the exact marginal. Certify with `certify_decentered_geometry(...)`
+(same report / thresholds as the joint certifier, measured against live `C(η)`)
+and init the `ξ` site with `decentered_init_values(ctx, model.transport)`.
+Expansion is a geometry-plan concern (`refine_timing_expansion` /
+`with_expansion`), never a `decentered_model` kwarg. Worked example:
+[`examples/notebooks/03_j1640_decentering_validation.ipynb`](examples/notebooks/03_j1640_decentering_validation.ipynb) §8.
 
 **Static whitening path** (Enterprise-style preconditioning in Discovery): pass
 `whitening=WhiteningConfig()`, assemble `*ctx.discovery_signals()` (default
