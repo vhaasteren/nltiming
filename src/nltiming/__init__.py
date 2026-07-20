@@ -69,6 +69,11 @@ from .protocols import (
     TimingEngine,
 )
 from .space import ParameterSpace
+from .decentering import (
+    MarginalProducts,
+    NumpyMarginalTransport,
+    decode_decentered_chain,
+)
 
 __all__ = [
     "NonLinearTimingModel",
@@ -91,6 +96,9 @@ __all__ = [
     "GeometryDiagnosticWarning",
     "certify_joint_geometry",
     "certify_decentered_geometry",
+    "MarginalProducts",
+    "NumpyMarginalTransport",
+    "decode_decentered_chain",
     "transport_center_report",
     "box_hyper_probe_points",
     "write_geometry_report",

@@ -441,3 +441,100 @@ def enterprise_signal(
         )
         signal = signal + _make_cm_signal(ctx_fn=ctx_fn, name=name)
     return signal
+
+
+def enterprise_marginal_products(pta, ctx, *, fixed_wn_params):
+    """``products_fn`` for ``NumpyMarginalTransport`` from a single-pulsar PTA.
+
+    ``pta`` must be the post-geometry Enterprise assembly for ``ctx`` (exact
+    sampled delay + ``c_m`` + normalized improper ``M_f`` block + unit-normal
+    ``W_m`` block + RN/DM; geometry plan §5.6). ``ctx`` supplies the sealed
+    transport inputs: ``W_s = ctx.linearization.sampled_basis`` and
+    ``y_t = ctx.linearization.transport_effective_residual(ctx.pulsar.residuals)``.
+    Raw residuals and caller-supplied bases are deliberately not accepted
+    (D-INV; marginalized D19).
+
+    ``fixed_wn_params`` pins every white-noise parameter so the N-side products
+    are cached once (E7). Returns a callable ``products(params) ->
+    MarginalProducts`` with attribute ``params`` (sorted hyperparameter names,
+    delay keys excluded — E8) and a required one-slot memo on the last eta point
+    (E9).
+    """
+    import scipy.linalg as sl
+
+    from nltiming.decentering import MarginalProducts
+    from nltiming.metric import assert_static_layer_identity
+
+    if len(pta.pulsars) != 1:
+        raise ValueError(
+            f"enterprise_marginal_products requires a single-pulsar PTA; "
+            f"got {len(pta.pulsars)} pulsars"
+        )
+    assert_static_layer_identity(ctx.space)
+    lin = ctx.linearization
+    if lin is None:
+        raise RuntimeError(
+            "enterprise_marginal_products requires ctx.linearization "
+            "(TimingLinearization from the geometry plan)"
+        )
+
+    y_t = np.asarray(
+        lin.transport_effective_residual(np.asarray(ctx.pulsar.residuals, dtype=float)),
+        dtype=float,
+    )
+    W = np.asarray(lin.sampled_basis, dtype=float)
+    if W.shape[1] != len(ctx.plan.sampled):
+        raise RuntimeError(
+            f"linearization.sampled_basis has {W.shape[1]} columns but "
+            f"ctx.plan.sampled has {len(ctx.plan.sampled)} names"
+        )
+
+    p0 = dict(fixed_wn_params)
+    # White-noise parameter names come from the Enterprise signal collections
+    # (E7). The combined ``pta.get_ndiag(p0)[0]`` is an ``ndarray_alt`` with no
+    # ``.params`` attribute, and ``get_TNT`` does not raise on a missing white
+    # param (it defaults), so the pinned-WN check must enumerate them explicitly.
+    wn_names = set().union(
+        *(set(getattr(sc, "white_params", []) or []) for sc in pta._signalcollections)
+    )
+    missing = sorted(wn_names - set(p0))
+    if missing:
+        raise ValueError(
+            f"enterprise_marginal_products requires fixed white noise; "
+            f"missing from fixed_wn_params: {missing}"
+        )
+    ndiag = pta.get_ndiag(p0)[0]
+    T = np.asarray(pta.get_basis(p0)[0], dtype=float)
+    if T.shape[0] != y_t.shape[0]:
+        raise ValueError(
+            f"basis rows {T.shape[0]} != n_toa {y_t.shape[0]}; "
+            f"the PTA and ctx describe different pulsars"
+        )
+
+    # Cached constant products (WN fixed; basis constant): E7.
+    WNW = np.asarray(ndiag.solve(W, left_array=W), dtype=float)  # (k, k)
+    TNW = np.asarray(ndiag.solve(W, left_array=T), dtype=float)  # (m, k)
+    WNy = np.asarray(ndiag.solve(y_t, left_array=W), dtype=float)  # (k,)
+    TNy = np.asarray(ndiag.solve(y_t, left_array=T), dtype=float)  # (m,)
+    TNT = np.asarray(pta.get_TNT(p0)[0], dtype=float)  # (m, m)
+
+    # E8: delay keys are NOT hyperparameters (rev-1 defect fixed here).
+    hyper_names = tuple(sorted(set(pta.param_names) - set(p0) - set(ctx.delay_keys)))
+
+    memo = {"key": None, "value": None}  # E9
+
+    def products(params):
+        key = tuple(float(params[n]) for n in hyper_names)
+        if memo["key"] == key:
+            return memo["value"]
+        full = {**p0, **{n: v for n, v in zip(hyper_names, key)}}
+        phiinv = np.asarray(pta.get_phiinv(full, logdet=False)[0], dtype=float)
+        sigma = TNT + np.diag(phiinv)
+        cf = sl.cho_factor(sigma, lower=True)
+        SW = sl.cho_solve(cf, TNW)  # (m, k)
+        out = MarginalProducts(G=WNW - TNW.T @ SW, b=WNy - SW.T @ TNy)
+        memo["key"], memo["value"] = key, out
+        return out
+
+    products.params = hyper_names
+    return products
