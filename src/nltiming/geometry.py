@@ -480,34 +480,74 @@ class _CompiledTarget:
 
     def grad_hessian(self, xi: np.ndarray, u_hyper: np.ndarray):
         u = self._u_at(xi, u_hyper)
-        return np.asarray(self._grad(u), dtype=float), np.asarray(self._hess(u), dtype=float)
+        return np.asarray(self._grad(u), dtype=float), np.asarray(
+            self._hess(u), dtype=float
+        )
 
     def potential(self, xi: np.ndarray, u_hyper: np.ndarray) -> float:
         return float(self._pot(self._u_at(xi, u_hyper)))
 
 
-def certify_joint_geometry(
+class _FrozenReferenceNoise:
+    """Per-TOA scale / residual metric from the transport's FROZEN N0 (joint mode).
+
+    The reference-noise standard deviation and quadratic are eta-independent, so
+    the standard deviation is materialized once and reused at every hyper point.
+    """
+
+    def __init__(self, transport):
+        self._transport = transport
+        self._sd = np.asarray(
+            transport.reference_noise_standard_deviation(), dtype=float
+        )
+
+    def standard_deviation(self, params):
+        return self._sd
+
+    def quadratic(self, params, vector):
+        return float(self._transport.reference_noise_quadratic(vector))
+
+
+class _LiveKernelNoise:
+    """Per-TOA scale / residual metric from the LIVE marginalized C(eta) (D8b).
+
+    Both quantities depend on the hyper point, so they are recomputed at each
+    point via the :class:`~discovery.transport.MarginalTransport` live-kernel
+    hooks — the eta-dependent analogues of the frozen-reference methods.
+    """
+
+    def __init__(self, transport):
+        self._transport = transport
+
+    def standard_deviation(self, params):
+        return np.asarray(
+            self._transport.live_kernel_standard_deviation(params), dtype=float
+        )
+
+    def quadratic(self, params, vector):
+        return float(self._transport.live_kernel_quadratic(params, vector))
+
+
+def _certify_dynamic_geometry(
     model,
     ctx,
     *,
     hyper_points: Sequence[Mapping[str, float]],
-    thresholds: GeometryThresholds | None = None,
+    thresholds: GeometryThresholds | None,
+    noise,
 ) -> JointGeometryReport:
-    """Certify the exact joint target geometry at supplied hyper points (§8.3).
+    """Shared certifier core for any dynamic-transport model (§8.3, §7 diff).
 
-    ``model`` is the built NumPyro joint model (it must expose ``.transport``,
-    ``.xi_site``, ``.hyper_sites``). At each hyper point the exact target is
-    probed at the deterministic ``2K+9`` sampler points; the certifier reports
-    center interiority, exact-vs-local residual remainder (global RMS and
-    localized per-TOA), the ``xi`` gradient/Hessian/cross-Hessian at zero, and
-    the conditional-identity spread. Nothing here is ever called by ``nuts``.
+    ``noise`` supplies the per-TOA scale and residual quadratic — frozen N0 for
+    the joint mode, live C(eta) for the decentered mode. Everything else (probe
+    set, metrics, thresholds, report type, I/O) is identical between the modes.
     """
     import jax.numpy as jnp
 
     from .linearization import _waveform_of_z
 
     if not hyper_points:
-        raise ValueError("certify_joint_geometry requires at least one hyper point")
+        raise ValueError("geometry certification requires at least one hyper point")
     thr = thresholds if thresholds is not None else GeometryThresholds()
     _require_site_metadata(model)
 
@@ -524,8 +564,6 @@ def certify_joint_geometry(
     d_e = np.asarray(lin.sampled_waveform_expansion, dtype=float)
     W_e = np.asarray(lin.sampled_basis, dtype=float)
     z_e = np.asarray(lin.sampled_z_expansion, dtype=float)
-    sd = np.asarray(transport.reference_noise_standard_deviation(), dtype=float)
-    n_toa = int(sd.shape[0])
 
     failures: list[str] = []
     per_point: list[dict[str, Any]] = []
@@ -548,6 +586,10 @@ def certify_joint_geometry(
     for pi, raw_point in enumerate(hyper_points):
         point = {k: float(v) for k, v in raw_point.items()}
 
+        # Per-TOA scale at THIS hyper point (frozen N0 or live C(eta); §7 diff).
+        sd = np.asarray(noise.standard_deviation(point), dtype=float)
+        n_toa = int(sd.shape[0])
+
         center_axes = transport_center_report(
             ctx, transport, point, pit_interior_limit=thr.pit_interior_limit
         )
@@ -569,7 +611,7 @@ def certify_joint_geometry(
             z = np.asarray(transport.split(q)[ctx.joint_site], dtype=float)
             d_exact = np.asarray(d_of_z(jnp.asarray(z)), dtype=float)
             rem = d_exact - (d_e + W_e @ (z - z_e))
-            quad = float(transport.reference_noise_quadratic(jnp.asarray(rem)))
+            quad = float(noise.quadratic(point, jnp.asarray(rem)))
             rms = float(np.sqrt(quad / n_toa))
             std_toa = float(np.max(np.abs(rem) / sd)) if n_toa else 0.0
             point_rms = max(point_rms, rms)
@@ -677,6 +719,64 @@ def certify_joint_geometry(
     )
 
 
+def certify_joint_geometry(
+    model,
+    ctx,
+    *,
+    hyper_points: Sequence[Mapping[str, float]],
+    thresholds: GeometryThresholds | None = None,
+) -> JointGeometryReport:
+    """Certify the exact joint target geometry at supplied hyper points (§8.3).
+
+    ``model`` is the built NumPyro joint model (it must expose ``.transport`` — a
+    :class:`discovery.transport.Transport` — ``.xi_site``, ``.hyper_sites``). At
+    each hyper point the exact target is probed at the deterministic ``2K+9``
+    sampler points; the certifier reports center interiority, exact-vs-local
+    residual remainder (global RMS and localized per-TOA) against the FROZEN
+    reference noise ``N0``, the ``xi`` gradient/Hessian/cross-Hessian at zero,
+    and the conditional-identity spread. Nothing here is ever called by ``nuts``.
+    """
+    return _certify_dynamic_geometry(
+        model,
+        ctx,
+        hyper_points=hyper_points,
+        thresholds=thresholds,
+        noise=_FrozenReferenceNoise(model.transport),
+    )
+
+
+def certify_decentered_geometry(
+    model,
+    ctx,
+    *,
+    hyper_points: Sequence[Mapping[str, float]],
+    thresholds: GeometryThresholds | None = None,
+) -> JointGeometryReport:
+    """Certify the marginalized decentered target geometry (§7).
+
+    Same report type, thresholds, probes, interpretation tree, and I/O as
+    :func:`certify_joint_geometry` — the ONLY difference is that the per-TOA
+    scale and residual quadratic are measured against the LIVE marginalized
+    covariance ``C(eta)`` at each hyper point (``model.transport`` is a
+    :class:`discovery.transport.MarginalTransport`;
+    ``live_kernel_standard_deviation`` / ``live_kernel_quadratic``, D8b) rather
+    than the frozen reference noise. ``model`` is the built
+    :func:`~nltiming.sampling.numpyro.decentered_model` (``.transport``,
+    ``.xi_site == {stem}_timing_xi``, ``.hyper_sites``). Never called by ``nuts``.
+
+    Each hyper point must carry every hyperparameter the kernel depends on; the
+    ``box_hyper_probe_points(eta_mpe, ...)`` set built from a full MPE satisfies
+    this. A failed report follows the joint interpretation tree verbatim (§7.2).
+    """
+    return _certify_dynamic_geometry(
+        model,
+        ctx,
+        hyper_points=hyper_points,
+        thresholds=thresholds,
+        noise=_LiveKernelNoise(model.transport),
+    )
+
+
 # ---------------------------------------------------------------------------
 # §8.5 Standalone report persistence (atomic JSON + NPZ)
 # ---------------------------------------------------------------------------
@@ -781,7 +881,10 @@ def write_geometry_report(
         "max_xi_eta_cross_operator_norm": report.max_xi_eta_cross_operator_norm,
         "max_conditional_identity_spread": report.max_conditional_identity_spread,
         "per_point": [
-            {**{k: v for k, v in pp.items() if k != "hyper"}, "hyper": dict(pp["hyper"])}
+            {
+                **{k: v for k, v in pp.items() if k != "hyper"},
+                "hyper": dict(pp["hyper"]),
+            }
             for pp in report.per_point
         ],
         "thresholds": vars(report.thresholds),

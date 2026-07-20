@@ -552,6 +552,29 @@ def global_gp_logprior(coeff_flat, global_gp, params, xp=None):
     return -0.5 * (c @ (xp.asarray(phi_inv) @ c)) - 0.5 * xp.asarray(logdet)
 
 
+def _validate_fixed(
+    fixed: Mapping[str, float] | None, owned: set[str]
+) -> dict[str, float]:
+    """Validate and coerce a ``fixed`` hyperparameter mapping (§5.2, D12).
+
+    ``fixed`` may pin any free hyperparameter but never a model-owned timing or
+    transport-coefficient key (``owned``); values must be numeric. Returns a new
+    ``dict[str, float]``. Shared verbatim by :func:`joint_model` and
+    :func:`decentered_model` so the two modes reject the same inputs.
+    """
+    fixed_params: dict[str, float] = {}
+    for key, value in dict(fixed or {}).items():
+        if key in owned:
+            raise ValueError(
+                "fixed cannot pin timing/coefficient parameters (owned by the "
+                f"model): {key!r}"
+            )
+        if not isinstance(value, (int, float)):
+            raise TypeError(f"fixed[{key!r}] must be numeric")
+        fixed_params[key] = float(value)
+    return fixed_params
+
+
 def joint_model(
     likelihood,
     ctx,
@@ -622,16 +645,7 @@ def joint_model(
         )
 
     owned = set(ctx.delay_keys) | set(coeff_keys)
-    fixed_params: dict[str, float] = {}
-    for key, value in dict(fixed or {}).items():
-        if key in owned:
-            raise ValueError(
-                f"fixed cannot pin timing/coefficient parameters (owned by the "
-                f"joint model): {key!r}"
-            )
-        if not isinstance(value, (int, float)):
-            raise TypeError(f"fixed[{key!r}] must be numeric")
-        fixed_params[key] = float(value)
+    fixed_params = _validate_fixed(fixed, owned)
 
     priordict = dict(priors or {})
     # Sorted so hyper_sites (and the sample loop) have a deterministic order:
@@ -938,17 +952,211 @@ def joint_samples_to_frame(samples: Mapping[str, Any], ctx):
 
 
 def joint_run_manifest(ctx, transport, **kwargs):
-    """Build the dynamic-transport :class:`RunManifest` for a joint run (§6.6).
+    """Build the dynamic-transport :class:`RunManifest` for a dynamic run (§6.6).
 
     Records the transport structure/digest and ``latent_decodable=false`` in the
     manifest ``transport`` section; the caller supplies ``likelihood=``,
     ``sampler=`` and any run metadata forwarded to ``ctx.run_manifest``.
+
+    Works for ANY dynamic transport: the joint full-basis
+    :class:`discovery.transport.Transport` and the marginalized
+    :class:`discovery.transport.MarginalTransport`
+    (:func:`decentered_model`), whose D8-compatible ``diagnostics()`` /
+    ``fingerprint()`` :func:`~nltiming.metric.dynamic_transport_record` already
+    consumes.
     """
     from ..metric import dynamic_transport_record
 
     return ctx.run_manifest(
         dynamic_transport=dynamic_transport_record(transport), **kwargs
     )
+
+
+def _decentered_model_fingerprint(ctx, transport, free, center) -> str:
+    """Structure digest for a built :func:`decentered_model` (§5.2, D17).
+
+    Digests the context fingerprint, the marginal-transport fingerprint, the
+    sorted free hyper names, and ``center`` under schema
+    ``"nlt-decentered-model-v1"``.
+    """
+    import hashlib
+    import json
+
+    payload = json.dumps(
+        {
+            "schema": "nlt-decentered-model-v1",
+            "context_fingerprint": ctx.fingerprint(),
+            "transport_fingerprint": transport.fingerprint(),
+            "hyper_sites": list(free),
+            "center": bool(center),
+        },
+        sort_keys=True,
+    )
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
+def decentered_model(
+    likelihood,
+    ctx,
+    *,
+    center: bool = True,
+    priors: Mapping[str, Any] | None = None,
+    fixed: Mapping[str, float] | None = None,
+) -> Callable[[], None]:
+    """Marginalized likelihood + DYNAMIC decentering of the sampled timing block.
+
+    Samples only the plan's sampled timing coordinate (and the free
+    hyperparameters); every analytically marginalized timing axis and all GP
+    coefficients stay inside ``likelihood.logL`` as assembled by
+    ``ctx.discovery_signals()`` under the geometry plan. The sampled timing block
+    is whitened against the LIVE marginalized covariance ``C(eta)`` via
+    :func:`discovery.transport.marginal_transport` — the eta-dependent
+    generalization of the static posterior-metric whitening.
+
+    Prerequisites (hard):
+      * ``ctx.linearization`` is a sealed ``TimingLinearization``;
+      * ``ctx.plan.sampled`` is non-empty;
+      * the static layer is identity (``whitening=None``; geometry plan §4.4.1).
+
+    Expansion is not an argument of this function. To re-expand, call
+    ``ctx.with_expansion`` / ``refine_timing_expansion`` and rebuild the model on
+    the new context.
+
+    Recommended configuration::
+
+        NonLinearTimingModel(
+            inference=TimingInference.default(),   # delta-flat defaults; sample the rest
+            expansion=TimingExpansionSpec.engine_reference(),
+            whitening=None,                        # required: identity static layer
+            ...
+        )
+
+    Hyper priors are resolved with ``discovery.prior.getprior_uniform``; e.g.::
+
+        priors = {
+            r"(.*_)?dm_gp_log10_A.*": [-20.0, -8.0],
+            r"(.*_)?dm_gp_gamma.*":   [1.0, 7.0],
+            r"(.*_)?red_noise_gamma.*": [1.0, 7.0],
+        }
+    """
+    import jax.numpy as jnp
+    import numpyro
+    from numpyro import distributions as dist
+    from discovery import transport as dst
+
+    from ..metric import assert_static_layer_identity
+
+    if not ctx.plan.sampled:
+        raise ValueError(
+            "decentered_model requires >=1 sampled timing parameter "
+            "(ctx.plan.sampled is empty; use TimingInference to leave axes sampled)"
+        )
+    assert_static_layer_identity(ctx.space)
+
+    lin = ctx.linearization
+    if lin is None:
+        raise RuntimeError(
+            "decentered_model requires ctx.linearization "
+            "(TimingLinearization from the geometry plan)"
+        )
+
+    W_s = np.asarray(lin.sampled_basis, dtype=np.float64)
+    y_raw = np.asarray(ctx.pulsar.residuals, dtype=np.float64)
+    y_t = np.asarray(lin.transport_effective_residual(y_raw), dtype=np.float64)
+    k_s = W_s.shape[1]
+    if k_s != len(ctx.plan.sampled):
+        raise RuntimeError(
+            f"linearization.sampled_basis has {k_s} columns but "
+            f"ctx.plan.sampled has {len(ctx.plan.sampled)} names"
+        )
+
+    # Must be ctx.joint_site: transport_center_report / the certifier look up
+    # transport.split(q)[ctx.joint_site]. Do not invent a parallel key string.
+    joint_site = ctx.joint_site
+    block = dst.array_block(
+        W_s,
+        index={joint_site: slice(0, k_s)},
+        conditioner_precision=1.0,  # unit-normal prior in every chart
+        name="timing",
+    )
+    transport = dst.marginal_transport(likelihood.N, y_t, block, center=center)
+
+    logL_params = list(likelihood.logL.params)
+    seen: set[str] = set()
+    dupes = sorted({p for p in logL_params if p in seen or seen.add(p)})
+    if dupes:
+        raise ValueError(f"duplicate likelihood parameter names: {dupes}")
+
+    site_name = ctx.latent_name_for_coord()
+    if site_name in logL_params:
+        raise ValueError(
+            f"{site_name!r} is the joint latent timing site and must not appear "
+            "in a marginalized likelihood.logL.params; Discovery consumes the "
+            "derived delay keys, not the latent coordinate"
+        )
+    missing_delay = [k for k in ctx.delay_keys if k not in logL_params]
+    if missing_delay:
+        raise ValueError(
+            "ctx and likelihood were not assembled together: missing delay keys "
+            f"in likelihood.logL.params: {missing_delay}"
+        )
+
+    owned = set(ctx.delay_keys)
+    fixed_params = _validate_fixed(fixed, owned)
+    priordict = dict(priors or {})
+    # D20: sorted name order (matches the Enterprise PTMCMC vector layout and the
+    # §10 mass matrix); hyper_sites binds to it.
+    free = sorted(p for p in logL_params if p not in owned and p not in fixed_params)
+    if free:
+        from discovery import prior as ds_prior
+
+        bounds = {p: tuple(ds_prior.getprior_uniform(p, priordict)) for p in free}
+
+    xi_site = f"{ctx.name_stem}_timing_xi"
+    dim = transport.dimension
+    name_stem = ctx.name_stem
+    sampled_all = tuple(ctx.plan.sampled)
+
+    def nlt_decentered_model() -> None:
+        params = dict(fixed_params)
+        for par in free:
+            params[par] = numpyro.sample(par, dist.Uniform(*bounds[par]))
+
+        xi = numpyro.sample(xi_site, dist.Normal(0.0, 1.0).expand([dim]).to_event(1))
+        z, ldj = transport.apply(params, xi)
+        delta = ctx.space.delta_from_z(z, jnp)
+        for i, fitpar in enumerate(sampled_all):
+            params[f"{name_stem}_{fitpar}"] = delta[i]
+            numpyro.deterministic(f"{name_stem}_{fitpar}_delta", delta[i])
+
+        logtarget = likelihood.logL(params)  # marginalized
+        logtarget = logtarget - 0.5 * jnp.sum(z * z)  # unit-normal prior in z
+        numpyro.factor("nlt_decentered", logtarget + ldj + 0.5 * jnp.sum(xi * xi))
+
+    nlt_decentered_model.transport = transport
+    nlt_decentered_model.xi_site = xi_site
+    nlt_decentered_model.hyper_sites = tuple(free)  # sorted name order (D20)
+    nlt_decentered_model.to_df = lambda s: joint_samples_to_frame(s, ctx)
+    nlt_decentered_model.model_fingerprint = lambda: _decentered_model_fingerprint(
+        ctx, transport, free, center
+    )
+    return nlt_decentered_model
+
+
+def decentered_init_values(ctx, transport) -> dict[str, Any]:
+    """Init-at-reference values for the decentered ``xi`` site (§5.3, D18).
+
+    Zero ``xi`` (the sampler origin) maps through the transport to the
+    conditional centering ``mu(eta)``; merge with an ``eta_mpe`` dict for
+    ``init_to_value``.
+    """
+    import jax.numpy as jnp
+
+    return {
+        f"{ctx.name_stem}_timing_xi": jnp.zeros(
+            (int(transport.dimension),), dtype=jnp.float64
+        )
+    }
 
 
 def timing_init_values(ctx) -> dict[str, Any]:
