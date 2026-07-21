@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import warnings
 from typing import Any, Mapping
 
@@ -30,9 +31,10 @@ _ECLIPTIC_FITPARS = frozenset(
 
 
 def _resolve_binary_facts(session: Any, fit_params: tuple[str, ...]):
-    """Compute JUG's authoritative binary-chart facts from a session, degrading
-    to ``None`` (→ candidacy fallback) on any resolution failure — an
-    unsupported/absent binary must never break engine construction."""
+    """Compute JUG's binary-chart facts from a session, degrading to ``None``
+    (→ candidacy fallback) on any resolution failure — an unsupported or absent
+    binary must never break engine construction. Unexpected failures are logged
+    at debug level so genuine bugs are discoverable rather than silent."""
     try:
         from jug.fitting.binary_delay_plan import binary_chart_facts
 
@@ -40,7 +42,12 @@ def _resolve_binary_facts(session: Any, fit_params: tuple[str, ...]):
         if not params:
             return None
         return binary_chart_facts(params, list(fit_params))
-    except Exception:
+    except Exception:  # never break engine construction; surface for debugging
+        logging.getLogger(__name__).debug(
+            "binary_chart_facts resolution failed; using the capability "
+            "fallback for this engine",
+            exc_info=True,
+        )
         return None
 
 
@@ -162,6 +169,11 @@ class JugEngine:
         translator). ``None`` (→ candidacy fallback) when the family is not ours
         or JUG could not resolve the binary. ``origin_certified`` /
         ``supports_domain`` are nltiming-owned, not backend facts.
+
+        ``suffix`` is intentionally ignored here: a leaf engine describes the one
+        binary of its single contribution, so per-suffix routing across a
+        composite pulsar is the composite engine's job
+        (``PulsarTimingEngine.binary_chart_capability``), not the leaf's.
         """
         if chart_family != "kepler_laplace":
             return None

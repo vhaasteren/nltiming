@@ -113,7 +113,8 @@ class _LeafEngine:
 
 
 class _LeafNoCap:
-    """Leaf engine WITHOUT binary_chart_capability (e.g. JugEngine today)."""
+    """Leaf engine WITHOUT binary_chart_capability (e.g. a test double or a
+    LinearizedJugEngine) — the composite keeps its group on the fallback."""
 
     def __init__(self, fitpars):
         self.fitpars = tuple(fitpars)

@@ -108,22 +108,35 @@ and `1/e`-scale intermediates near `ε = 0`) and introduces an `O(rate × PB)`
 exact **activation** guards over the resolved EPS reachability rectangle (never
 runtime/in-density guards) and certified at the composed-likelihood level.
 
-**Engine capability (`§2.4`) — current state.** Candidacy consumes a normalized
-`BinaryChartCapability` from the engine when present, else a conservative
-name-search fallback (`_present_secular_terms`) that inspects the pulsar's PINT
-model — including a binary-*type* check that flags GR-derived models (DDGR) whose
-post-Keplerian rates are computed internally and are invisible to a name search.
-Authoritative per-group `binary_chart_capability` on the engine adapters is
-**deferred, not blocked** (review correction): the `PintEngine` already wraps the
-PINT model (`from_contribution(model, toas, …)`), so a capability there needs
-**no MetaPulsar change** — it can inspect the binary instance directly for
-convention and active (explicit or derived) secular terms; the `JUG` engine needs
-JUG-session introspection, still nltiming-side. The strengthened name-search +
-DDGR fallback is the sanctioned interim. Separately, until an adapter both
-implements the method **and** passes the §12.6 origin certification,
-`origin_certified` stays `False`, so low-e binaries whose EPS box contains the
-origin demote under `auto` (a conservative, honest default; the chart benefit is
-unreachable on such pulsars until certification lands).
+**Engine capability (`§2.4`) — the authoritative chain (landed).** The source of
+truth for binary physics facts is the **timing backend**, and the capability is
+built by a layered chain, with the name-search fallback as genuine last resort:
+
+1. **JUG owns the facts.** `jug.fitting.binary_delay_plan.binary_chart_facts`
+   (a general JUG API, no nltiming/MetaPulsar knowledge) resolves the binary
+   (`T2 → DD/ELL1/DDK`; GR-derived DDGR via the original `BINARY`) and reports
+   `{convention_family, epoch_shift_exact, secular_terms}`.
+2. **Leaf engines translate.** `JugEngine` caches those facts at
+   `from_contribution` and maps them → `BinaryChartCapability` (adding the
+   nltiming-owned `origin_certified`/`supports_domain`). `PintEngine` reads the
+   PINT model directly (PINT exposes the binary type + PK params on the model),
+   so it needs no separate facts helper. **No MetaPulsar change** for leaf
+   engines.
+3. **Composite forwards per group.** `PulsarTimingEngine.binary_chart_capability`
+   (`engines/composite.py`) delegates to the contribution owning a suffix,
+   returning `None` on no-owner / missing-method / shared-binary disagreement —
+   nltiming-side, zero MetaPulsar changes.
+4. **Fallback is last-resort only.** `_present_secular_terms` (pulsar/name
+   search + DDGR binary-type check) covers test doubles and engines that
+   implement neither the facts query nor the capability. It is **no longer** the
+   production source of truth on the JUG path.
+
+Separately, until an adapter's backend passes the §12.6 real-DD origin
+certification, `origin_certified` stays `False`, so low-e binaries whose EPS box
+contains the origin demote under `auto` (a conservative, honest default; the
+chart benefit is unreachable on such pulsars until certification lands). Note:
+nltiming now depends on JUG's `binary_chart_facts` — that jug tip must be
+upstreamed for clean checkouts.
 
 ## Upstream tracks (parallel, non-blocking)
 
