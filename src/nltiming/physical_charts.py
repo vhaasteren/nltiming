@@ -1346,7 +1346,7 @@ def _skip_notice(reason, chart, policy) -> None:
         "origin_uncertified_backend": (
             f"suffix={chart.suffix!r}: the EPS prior support contains the "
             "eccentricity origin and this engine backend has not passed the "
-            "full-likelihood origin certification (§12.3); origin smoothness "
+            "full-likelihood origin certification (§12.6); origin smoothness "
             "is a per-backend numerical property, not a transferable fixture "
             "result. The chart is demoted. Narrow the EPS priors away from "
             "the origin, or use a certified backend."

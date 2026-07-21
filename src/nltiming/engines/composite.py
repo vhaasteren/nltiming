@@ -72,6 +72,46 @@ class PulsarTimingEngine:
             out.update(contribution.exact_linear_fitpars)
         return frozenset(out)
 
+    def binary_chart_capability(self, chart_family: str, suffix: str):
+        """Forward the §2.4 binary-chart capability to the contribution that owns
+        this binary group (ownership split, §2.4.1).
+
+        Composite forwarding is nltiming-side: candidacy calls this on the whole
+        pulsar engine, and we delegate to the leaf engine (``JugEngine`` /
+        ``PintEngine``) of the contribution owning ``suffix``. Returns ``None``
+        (→ candidacy uses its conservative pulsar/name-search fallback) when no
+        contribution owns the group, the owner's leaf engine does not implement
+        the query, or two contributions sharing an unsuffixed binary DISAGREE —
+        we never guess across disagreeing owners. Leaf engines that lack the
+        method (e.g. a JugEngine before its translator lands) therefore keep the
+        whole group on the fallback, unchanged.
+        """
+        caps = []
+        for contribution in self._contributions:
+            cap_fn = getattr(contribution.engine, "binary_chart_capability", None)
+            if cap_fn is None or not self._owns_binary_group(contribution, suffix):
+                continue
+            cap = cap_fn(chart_family, suffix)
+            if cap is not None:
+                caps.append(cap)
+        if not caps:
+            return None
+        first = caps[0]
+        if any(cap != first for cap in caps[1:]):
+            return None  # shared-binary contributions disagree -> fall back
+        return first
+
+    @staticmethod
+    def _owns_binary_group(contribution: PtaContribution, suffix: str) -> bool:
+        fitpars = tuple(getattr(contribution.engine, "fitpars", ()))
+        if suffix:
+            return any(name.endswith(suffix) for name in fitpars)
+        # Unsuffixed group: the contribution carries an unsuffixed binary
+        # (Kepler or Laplace) coordinate. Multiple contributions may share it;
+        # the disagreement guard above keeps that safe.
+        binary = {"ECC", "OM", "T0", "EPS1", "EPS2", "TASC"}
+        return any(name in binary for name in fitpars)
+
     def _merge_reference_theta_exact(self) -> dict[str, str]:
         merged: dict[str, str] = {}
         for contribution in self._contributions:

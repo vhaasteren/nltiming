@@ -28,12 +28,15 @@ class BinaryChartCapability:
         knows to be active FOR THIS GROUP (informational; goes to the
         manifest).
     origin_certified: **empirical** certification that this backend passed
-        the §12.3 full-likelihood origin suite — a regression statement
-        scoped to (backend implementation + version, binary model
-        configuration, float precision, differentiation path), NOT a proof
-        of bounded behavior arbitrarily near an included origin. Set True per
-        adapter only by the PR that lands its passing certification run —
-        never by default — with ``certification_ref`` pointing at that run/PR.
+        the §12.6 real-DD-engine full-likelihood origin gate (no 1/e
+        blow-through, leapfrog stability, Discovery/Enterprise density) — a
+        regression statement scoped to (backend implementation + version,
+        binary model configuration, float precision, differentiation path),
+        NOT a proof of bounded behavior arbitrarily near an included origin.
+        (The surrogate finiteness check is only a weak gate; the strong cert
+        is §12.6, not the §12.3 coordinate-map suite.) Set True per adapter
+        only by the PR that lands its passing certification run — never by
+        default — with ``certification_ref`` pointing at that run/PR.
     supports_domain: the backend accepts every point of the chart's declared
         physical domain (e < 1) without internal clamping or NaN.
     """
@@ -50,7 +53,7 @@ class BinaryChartCapability:
         if self.origin_certified and not self.certification_ref:
             raise ValueError(
                 "BinaryChartCapability: origin_certified=True requires a "
-                "certification_ref (the recorded §12.3 certification run/PR)"
+                "certification_ref (the recorded §12.6 certification run/PR)"
             )
 
 

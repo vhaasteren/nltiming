@@ -82,3 +82,102 @@ def test_pint_capability_real_bt_model():
     assert cap.kepler_convention == "dd"  # BINARY == BT
     assert cap.epoch_shift_exact is True  # no active secular rates
     assert cap.secular_terms == ()
+
+
+# ---------------------------------------------------------------------------
+# Composite forwarding (§2.4.1 step c): nltiming-side, no MetaPulsar change.
+# ---------------------------------------------------------------------------
+
+import numpy as np  # noqa: E402
+
+from nltiming.engines.composite import PtaContribution, PulsarTimingEngine  # noqa: E402
+
+
+class _LeafEngine:
+    """Minimal leaf engine exposing fitpars + a capability (or none)."""
+
+    def __init__(self, fitpars, capability="_MISSING"):
+        self.fitpars = tuple(fitpars)
+        self.native_units = {n: "native" for n in self.fitpars}
+        self._cap = capability
+
+    def reference_theta_exact(self):
+        return {n: "0.0" for n in self.fitpars}
+
+    if True:  # attach the method only when a capability is configured
+
+        def binary_chart_capability(self, family, suffix):
+            if self._cap == "_MISSING":
+                raise AttributeError
+            return self._cap
+
+
+class _LeafNoCap:
+    """Leaf engine WITHOUT binary_chart_capability (e.g. JugEngine today)."""
+
+    def __init__(self, fitpars):
+        self.fitpars = tuple(fitpars)
+        self.native_units = {n: "native" for n in self.fitpars}
+
+    def reference_theta_exact(self):
+        return {n: "0.0" for n in self.fitpars}
+
+
+def _cap_obj(**kw):
+    base = dict(
+        kepler_convention="dd",
+        epoch_shift_exact=True,
+        secular_terms=(),
+        origin_certified=False,
+        supports_domain=True,
+    )
+    base.update(kw)
+    return BinaryChartCapability(**base)
+
+
+def _composite(*contribs):
+    fitpars = tuple(dict.fromkeys(n for c in contribs for n in c.engine.fitpars))
+    return PulsarTimingEngine(
+        fitpars=fitpars,
+        nrows=4,
+        contributions=list(contribs),
+        design_matrix=None,
+    )
+
+
+def _contrib(name, engine):
+    return PtaContribution(name=name, row_indices=np.array([0, 1]), engine=engine)
+
+
+def test_composite_forwards_to_suffixed_owner():
+    cap_a = _cap_obj(secular_terms=("OMDOT",), epoch_shift_exact=False)
+    eng_a = _LeafEngine(("ECC_a", "OM_a", "T0_a", "PB_a"), capability=cap_a)
+    eng_b = _LeafEngine(("ECC_b", "OM_b", "T0_b", "PB_b"), capability=_cap_obj())
+    comp = _composite(_contrib("a", eng_a), _contrib("b", eng_b))
+    assert comp.binary_chart_capability("kepler_laplace", "_a") is cap_a
+    assert comp.binary_chart_capability("kepler_laplace", "_b").epoch_shift_exact
+
+
+def test_composite_none_when_leaf_lacks_method():
+    # A JUG-style leaf without the method keeps the group on the fallback.
+    eng = _LeafNoCap(("ECC", "OM", "T0", "PB"))
+    comp = _composite(_contrib("j", eng))
+    assert comp.binary_chart_capability("kepler_laplace", "") is None
+
+
+def test_composite_shared_binary_agreement_and_disagreement():
+    shared = ("ECC", "OM", "T0", "PB")
+    cap = _cap_obj()
+    agree = _composite(
+        _contrib("a", _LeafEngine(shared, capability=cap)),
+        _contrib("b", _LeafEngine(shared, capability=cap)),
+    )
+    assert agree.binary_chart_capability("kepler_laplace", "") == cap
+    # Disagreeing shared-binary owners -> None (never guess).
+    disagree = _composite(
+        _contrib("a", _LeafEngine(shared, capability=_cap_obj())),
+        _contrib(
+            "b", _LeafEngine(shared, capability=_cap_obj(epoch_shift_exact=False))
+        ),
+    )
+    assert disagree.binary_chart_capability("kepler_laplace", "") is None
