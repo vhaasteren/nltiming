@@ -878,3 +878,22 @@ def decentered_reconstruction_recipe(ctx, hyper_names, *, noisedict) -> dict[str
         "effective_residual_digest": _column_digest(y_t),
         "linearization_fingerprint": lin.fingerprint(),
     }
+
+
+def attach_decentered_reconstruction(manifest: RunManifest, recipe) -> RunManifest:
+    """Attach an E26 reconstruction recipe to the manifest transport section and
+    refresh the section content digest.
+
+    The transport section is content-digest-verified on load, so adding a key
+    requires recomputing its ``digest``. This is the public path so callers never
+    touch the private ``_section_digest``. Returns the mutated ``manifest``.
+    """
+    if manifest.transport is None:
+        raise RunIOError(
+            "attach_decentered_reconstruction requires a transport section; build "
+            "the manifest with dynamic_transport=dynamic_transport_record(...)"
+        )
+    manifest.transport["reconstruction"] = dict(recipe)
+    content = {k: v for k, v in manifest.transport.items() if k != "digest"}
+    manifest.transport["digest"] = _section_digest(content)
+    return manifest
