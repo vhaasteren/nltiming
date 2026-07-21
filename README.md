@@ -564,9 +564,11 @@ Decode / checkpoint with `run_io.save_ptmcmc_decentered_checkpoint`
 recording the cold-start recipe via `decentered_reconstruction_recipe` +
 `attach_decentered_reconstruction`. Certify the geometry with the same
 `certify_decentered_geometry(model, ctx, ...)` used on the NumPyro path (T-E1
-proves both frontends share `C(η)`, so one certification covers both). Worked
-example:
-[`examples/notebooks/03_j1640_decentering_validation.ipynb`](examples/notebooks/03_j1640_decentering_validation.ipynb) §10.
+proves both frontends share `C(η)`, so one certification covers both). The
+cross-frontend integration gates (Discovery NUTS vs Enterprise PTMCMC) live in
+`tests/test_enterprise_decentering.py` (T-EM1/T-EM2); a notebook walkthrough of
+the PTMCMC path is pending a cleanly-parameterized binary pulsar (J1640's binary
+needs the ELL1 / TASC reparameterization before its binary block can be sampled).
 
 ### Multiple pulsars
 
