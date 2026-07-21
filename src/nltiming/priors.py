@@ -140,7 +140,7 @@ def delta_normal(
     return normal(mean, std, frame="delta", scale=scale)
 
 
-def _axis_prior_from_object(prior_obj) -> AxisPrior | None:
+def axis_prior_from_object(prior_obj) -> AxisPrior | None:
     """Best-effort extraction of simple prior families from PINT prior objects."""
     if prior_obj is None:
         return None
@@ -325,6 +325,51 @@ def resolve_prior_override(
     return _to_delta_prior(prior, ctx.refs[canonical])
 
 
+def spec_for_target(
+    pulsar,
+    spec: PriorOverrideSpec,
+    target: str,
+    fitpars: tuple[str, ...],
+    *,
+    target_suffix: str | None = None,
+) -> PriorOverrideSpec:
+    """Resolve a spec's ``scale=`` reference suffix-consistently with ``target``.
+
+    ``target_suffix`` anchors suffix resolution for *synthesized* target names
+    (e.g. ``EPS1_epta``), which ``fitpar_suffixes`` cannot discover because they
+    are absent from ``pulsar._fitparameters``; when omitted, the target's own
+    suffixes are discovered as before (the default for real fitpar targets).
+    """
+    from .selection import fitpar_suffixes, match_fitpars
+
+    if spec.scale is None:
+        return spec
+    scale_hits = match_fitpars(pulsar, spec.scale, fitpars)
+    if not scale_hits:
+        # Preserve the standard missing-scale error from materialization.
+        return spec
+    if len(scale_hits) == 1:
+        resolved_scale = scale_hits[0]
+    else:
+        suffixes = (
+            {target_suffix}
+            if target_suffix is not None
+            else fitpar_suffixes(pulsar, target)
+        )
+        matched = [
+            hit for hit in scale_hits if suffixes & fitpar_suffixes(pulsar, hit)
+        ]
+        if len(matched) != 1:
+            raise ValueError(
+                f"Ambiguous prior scale {spec.scale!r} for parameter "
+                f"{target!r}: candidates {list(scale_hits)}"
+            )
+        resolved_scale = matched[0]
+    if resolved_scale == spec.scale:
+        return spec
+    return PriorOverrideSpec(prior=spec.prior, frame=spec.frame, scale=resolved_scale)
+
+
 @dataclass(frozen=True)
 class PriorBlock:
     """Resolved per-parameter priors and their source labels."""
@@ -382,7 +427,7 @@ class PriorBlock:
                 and hasattr(pint_model, name)
             ):
                 param = getattr(pint_model, name)
-                discovered = _axis_prior_from_object(getattr(param, "prior", None))
+                discovered = axis_prior_from_object(getattr(param, "prior", None))
             if discovered is not None:
                 priors.append(_to_delta_prior(discovered, refs[name]))
                 sources[name] = "pint"

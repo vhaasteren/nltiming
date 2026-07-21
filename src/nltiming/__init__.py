@@ -7,6 +7,7 @@ from .run_io import (
     RunResults,
     build_run_manifest,
     derived_param_name,
+    derived_kepler_columns,
     decode_physical,
     load_run,
     save_discovery_checkpoint,
@@ -61,12 +62,20 @@ from .evaluator import (
     TimingZFitResult,
 )
 from .protocols import (
+    BinaryChartCapability,
     EnterprisePulsarLike,
     EphemerisExtras,
     JaxTimingEngine,
     PulsarData,
     TimingPulsar,
     TimingEngine,
+)
+from .physical_charts import (
+    KeplerLaplaceChart,
+    KeplerLaplacePolicy,
+    kepler_from_laplace,
+    kepler_from_laplace_vec,
+    laplace_from_kepler,
 )
 from .space import ParameterSpace
 from .decentering import (
@@ -119,6 +128,7 @@ __all__ = [
     "RunResults",
     "build_run_manifest",
     "derived_param_name",
+    "derived_kepler_columns",
     "decode_physical",
     "load_run",
     "save_discovery_checkpoint",
@@ -137,4 +147,10 @@ __all__ = [
     "TimingParameters",
     "TimingScan",
     "TimingZFitResult",
+    "BinaryChartCapability",
+    "KeplerLaplacePolicy",
+    "KeplerLaplaceChart",
+    "laplace_from_kepler",
+    "kepler_from_laplace",
+    "kepler_from_laplace_vec",
 ]

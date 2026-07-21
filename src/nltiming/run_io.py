@@ -15,6 +15,7 @@ from typing import Any, Mapping, Sequence
 
 import numpy as np
 
+from .physical_charts import DEG2RAD, PI, RAD2DEG, TWO_PI
 from .space import ParameterSpace, coord_for_static_layer
 from .units import units_map
 
@@ -88,6 +89,58 @@ def derived_param_name(name_stem: str, fitpar: str, units: str) -> str:
     return f"{name_stem}_{fitpar}_theta_{units}"
 
 
+def derived_kepler_columns(samples, manifest_binary_chart):
+    """ECC/OM/T0 columns derived from EPS/TASC posterior samples.
+
+    Decoding uses the SAME reference-local wrapped branch as the likelihood
+    (the delta-form of ``KeplerLaplaceChart.decode``), reconstructed from the
+    manifest record — never the global ``kepler_from_laplace_vec`` [0, 360)
+    normalization (that would shift reported T0 by integer PB near the seam).
+
+    ``samples``: dict name -> (n,) arrays of absolute sampling-frame columns.
+    Derived columns exist ONLY for groups whose charted axes were ALL numerically
+    sampled — a partially marginalized group yields no derived columns.
+    """
+    out: dict[str, np.ndarray] = {}
+    for group in (manifest_binary_chart or {}).get("groups", ()):
+        if not group.get("enabled"):
+            continue
+        e1n, e2n, tn = group["sample_names"]
+        if not all(name in samples for name in (e1n, e2n, tn)):
+            # Partial marginalization: no derived columns (never fabricate
+            # "posterior" columns from reference values). §8.2 policy.
+            continue
+        refs_s = group["theta_ref_sample"]
+        eps1_ref = float(refs_s["EPS1"])
+        eps2_ref = float(refs_s["EPS2"])
+        omega_ref = float(group["theta_ref_engine"]["OM_normalized"]) * DEG2RAD
+        pb_ref = float(group["pb_ref"])
+        pb_name = group.get("pb_fitpar")
+        d_pb = (
+            np.asarray(samples[pb_name], float) - pb_ref
+            if pb_name and pb_name in samples
+            else 0.0
+        )
+        d1 = np.asarray(samples[e1n], float) - eps1_ref
+        d2 = np.asarray(samples[e2n], float) - eps2_ref
+        dt = np.asarray(samples[tn], float) - float(refs_s["TASC"])
+        # Delta-form, identical to KeplerLaplaceChart.decode / apply_delta:
+        eps1, eps2 = eps1_ref + d1, eps2_ref + d2
+        e = np.hypot(eps1, eps2)
+        domega = (np.arctan2(eps1, eps2) - omega_ref + PI) % TWO_PI - PI
+        ecc_name, om_name, t0_name = group["engine_names"][:3]
+        out[ecc_name] = e
+        out[om_name] = (
+            float(group["theta_ref_engine"]["OM_normalized"]) + domega * RAD2DEG
+        )
+        out[t0_name] = (
+            float(group["theta_ref_engine"]["T0"])
+            + dt
+            + (pb_ref * domega + d_pb * (omega_ref + domega)) / TWO_PI
+        )
+    return out
+
+
 def decode_physical(
     space: ParameterSpace,
     x: np.ndarray,
@@ -135,6 +188,7 @@ class RunManifest:
     git_commit: str | None = None
     metric_source: dict[str, Any] | None = None
     transport: dict[str, Any] | None = None
+    binary_chart: dict[str, Any] | None = None
 
     @property
     def latent_decodable(self) -> bool:
@@ -178,11 +232,17 @@ class RunManifest:
         }
         transport = None if self.transport is None else dict(self.transport)
         metric_source = None if self.metric_source is None else dict(self.metric_source)
+        binary_chart = (
+            None
+            if self.binary_chart is None
+            else {**self.binary_chart, "digest": _section_digest(self.binary_chart)}
+        )
         return {
             "parameter_space": parameter_space,
             "context": {"digest": self.context_digest},
             "metric_source": metric_source,
             "transport": transport,
+            "binary_chart": binary_chart,
             "chains": self._chains_section(),
         }
 
@@ -220,6 +280,7 @@ class RunManifest:
             # Back-compatible top-level views (also carried inside `sections`).
             "parameter_space": sections["parameter_space"],
             "context_digest": self.context_digest,
+            "binary_chart": self.binary_chart,
             "sections": sections,
             "run_products": run_products,
             "code": _code_block(self.git_commit),
@@ -333,6 +394,7 @@ def build_run_manifest(
         git_commit=git_commit,
         metric_source=metric_source,
         transport=transport,
+        binary_chart=ctx.binary_chart_manifest(),
     )
 
 
@@ -681,14 +743,30 @@ class RunResults:
         and physical views stay consistent.
         """
         x = self.latent(burn=burn, thin=thin)
-        return self.space.to_physical(x, units=units)
+        phys = self.space.to_physical(x, units=units)
+        phys.update(derived_kepler_columns(phys, self.run_meta.get("binary_chart")))
+        return phys
 
     def truths(self, *, units: str = "display") -> dict[str, float]:
-        """Par-file reference values (zero delta) for overlay markers."""
+        """Par-file reference values (zero delta) for overlay markers.
+
+        For each enabled binary-chart group, the engine-frame ECC/OM/T0
+        references are appended so overlays for the derived posterior columns
+        land on the SAME [0, 360) branch (OM via ``OM_normalized``).
+        """
         ndim = len(self.run_meta["sampled"])
         zero = np.zeros((1, ndim), dtype=float)
         phys = self.space.to_physical(zero, units=units, coord="delta")
-        return {name: float(np.asarray(arr)[0]) for name, arr in phys.items()}
+        truths = {name: float(np.asarray(arr)[0]) for name, arr in phys.items()}
+        for group in (self.run_meta.get("binary_chart") or {}).get("groups", ()):
+            if not group.get("enabled"):
+                continue
+            ecc_name, om_name, t0_name = group["engine_names"][:3]
+            eng = group["theta_ref_engine"]
+            truths[ecc_name] = float(eng["ECC"])
+            truths[om_name] = float(eng["OM_normalized"])
+            truths[t0_name] = float(eng["T0"])
+        return truths
 
     def _load_theta(self, unit_mode: str) -> dict[str, np.ndarray]:
         suffix = _DISPLAY_SUFFIX if unit_mode == "display" else _NATIVE_SUFFIX

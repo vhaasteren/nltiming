@@ -151,9 +151,6 @@ def _make_waveform(
         partition = ctx.plan
         engine = ctx.engine
         sampled_names = tuple(partition.sampled)
-        sampled_indices = tuple(partition.idx_sampled)
-        ndim = len(partition.fitpars)
-        zm_indices, zm_fixed = _zmarg_fixed(ctx)
 
         if coord in {"delta", "z"}:
 
@@ -164,14 +161,9 @@ def _make_waveform(
                 )
                 space_coord = coord
                 delta_sampled = np.asarray(
-                    space.delta_from_coord(q, np, coord=space_coord)
-                )
-                full_delta = np.zeros((ndim,), dtype=float)
-                for i, col in enumerate(sampled_indices):
-                    full_delta[col] = delta_sampled[i]
-                for i, col in enumerate(zm_indices):  # z-marg fixed at z_m,e
-                    full_delta[col] = zm_fixed[i]
-                return -_residual_delta(engine, full_delta)
+                    space.delta_from_coord(q, np, coord=space_coord))
+                return -_residual_delta(
+                    engine, ctx.engine_delta_map.full_engine_delta(delta_sampled, np))
 
             delay_body = _explicit_scalar_delay_function(sampled_names, _evaluate)
             kwargs = {
@@ -190,12 +182,8 @@ def _make_waveform(
         def _delay_body(toas, psr=None, mask=None, x=None):
             q = np.asarray(x, dtype=float)
             delta_sampled = np.asarray(space.delta_from_coord(q, np, coord="x"))
-            full_delta = np.zeros((ndim,), dtype=float)
-            for i, col in enumerate(sampled_indices):
-                full_delta[col] = delta_sampled[i]
-            for i, col in enumerate(zm_indices):
-                full_delta[col] = zm_fixed[i]
-            return -_residual_delta(engine, full_delta)
+            return -_residual_delta(
+                engine, ctx.engine_delta_map.full_engine_delta(delta_sampled, np))
 
         kwargs = {"x": _vector_user_parameter(space=space)}
         return parameter.Function(_delay_body, **kwargs)(signal_name, psr=psr)
@@ -259,24 +247,6 @@ def _make_marginalizing_signal(
             self._inner.set_default_params(params)
 
     return MarginalizingTimingModel
-
-
-def _zmarg_fixed(ctx):
-    """z-marginalized fitpar indices and their fixed expansion deltas ``z_m,e``."""
-    proper_axes = [
-        a for a in ctx.plan.axes
-        if a.disposition in ("sample", "marginalize_z_prior")
-    ]
-    zm_indices = tuple(
-        a.fitpar_index for a in proper_axes if a.disposition == "marginalize_z_prior"
-    )
-    zm_fixed = np.asarray(
-        [ctx.linearization.delta_expansion[i]
-         for i, a in enumerate(proper_axes)
-         if a.disposition == "marginalize_z_prior"],
-        dtype=float,
-    )
-    return zm_indices, zm_fixed
 
 
 def _make_zprior_signal(*, ctx_fn, name: str, coefficients: bool = False):

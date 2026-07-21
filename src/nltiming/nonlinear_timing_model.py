@@ -27,7 +27,20 @@ from .coordinates import (
     TimingCoordinatePolicy,
     TimingExpansionSpec,
 )
+from .frames import EngineDeltaMap
 from .linearization import TimingLinearization, build_linearization
+from .physical_charts import (
+    KeplerLaplacePolicy,
+    activate_charts,
+    coerce_binary_chart_policy,
+    expand_override_key,
+    frame_change_matrix,
+    materialize_eps_override,
+    normalize_inference_selectors,
+    resolve_chart_candidates,
+    sampling_reference_strings,
+)
+from .protocols import JaxTimingEngine
 from .inference import (
     InferencePreset,
     TimingInference,
@@ -36,7 +49,6 @@ from .inference import (
     resolve_inference_plan,
 )
 from .linearity import LinearityResolution, resolve_linearity
-from .selection import fitpar_suffixes, match_fitpars
 from .priors import (
     PriorBlock,
     PriorBuildContext,
@@ -44,6 +56,7 @@ from .priors import (
     PriorOverrideSpec,
     PriorPolicy,
     resolve_prior_override,
+    spec_for_target,
     store_prior_override,
     validate_prior_policy,
 )
@@ -103,6 +116,27 @@ class LocalTimingBlock:
         return int(np.asarray(self.basis).shape[1])
 
 
+def _exact_flat_columns(engine, plan, charts, delta_full, slots):
+    """Exact composed-Jacobian design columns d(residual)/d(sampling axis) at
+    the sampling point ``delta_full``, for the given slots. JAX engines only.
+    """
+    import jax
+    import jax.numpy as jnp
+
+    from .frames import apply_charts
+
+    def r_of_vec(vec):
+        return engine.residual_delta_jax(apply_charts(vec, charts, jnp))
+
+    q = jnp.asarray(delta_full)
+    cols = {}
+    for s in slots:
+        tangent = jnp.zeros_like(q).at[s].set(1.0)
+        _, col = jax.jvp(r_of_vec, (q,), (tangent,))
+        cols[s] = np.asarray(col, dtype=float)
+    return cols
+
+
 @dataclass(frozen=True, eq=False)
 class TimingContext:
     """Pulsar-bound nonlinear timing context resolved from model config.
@@ -122,12 +156,16 @@ class TimingContext:
     coord: str
     latent_name: str
     delay_keys: tuple[str, ...]
-    design_matrix: np.ndarray
+    design_matrix: np.ndarray               # sampling-frame M_s (= M_e off charts)
+    engine_design_matrix: np.ndarray        # engine-frame M_e
     linearization: "TimingLinearization"
     proper_space: ParameterSpace
     marginal_z_space: ParameterSpace
     metric: LocalPosteriorMetric | None = None
     transport: StaticTransportRecord | None = None
+    physical_charts: tuple = ()             # tuple[KeplerLaplaceChart, ...]
+    binary_chart_records: tuple = ()        # tuple[dict, ...] (manifest-ready)
+    engine_delta_map: "EngineDeltaMap | None" = None   # sampled mode; always set
 
     def with_expansion(
         self,
@@ -165,13 +203,29 @@ class TimingContext:
                     "in proper-name order"
                 )
         linearization = build_linearization(
-            engine=self.engine,
-            plan=self.plan,
-            proper_space=self.proper_space,
-            delta_expansion=delta_array,
-            source=source,
-        )
-        return replace(self, linearization=linearization)
+            engine=self.engine, plan=self.plan, proper_space=self.proper_space,
+            delta_expansion=delta_array, source=source,
+            charts=self.physical_charts)
+        engine_map = EngineDeltaMap.for_sampled(
+            self.plan, self.physical_charts, linearization)
+        design_matrix = self.design_matrix       # reference-consistent M_s
+        flat_slots = tuple(
+            a.fitpar_index for a in self.plan.axes
+            if a.disposition == "marginalize_delta_flat"
+            and a.physical_chart is not None)
+        if flat_slots and isinstance(self.engine, JaxTimingEngine):
+            delta_full = np.zeros(len(self.plan.fitpars), dtype=float)
+            proper_idx = [a.fitpar_index for a in self.plan.axes
+                          if a.disposition in ("sample", "marginalize_z_prior")]
+            delta_full[proper_idx] = delta_array
+            cols = _exact_flat_columns(
+                self.engine, self.plan, self.physical_charts,
+                delta_full, flat_slots)
+            design_matrix = np.array(design_matrix, copy=True)
+            for s, col in cols.items():
+                design_matrix[:, s] = col
+        return replace(self, linearization=linearization,
+                       engine_delta_map=engine_map, design_matrix=design_matrix)
 
     @property
     def conditioned(self) -> bool:
@@ -289,7 +343,9 @@ class TimingContext:
                 {
                     "name": axis.name,
                     "disposition": axis.disposition,
-                    "chart": axis.chart,
+                    "prior_chart": axis.prior_chart,
+                    "engine_name": axis.engine_name,
+                    "physical_chart": axis.physical_chart,
                     "prior_family": None if axis.prior is None else axis.prior.family,
                     "prior_source": axis.prior_source,
                     "identically_linear": axis.name in self.linearity.effective_names,
@@ -309,8 +365,8 @@ class TimingContext:
             axis.name
             for axis in self.plan.axes
             if axis.name in self.linearity.effective_names
-            and axis.chart is not None
-            and axis.chart != "affine_normal"
+            and axis.prior_chart is not None
+            and axis.prior_chart != "affine_normal"
         )
 
     @property
@@ -419,6 +475,7 @@ class TimingContext:
             engine=self.engine,
             partition=self.plan,
             name=self.model.name,
+            engine_map=self.engine_delta_map,
             design_matrix=self.design_matrix,
             linearization=self.linearization,
         )
@@ -476,6 +533,13 @@ class TimingContext:
             f"delta_from_params(coord={coord!r}) could not find matching "
             "timing coordinates"
         )
+
+    def binary_chart_manifest(self) -> dict:
+        """Manifest-ready binary-chart section: policy + per-group records."""
+        return {
+            "policy": self.model.binary_chart.as_dict(),
+            "groups": [dict(r) for r in self.binary_chart_records],
+        }
 
     def run_manifest(
         self,
@@ -541,6 +605,7 @@ class NonLinearTimingModel:
         prior_override_policy: Literal["warn", "strict"] = "warn",
         coordinate_policy: TimingCoordinatePolicy = TimingCoordinatePolicy(),
         expansion: TimingExpansionSpec = TimingExpansionSpec.engine_reference(),
+        binary_chart: "KeplerLaplacePolicy | str | None" = "auto",
         whitening: WhiteningConfig | None = None,
         name: str = "nonlinear_timing_model",
     ):
@@ -563,6 +628,7 @@ class NonLinearTimingModel:
         if not isinstance(expansion, TimingExpansionSpec):
             raise TypeError("expansion must be a TimingExpansionSpec")
         self.expansion = expansion
+        self.binary_chart = coerce_binary_chart_policy(binary_chart)
         self.engines = normalize_engines(engines)
         self.design_matrix_method = _normalize_design_matrix_method(
             design_matrix_method
@@ -692,6 +758,7 @@ class NonLinearTimingModel:
             prior_override_policy=self.prior_override_policy,
             coordinate_policy=self.coordinate_policy,
             expansion=self.expansion,
+            binary_chart=self.binary_chart,
             whitening=self.whitening,
             name=self.name,
         )
@@ -713,6 +780,7 @@ class NonLinearTimingModel:
             ),
             "coordinate_policy": self.coordinate_policy.as_dict(),
             "expansion": self.expansion.as_dict(),
+            "binary_chart": self.binary_chart.as_dict(),
             "prior_policy": self.prior_policy,
             "prior_override_policy": self.prior_override_policy,
             "whitening": None if self.whitening is None else self.whitening.as_dict(),
@@ -767,13 +835,12 @@ class NonLinearTimingModel:
             pulsar, engine, identically_linear=self.identically_linear
         )
 
-    def _plan(self, pulsar, engine, linearity) -> TimingParameterPlan:
-        return resolve_inference_plan(
-            pulsar,
-            inference=self.inference,
-            linearity=linearity,
-            coordinate_policy=self.coordinate_policy,
-        )
+    def _reference_theta_aug(self, engine, charts) -> dict[str, str]:
+        """Engine references augmented with synthesized sampling-axis refs."""
+        return {
+            **engine.reference_theta_exact(),
+            **sampling_reference_strings(charts),
+        }
 
     def _resolve_prior_overrides(
         self,
@@ -781,18 +848,23 @@ class NonLinearTimingModel:
         pulsar,
         engine,
         partition: TimingParameterPlan,
+        charts,
+        chart_resolutions,
     ) -> dict[str, AxisPrior]:
         """Materialize stored override specs into delta-space AxisPrior values.
 
         Override keys may be base names (``"TASC"``); each expands to every
-        matching (possibly PTA-suffixed) sampled fitpar. ``scale=`` references
-        resolve suffix-consistently with the target parameter.
+        matching (possibly PTA-suffixed) sampled fitpar plus the synthesized
+        sampling axes of active charts (§5.1). ``scale=`` references resolve
+        suffix-consistently with the target parameter. Charted EPS axes are
+        materialized through the single shared ``materialize_eps_override`` so
+        the guard path and the prior path can never diverge (§5.2).
         """
         # Proper-prior axes (sampled ∪ z-marginalized) accept overrides;
         # delta-flat targets are rejected separately below.
         sampled_set = set(partition.proper)
         expansion = {
-            name: match_fitpars(pulsar, name, partition.fitpars)
+            name: expand_override_key(pulsar, name, partition, charts)
             for name in self._prior_overrides
         }
 
@@ -847,55 +919,44 @@ class NonLinearTimingModel:
                 stacklevel=3,
             )
 
-        ref_exact = engine.reference_theta_exact()
+        ref_exact = self._reference_theta_aug(engine, charts)  # §5.3
         prior_ctx = PriorBuildContext(
             refs=ref_exact,
             fitpars=partition.fitpars,
             sampled=partition.proper,
         )
+        charted_eps = {
+            res.chart.sample_names[pos]: (res.chart, pos)
+            for res in chart_resolutions
+            for pos in (0, 1)
+        }
+        claimed: dict[str, str] = {}
         resolved: dict[str, AxisPrior] = {}
         for name, spec in self._prior_overrides.items():
             for target in expansion[name]:
                 if target not in sampled_set:
                     continue
-                target_spec = self._spec_for_target(pulsar, spec, target, partition)
+                if target in claimed:
+                    raise ValueError(
+                        f"overlapping prior overrides {claimed[target]!r} "
+                        f"and {name!r} both target {target!r}; declare "
+                        "exactly one (base or exact-suffixed, not both)."
+                    )
+                claimed[target] = name
+                if target in charted_eps:
+                    chart, pos = charted_eps[target]
+                    resolved[target] = materialize_eps_override(
+                        self._prior_overrides, chart, pos, pulsar=pulsar,
+                        plan=partition, engine_refs=ref_exact,
+                    )
+                    continue
+                target_spec = spec_for_target(
+                    pulsar, spec, target, partition.fitpars
+                )
                 resolved[target] = resolve_prior_override(
                     target, target_spec, prior_ctx
                 )
         return resolved
-
-    def _spec_for_target(
-        self,
-        pulsar,
-        spec: PriorOverrideSpec,
-        target: str,
-        partition: TimingParameterPlan,
-    ) -> PriorOverrideSpec:
-        """Resolve a spec's ``scale=`` reference suffix-consistently with ``target``."""
-        if spec.scale is None:
-            return spec
-        scale_hits = match_fitpars(pulsar, spec.scale, partition.fitpars)
-        if not scale_hits:
-            # Preserve the standard missing-scale error from materialization.
-            return spec
-        if len(scale_hits) == 1:
-            resolved_scale = scale_hits[0]
-        else:
-            suffixes = fitpar_suffixes(pulsar, target)
-            matched = [
-                hit for hit in scale_hits if suffixes & fitpar_suffixes(pulsar, hit)
-            ]
-            if len(matched) != 1:
-                raise ValueError(
-                    f"Ambiguous prior scale {spec.scale!r} for parameter "
-                    f"{target!r}: candidates {list(scale_hits)}"
-                )
-            resolved_scale = matched[0]
-        if resolved_scale == spec.scale:
-            return spec
-        return PriorOverrideSpec(
-            prior=spec.prior, frame=spec.frame, scale=resolved_scale
-        )
 
     def _build_prior_block(
         self,
@@ -905,8 +966,10 @@ class NonLinearTimingModel:
         partition: TimingParameterPlan,
         linearity: LinearityResolution,
         design_matrix: np.ndarray,
+        charts,
+        chart_resolutions,
     ) -> PriorBlock:
-        ref_exact = engine.reference_theta_exact()
+        ref_exact = self._reference_theta_aug(engine, charts)
         sampled_refs = {
             name: ref_exact[name] for name in partition.proper if name in ref_exact
         }
@@ -922,6 +985,8 @@ class NonLinearTimingModel:
                 pulsar=pulsar,
                 engine=engine,
                 partition=partition,
+                charts=charts,
+                chart_resolutions=chart_resolutions,
             ),
             overrides_in_delta=True,
             theta_ref=sampled_refs,
@@ -941,6 +1006,7 @@ class NonLinearTimingModel:
             linear_names=linear_names,
             theta_ref_native=theta_ref_native,
             design_matrix=design_matrix,
+            chart_resolutions=chart_resolutions,
         )
 
     def _emit_coordinate_warnings(
@@ -963,8 +1029,8 @@ class NonLinearTimingModel:
             axis.name
             for axis in plan.axes
             if axis.name in linear
-            and axis.chart is not None
-            and axis.chart != "affine_normal"
+            and axis.prior_chart is not None
+            and axis.prior_chart != "affine_normal"
         ]
         if nonaffine and policy.nonaffine_identically_linear == "warn":
             warnings.warn(
@@ -1015,7 +1081,7 @@ class NonLinearTimingModel:
                         axis,
                         prior=prior_by_name[axis.name],
                         prior_source=prior_block.sources.get(axis.name),
-                        chart=chart_by_name[axis.name],
+                        prior_chart=chart_by_name[axis.name],
                     )
                 )
             else:
@@ -1052,24 +1118,39 @@ class NonLinearTimingModel:
         linear_names: frozenset[str] = frozenset(),
         theta_ref_native: dict[str, float] | None = None,
         design_matrix: np.ndarray | None = None,
+        chart_resolutions: tuple = (),
     ) -> PriorBlock:
         if not partition.proper or "cheat_wls" not in block.sources.values():
             return block
         theta_ref_native = theta_ref_native or {}
+        # Charted EPS axes install the guard-certified box verbatim (§5.3), so
+        # guards and priors share the same floats and no WLS is recomputed for
+        # them (the stored ResolvedPhysicalChart interval is the authority).
+        charted_box: dict[str, tuple[float, float]] = {}
+        for res in chart_resolutions:
+            charted_box.update(res.default_box_delta_bounds())
         variance = np.asarray(pulsar.toaerrs, dtype=float) ** 2
         idx_proper = tuple(
             sorted(partition.indices("sample")
                    + partition.indices("marginalize_z_prior"))
         )
-        wls = schur_delta_wls(
-            pulsar=pulsar,
-            partition=partition,
-            variance=variance,
-            design_matrix=design_matrix,
-            idx_kept=idx_proper,
-            idx_marginalized=partition.indices("marginalize_delta_flat"),
-        )
-        wls_stds = np.sqrt(np.diag(wls.covariance))
+        # The WLS marginal is computed lazily, only if a NON-charted cheat axis
+        # actually needs it: charted EPS axes never recompute (§5.3).
+        _wls_cache: dict[str, np.ndarray] = {}
+
+        def wls_std(idx: int) -> float:
+            if "stds" not in _wls_cache:
+                wls = schur_delta_wls(
+                    pulsar=pulsar,
+                    partition=partition,
+                    variance=variance,
+                    design_matrix=design_matrix,
+                    idx_kept=idx_proper,
+                    idx_marginalized=partition.indices("marginalize_delta_flat"),
+                )
+                _wls_cache["stds"] = np.sqrt(np.diag(wls.covariance))
+            return float(_wls_cache["stds"][idx])
+
         parfile_stds = self._parfile_cheat_stds(pulsar, block.names)
         scale = self.coordinate_policy.nonlinear_scale
         # Identically-linear sampled axes get a wide proper Gaussian in delta
@@ -1084,11 +1165,19 @@ class NonLinearTimingModel:
             if block.sources.get(name) != "cheat_wls":
                 priors.append(prior)
                 continue
+            if name in charted_box:
+                lower, upper = charted_box[name]
+                priors.append(
+                    AxisPrior(
+                        family="uniform", lower=float(lower), upper=float(upper)
+                    )
+                )
+                continue
             # Prefer the par-file frequentist uncertainty; fall back to the
             # recomputed WLS marginal sigma when it is unavailable.
             sigma = parfile_stds.get(name)
             if sigma is None or not np.isfinite(sigma) or sigma <= 0.0:
-                sigma = float(wls_stds[idx])
+                sigma = wls_std(idx)
             # Exact-linear sampled nuisances get a WIDE PROPER GAUSSIAN in delta
             # (§6.2): unbounded support, smooth PIT Jacobian, and prior precision
             # identically 1 in z — no uniform-box boundary pathology. Its width
@@ -1203,18 +1292,46 @@ class NonLinearTimingModel:
     def _unconditioned_for_pulsar(self, pulsar, engine) -> TimingContext:
         """Build the unconditioned base context (identity transport, §5.2)."""
         linearity = self._resolve_linearity(pulsar, engine)
-        partition = self._plan(pulsar, engine, linearity)
-        design_matrix = _timing_design_matrix(
+        candidates = resolve_chart_candidates(pulsar, engine, self.binary_chart)
+        inference = normalize_inference_selectors(self.inference, candidates)
+        partition = resolve_inference_plan(
             pulsar,
-            engine,
-            method=self.design_matrix_method,
+            inference=inference,
+            linearity=linearity,
+            coordinate_policy=self.coordinate_policy,
         )
+        engine_design_matrix = _timing_design_matrix(
+            pulsar, engine, method=self.design_matrix_method
+        )
+        partition, chart_resolutions, chart_records = activate_charts(
+            partition,
+            candidates,
+            self.binary_chart,
+            prior_overrides=self._prior_overrides,
+            pint_model=pulsar.pint_model(),
+            pulsar=pulsar,
+            engine_design_matrix=engine_design_matrix,
+            nonlinear_scale=self.coordinate_policy.nonlinear_scale,
+            engine_refs=engine.reference_theta_exact(),
+            prior_policy=self.prior_policy,
+        )
+        charts = tuple(r.chart for r in chart_resolutions)
+
+        design_matrix = (
+            engine_design_matrix
+            if not charts
+            else engine_design_matrix
+            @ frame_change_matrix(len(partition.fitpars), charts)
+        )
+
         prior_block = self._build_prior_block(
             pulsar=pulsar,
             engine=engine,
             partition=partition,
             linearity=linearity,
             design_matrix=design_matrix,
+            charts=charts,
+            chart_resolutions=chart_resolutions,
         )
         prior_bijector = prior_block.to_bijector(
             precision_critical_fitpars=getattr(
@@ -1223,7 +1340,8 @@ class NonLinearTimingModel:
         )
         partition = self._tag_charts(partition, prior_block, prior_bijector)
         self._emit_coordinate_warnings(partition, linearity)
-        ref_exact = engine.reference_theta_exact()
+
+        ref_exact = self._reference_theta_aug(engine, charts)
         # The proper space spans the proper-prior axes (sampled ∪ z-marginalized)
         # and carries the priors/charts/linearization; the sampled subspace is the
         # sampler coordinate and drives the exact delays, and the z subspace backs
@@ -1239,13 +1357,41 @@ class NonLinearTimingModel:
         space = proper_space.select(partition.sampled)
         marginal_z_space = proper_space.select(partition.marginalized_z)
         coord = coord_for_static_layer(self.static_layer)
+        delta_expansion = self._expansion_delta(proper_space, partition)
         linearization = build_linearization(
             engine=engine,
             plan=partition,
             proper_space=proper_space,
-            delta_expansion=self._expansion_delta(proper_space, partition),
+            delta_expansion=delta_expansion,
             source=self.expansion.mode,
+            charts=charts,
         )
+        engine_map = EngineDeltaMap.for_sampled(partition, charts, linearization)
+        flat_slots = tuple(
+            a.fitpar_index
+            for a in partition.axes
+            if a.disposition == "marginalize_delta_flat"
+            and a.physical_chart is not None
+        )
+        if flat_slots and np.any(delta_expansion) and isinstance(
+            engine, JaxTimingEngine
+        ):
+            # Non-default expansion specs (prior_center / explicit_delta):
+            # replace the charted delta-flat columns by the exact composed
+            # Jacobian at the expansion (§6.1 policy — never M_e(ref)@B(exp)).
+            delta_full = np.zeros(len(partition.fitpars), dtype=float)
+            proper_idx = [
+                a.fitpar_index
+                for a in partition.axes
+                if a.disposition in ("sample", "marginalize_z_prior")
+            ]
+            delta_full[proper_idx] = delta_expansion
+            cols = _exact_flat_columns(
+                engine, partition, charts, delta_full, flat_slots
+            )
+            design_matrix = np.array(design_matrix, copy=True)
+            for s, col in cols.items():
+                design_matrix[:, s] = col
         return TimingContext(
             model=self,
             pulsar=pulsar,
@@ -1262,7 +1408,11 @@ class NonLinearTimingModel:
                 f"{pulsar.name}_{self.name}_{name}" for name in partition.sampled
             ),
             design_matrix=design_matrix,
+            engine_design_matrix=engine_design_matrix,
+            physical_charts=charts,
+            binary_chart_records=chart_records,
             linearization=linearization,
+            engine_delta_map=engine_map,
         )
 
     def _expansion_delta(self, space, plan) -> np.ndarray:

@@ -23,6 +23,8 @@ from typing import Literal
 
 import numpy as np
 
+from .frames import EngineDeltaMap
+
 ExpansionSource = Literal["engine_reference", "prior_center", "explicit_delta", "refined"]
 
 
@@ -161,17 +163,12 @@ def _outside_prior_interior(priors, delta_e, names) -> list[str]:
     return bad
 
 
-def _waveform_of_z(engine, space, idx, nfit, xp):
-    """Return ``d(z) = -residual_delta(delta(z))`` over ``space``'s axes as an
-    ``xp`` callable (``idx`` are the fitpar positions of those axes)."""
-
-    idx = xp.asarray(np.asarray(idx, dtype=int))
-
+def _waveform_of_z(engine, space, engine_map, xp):
+    """d(z) = -residual_delta(engine_map(delta(z))) over ``space``'s axes."""
     def d_of_z(z):
-        delta = space.delta_from_z(z, xp)
-        full = xp.zeros((nfit,), dtype=delta.dtype).at[idx].set(delta)
-        return -engine.residual_delta_jax(full)
-
+        delta_s = space.delta_from_z(z, xp)
+        return -engine.residual_delta_jax(
+            engine_map.full_engine_delta(delta_s, xp))
     return d_of_z
 
 
@@ -200,6 +197,7 @@ def build_linearization(
     proper_space,
     delta_expansion: np.ndarray,
     source: ExpansionSource,
+    charts: tuple = (),
 ) -> TimingLinearization:
     """Build the fixed linearization at ``delta_expansion`` (proper order, §5.2).
 
@@ -220,9 +218,9 @@ def build_linearization(
     zm_cols = [i for i, a in enumerate(proper_axes) if a.disposition != "sample"]
     sampled_names = tuple(proper_names[i] for i in sampled_cols)
     zm_names = tuple(proper_names[i] for i in zm_cols)
-    idx_proper = np.asarray([a.fitpar_index for a in proper_axes], dtype=int)
     k_p = len(proper_names)
     nfit = len(plan.fitpars)
+    engine_map = EngineDeltaMap.for_proper(plan, charts)
 
     delta_e = np.asarray(delta_expansion, dtype=float)
     if delta_e.shape != (k_p,):
@@ -256,14 +254,13 @@ def build_linearization(
         import jax
         import jax.numpy as jnp
 
-        d_of_z = _waveform_of_z(engine, proper_space, idx_proper, nfit, jnp)
+        d_of_z = _waveform_of_z(engine, proper_space, engine_map, jnp)
         d_e = np.asarray(d_of_z(jnp.asarray(z_e)), dtype=float)
         W = np.asarray(jax.jacfwd(d_of_z)(jnp.asarray(z_e)), dtype=float)
     else:
         def d_np(z):
-            delta = np.asarray(proper_space.delta_from_z(z, np), dtype=float)
-            full = np.zeros(nfit)
-            full[idx_proper] = delta
+            delta_s = np.asarray(proper_space.delta_from_z(z, np), dtype=float)
+            full = engine_map.full_engine_delta(delta_s, np)
             return -np.asarray(engine.residual_delta(full), dtype=float)
 
         d_e = d_np(z_e)

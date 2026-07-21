@@ -113,7 +113,7 @@ def test_chart_records_tag_proper_axes_affine_normal():
     assert set(summary) == {"F0", "F1", "DM"}
     # The linear JUG engine declares every axis identically linear -> Gaussian
     # delta prior -> affine_normal chart on every proper axis.
-    assert all(d["chart"] == "affine_normal" for d in summary.values())
+    assert all(d["prior_chart"] == "affine_normal" for d in summary.values())
     assert ctx.plan.axis("DM").prior is not None
     assert ctx.plan.axis("DM").prior.family == "normal"
     assert ctx.nonaffine_identically_linear == ()
@@ -127,7 +127,7 @@ def test_nonlinear_axis_uses_prior_pit_chart():
         name="timing",
     )
     ctx = ntm.for_pulsar(_Pulsar())
-    charts = {d["name"]: d["chart"] for d in ctx.chart_summary()}
+    charts = {d["name"]: d["prior_chart"] for d in ctx.chart_summary()}
     assert charts == {"F0": "prior_pit", "F1": "prior_pit", "DM": "prior_pit"}
 
 
@@ -144,7 +144,7 @@ def test_uniform_override_on_identically_linear_axis_is_reported_nonaffine():
     with pytest.warns(NonAffineIdenticallyLinearWarning, match="DM"):
         ctx = ntm.for_pulsar(_Pulsar())
     # DM is identically linear but the explicit uniform prior makes its chart PIT.
-    assert ctx.plan.axis("DM").chart == "prior_pit"
+    assert ctx.plan.axis("DM").prior_chart == "prior_pit"
     assert "DM" in ctx.nonaffine_identically_linear
 
 

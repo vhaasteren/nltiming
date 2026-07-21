@@ -153,6 +153,58 @@ z = c + C ξ      local affine whitening (static layer)
 For the dynamic joint transport use `whitening=None` (identity static layer,
 coordinate `z`) — the transport is then the single affine layer.
 
+### Kepler↔Laplace physical chart (`binary_chart="auto"`)
+
+A **physical chart** is a different object from the per-axis prior charts above:
+it changes *which physical coordinates* the plan names, priors, and sampler see,
+while the engine delay model and its fitpar frame stay untouched. The first one
+is the low-eccentricity Kepler↔Laplace chart. When `ECC`, `OM`, `T0` are free
+fit parameters, at least one of them is *sampled*, and `e_ref < e_max` (0.1, a
+policy heuristic — the chart is exact for every `e > 0`), sampling happens in
+`EPS1 = e sin ω`, `EPS2 = e cos ω`, `TASC = T0 − PB·ω/2π` while the engine delay
+stays DD/T2/DDH. **This is not ELL1** — the eccentric `x·e²` delay term is fully
+retained; only the *sampling coordinates* change. It removes the low-eccentricity
+polar geometry (the thin curved `ω–T0` tube historical DD-native nonlinear J1640
+analyses had to sample).
+
+Dispositions are declared on **engine names** (`TASC` aliases `T0` *for
+dispositions only*; ECC and OM must share one disposition). Fully marginalized
+triples are never transformed. The chart never reinterprets a **deliberately
+specified prior**: a user or PINT prior on `ECC`, `OM`, or `T0` demotes it — a
+T0 density does not transfer to TASC, so restate it as `priors={"TASC": ...}`
+to use the chart. Delay keys / NumPyro node names use the sampling names, and
+`RunResults.posterior()` adds derived `ECC`/`OM`/`T0` columns (decoded on the
+same reference-local branch the likelihood used).
+
+**Prior semantics** (`policy.prior = "sampling_frame"`, recorded in the
+manifest): charted-axis priors live on the sampling frame. Note the induced
+measure — `dEPS1·dEPS2 = e·dECC·dOM`, so a flat EPS prior is `p(e) ∝ e` in
+Kepler variables and independent Gaussian EPS priors induce a Rayleigh-like
+`p(e)`, never a uniform or Gaussian `p(e)`. Because charting changes the prior
+model, chart-on vs chart-off **evidence** comparisons are only meaningful with
+the prior held fixed. Every accepted EPS prior support is a bounded rectangle
+strictly inside the eccentricity disk (`e ≤ 1 − margin`): default WLS boxes are
+shrunk to fit before sampling, and unbounded or disk-crossing user EPS priors
+are rejected (use bounded families). Nothing is clipped at runtime and invalid
+eccentricities never reach the engine. When the epoch-shift identity is not
+exact (secular/derived orbital evolution — OMDOT/PBDOT/EDOT/A1DOT), the chart
+activates only if that support provably excludes the ω-branch seam ray (which
+carries an `O(rate × PB)` likelihood discontinuity); supports containing the
+eccentricity origin additionally require an origin-certified engine backend. PX
+and the Shapiro `(M2, SINI)` ridge are separate workstreams.
+
+**v1 default behavior (be aware).** Until a production engine backend is
+origin-certified (`BinaryChartCapability.origin_certified=True` with a
+`certification_ref`, set only by a PR that lands its passing full-likelihood
+origin certification), **no** backend is certified. Because a typical
+low-eccentricity MSP has an EPS default box (`50·σ`) that contains the
+eccentricity origin, such pulsars **demote under `auto`** — they stay on
+`ECC/OM/T0` engine coordinates, identical to `binary_chart="off"`, and emit a
+one-line `UserWarning` per pulsar. This is the honest, conservative default:
+the chart engages once the geometry is certifiably safe. To silence the
+warnings on an ensemble where you deliberately do not want charting, pass
+`binary_chart="off"`.
+
 ### Charts: which physical prior gives which map
 
 **PIT** means *probability integral transform*: map a physical draw through its

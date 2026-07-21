@@ -8,9 +8,50 @@ Stack layering:
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Any, Mapping, Protocol, runtime_checkable
 
 import numpy as np
+
+
+@dataclass(frozen=True)
+class BinaryChartCapability:
+    """Engine self-declaration consumed by physical-chart candidacy/activation.
+
+    kepler_convention: Kepler parameter convention family ("dd" covers
+        DD/T2(DD-mode)/DDH; anything else is not a chart candidate in v1).
+    epoch_shift_exact: whether (OM+360 deg, T0+PB) is an EXACT identity for
+        this model as configured — False whenever any secular or derived
+        epoch-coupled evolution is active (explicit OMDOT/PBDOT/EDOT/A1DOT,
+        DDGR-derived terms, T2 epoch dependence, ...).
+    secular_terms: canonical names of the epoch-coupled terms the engine
+        knows to be active FOR THIS GROUP (informational; goes to the
+        manifest).
+    origin_certified: **empirical** certification that this backend passed
+        the §12.3 full-likelihood origin suite — a regression statement
+        scoped to (backend implementation + version, binary model
+        configuration, float precision, differentiation path), NOT a proof
+        of bounded behavior arbitrarily near an included origin. Set True per
+        adapter only by the PR that lands its passing certification run —
+        never by default — with ``certification_ref`` pointing at that run/PR.
+    supports_domain: the backend accepts every point of the chart's declared
+        physical domain (e < 1) without internal clamping or NaN.
+    """
+
+    kepler_convention: str
+    epoch_shift_exact: bool
+    secular_terms: tuple[str, ...]
+    origin_certified: bool
+    supports_domain: bool
+    certification_ref: str | None = None
+
+    def __post_init__(self) -> None:
+        # Review fix: certification without auditable provenance is invalid.
+        if self.origin_certified and not self.certification_ref:
+            raise ValueError(
+                "BinaryChartCapability: origin_certified=True requires a "
+                "certification_ref (the recorded §12.3 certification run/PR)"
+            )
 
 
 @runtime_checkable

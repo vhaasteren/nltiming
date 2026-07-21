@@ -34,7 +34,7 @@ from .selection import canonical_fitpars, select_fitpars
 MarginalCoordinate = Literal["delta", "z"]
 Disposition = Literal["sample", "marginalize_delta_flat", "marginalize_z_prior"]
 # prior_pit = probability integral transform (non-Gaussian / bounded delta prior)
-ChartKind = Literal["affine_normal", "prior_pit"]
+PriorChartKind = Literal["affine_normal", "prior_pit"]
 InferencePresetName = Literal["default", "all", "sample_all"]
 
 
@@ -296,7 +296,9 @@ class ResolvedTimingAxis:
     linearity_sources: tuple[str, ...]
     prior: AxisPrior | None = None
     prior_source: str | None = None
-    chart: ChartKind | None = None
+    prior_chart: PriorChartKind | None = None
+    engine_name: str | None = None      # engine fitpar this axis replaces
+    physical_chart: str | None = None   # "kepler_laplace" | None
 
 
 @dataclass(frozen=True)
@@ -306,10 +308,20 @@ class TimingParameterPlan:
     inference: TimingInference
     coordinate_policy: TimingCoordinatePolicy
 
+    @property
+    def axis_names(self) -> tuple[str, ...]:
+        """Sampling-frame axis names, in fitpar-slot order."""
+        return tuple(a.name for a in self.axes)
+
     def axis(self, name: str) -> ResolvedTimingAxis:
         canonical = resolve_parameter_alias(name)
         for ax in self.axes:
             if ax.name == canonical or ax.name == name:
+                return ax
+        for ax in self.axes:  # engine-frame lookup for charted axes
+            if ax.engine_name is not None and (
+                ax.engine_name == name or ax.engine_name == canonical
+            ):
                 return ax
         raise KeyError(f"no timing axis named {name!r}")
 
@@ -387,7 +399,9 @@ class TimingParameterPlan:
                     "linearity_sources": list(a.linearity_sources),
                     "prior": None if a.prior is None else vars(a.prior),
                     "prior_source": a.prior_source,
-                    "chart": a.chart,
+                    "prior_chart": a.prior_chart,
+                    "engine_name": a.engine_name,
+                    "physical_chart": a.physical_chart,
                 }
                 for a in self.axes
             ],

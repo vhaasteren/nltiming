@@ -556,11 +556,11 @@ def _certify_dynamic_geometry(
     probes = deterministic_xi_probes(dim)
     xi_points = np.stack(probes) if probes else np.zeros((0, dim))
 
-    # Exact vs local timing waveform machinery (§8.3 item 2).
+    # Exact vs local timing waveform machinery (§8.3 item 2). The sampled-mode
+    # EngineDeltaMap scatters sampled deltas, pins z-marg at z_m,e, and applies
+    # any physical charts — so the exact waveform is chart-aware via the seam.
     lin = ctx.linearization
-    idx = np.asarray(ctx.plan.idx_sampled, dtype=int)
-    nfit = len(ctx.plan.fitpars)
-    d_of_z = _waveform_of_z(ctx.engine, ctx.space, idx, nfit, jnp)
+    d_of_z = _waveform_of_z(ctx.engine, ctx.space, ctx.engine_delta_map, jnp)
     d_e = np.asarray(lin.sampled_waveform_expansion, dtype=float)
     W_e = np.asarray(lin.sampled_basis, dtype=float)
     z_e = np.asarray(lin.sampled_z_expansion, dtype=float)

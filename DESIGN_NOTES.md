@@ -67,6 +67,59 @@ one context) is the regression probe of record for this class of bug.
 known G1 reference gap is validation policy here; upstream consumers may
 choose stricter or documented relaxed checks.
 
+## Physical charts (Kepler↔Laplace) — the two-frame model
+
+Distinct from the per-axis **prior charts** (`affine_normal` / `prior_pit`,
+`ResolvedTimingAxis.prior_chart`), a **physical chart** (`kepler_laplace`) is a
+multivariate reparameterization between the *sampling frame* (plan names,
+priors, sampler) and the *engine frame* (canonical fitpars). The engine delay
+model and its fitpar frame are untouched — sampling happens in
+`EPS1/EPS2/TASC`, the engine still evaluates the exact DD/T2/DDH delay at
+`ECC/OM/T0`. Every sampling→engine conversion flows through one seam,
+`EngineDeltaMap` (`frames.py`), which consumes only the generic `PhysicalChart`
+protocol (`physical_charts.py`). Charts are *slot-preserving*
+(`EPS1`@ECC-slot, `EPS2`@OM-slot, `TASC`@T0-slot), so `fitpar_index` is valid in
+both frames and every index-based path (Schur-WLS, metrics, improper GP) works
+unchanged.
+
+**Evaluation-point policy for the design matrix.** `ctx.design_matrix` is the
+sampling-frame `M_s = M_e·B`; `ctx.engine_design_matrix` is the engine-frame
+`M_e`. `M_e` is fixed at the engine reference and the analytic frame-change
+block `B` is evaluated at the **reference** in production, so `M_s =
+M_e(ref)·B(ref)` is a *consistent reference pair* — the hybrid `M_e(ref)·B(exp)`
+is never formed (it is wrong at O(1) exactly where the chart's `1/e` rows move).
+When the expansion moves and charted delta-flat axes exist, those `M_s` columns
+are replaced by the **exact** composed-Jacobian columns (`jax.jvp` of
+`residual_delta_jax(apply_charts(·))`), never the hybrid; a non-JAX engine keeps
+them at the reference (a documented local approximation). `W_s`/`W_m` are always
+exact because `build_linearization` differentiates the residual *through* the
+sampling→engine composition.
+
+**Prior semantics and the moved singularity.** There is **no chart-Jacobian term
+in any posterior density**: charted-axis priors are declared on the sampling
+frame (`KeplerLaplacePolicy.prior = "sampling_frame"`, recorded in the manifest)
+via the existing per-axis machinery; the physical chart sits inside the
+deterministic likelihood map. The induced measure is disclosed
+(`dEPS1·dEPS2 = e·dECC·dOM`); an exact `prior = "pushforward"` mode is reserved.
+Deliberate Kepler-axis priors (user or informative PINT) always win and demote
+the chart. The chart *moves* the coordinate singularity into the decode (`atan2`
+and `1/e`-scale intermediates near `ε = 0`) and introduces an `O(rate × PB)`
+ω-branch seam discontinuity when secular terms are present; both are handled by
+exact **activation** guards over the resolved EPS reachability rectangle (never
+runtime/in-density guards) and certified at the composed-likelihood level.
+
+**Engine capability (`§2.4`) — current state.** Candidacy consumes a normalized
+`BinaryChartCapability` from the engine when present, else a conservative
+name-search fallback (`_present_secular_terms`) that inspects the pulsar's PINT
+model — including a binary-*type* check that flags GR-derived models (DDGR) whose
+post-Keplerian rates are computed internally and are invisible to a name search.
+Authoritative per-group `binary_chart_capability` on the JUG/PINT/tempo2 adapters
+is deferred: the nltiming engine adapters are constructed by MetaPulsar without
+the binary model plumbed in, and passing it would be a MetaPulsar-side change
+(out of scope). Until an adapter implements the method **and** passes the §12.6
+origin certification, `origin_certified` stays `False`, so low-e binaries whose
+EPS box contains the origin demote under `auto` (a conservative, honest default).
+
 ## Upstream tracks (parallel, non-blocking)
 
 **JUG.** `JaxTimingState` / `export_jax_timing_state` now live in `jug.timing`

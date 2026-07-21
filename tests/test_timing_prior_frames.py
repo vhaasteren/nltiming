@@ -137,8 +137,9 @@ def test_ntm_resolve_prior_overrides(composite_binary_ctx):
     )
     partition = plan_for(pulsar, sample_all=True)
     resolved = ntm._resolve_prior_overrides(
-        pulsar=pulsar, engine=engine, partition=partition
-    )
+        pulsar=pulsar, engine=engine, partition=partition,
+        charts=(), chart_resolutions=(),
+        )
     half = 0.5 * 1.19851257519955
     assert resolved["TASC_epta"].lower == pytest.approx(-half, rel=1e-12)
     assert resolved["TASC_epta"].upper == pytest.approx(+half, rel=1e-12)
