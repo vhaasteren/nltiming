@@ -836,3 +836,45 @@ def save_ptmcmc_decentered_checkpoint(
         log_density=log_density,
         n_target=n_target,
     )
+
+
+def decentered_reconstruction_recipe(ctx, hyper_names, *, noisedict) -> dict[str, Any]:
+    """Reconstruction recipe for the decentered transport (E26).
+
+    Records how to rebuild the fingerprint-verified transport for cold-start
+    re-decoding (recipe recorded; the automatic loader stays deferred, §12).
+    Attach the returned dict to ``manifest.transport["reconstruction"]`` before
+    ``manifest.write(...)``. Digests: ``context_digest = ctx.fingerprint()``,
+    ``sampled_basis_digest``/``effective_residual_digest`` via
+    ``metric._column_digest`` on the sealed ``sampled_basis`` / ``y_t`` (S4/G18),
+    and the overall ``linearization_fingerprint``.
+    """
+    import hashlib
+    import json
+
+    from .metric import _column_digest
+
+    lin = ctx.linearization
+    if lin is None:
+        raise RuntimeError(
+            "decentered_reconstruction_recipe requires ctx.linearization"
+        )
+    y_t = np.asarray(
+        lin.transport_effective_residual(np.asarray(ctx.pulsar.residuals, dtype=float)),
+        dtype=float,
+    )
+    noise_json = json.dumps(
+        {k: float(v) for k, v in dict(noisedict).items()}, sort_keys=True
+    )
+    return {
+        "builder": "nltiming.likelihoods.enterprise:enterprise_marginal_products",
+        "noisedict_sha256": "sha256:"
+        + hashlib.sha256(noise_json.encode("utf-8")).hexdigest(),
+        "hyper_names": list(hyper_names),
+        "context_digest": ctx.fingerprint(),
+        "sampled_basis_digest": _column_digest(
+            np.asarray(lin.sampled_basis, dtype=float)
+        ),
+        "effective_residual_digest": _column_digest(y_t),
+        "linearization_fingerprint": lin.fingerprint(),
+    }
