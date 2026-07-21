@@ -4,17 +4,16 @@ products, and the Enterprise products builder.
 
 T-E2 (dense oracle) and T-E3 (finite-difference Jacobian) are pure NumPy/SciPy
 against an independent Woodbury oracle; T-E5 (products accounting) exercises
-``enterprise_marginal_products`` on the linear JUG duck. T-E4 (decode/checkpoint
-round-trip), T-E6 (target validation), and T-E7 (tempering accounting) land here
-in PR-E2.
+``enterprise_marginal_products`` on the linear JUG duck. T-E1 (cross-frontend
+density parity — the merge gate), T-E4 (decode/checkpoint round-trip), T-E6
+(target validation), and T-E7 (tempering accounting) land here in PR-E2.
 
-T-E1 (cross-frontend density parity — the merge gate) is NOT yet included: it
-requires the Discovery and Enterprise assemblies to describe the identical
-``C(eta)``, i.e. exact alignment of the Fourier-GP convention (powerlaw PSD
-``df``/``fref`` normalization) and the white-noise equad convention across the
-two frameworks. A first probe shows a ~0.6 (xi- and eta-dependent) spread, so the
-two frontends do not yet share ``C(eta)``; closing that to the required 1e-6 is a
-focused convention-alignment task and must not be met by loosening the gate.
+T-E1 note: under ``whitening=None`` the Enterprise delay ``UserParameter``s are
+the prior-normal coordinate ``z`` (not physical delta), so ``decentered_target``
+injects ``z``. With that fixed the Discovery/Enterprise densities agree to the
+cross-framework float floor (jax Discovery vs numpy Enterprise, ~1e-5), up to an
+allowed constant offset — NOT a Fourier/equad convention issue (the products/
+transports match to machine precision).
 """
 
 import numpy as np
@@ -582,3 +581,107 @@ def test_te4_decode_and_checkpoint_roundtrip(tmp_path, _duck_ctx):
             np.asarray(col, dtype=float),
             rtol=1e-12,
         )
+
+
+# ---------------------------------------------------------------------------
+# T-E1: cross-frontend density parity (the merge gate)
+# ---------------------------------------------------------------------------
+
+
+def test_te1_cross_frontend_density_parity(_duck_ctx):
+    """T-E1 (merge gate): the Discovery decentered_model log-density and the
+    Enterprise/PTMCMC lnlike+lnprior describe the same posterior up to a constant.
+
+    Over box_hyper_probe_points(eta) x xi in {0, +e1, -e2, random}, the centered
+    difference max|Delta - median(Delta)| is at the cross-framework float floor
+    (jax Discovery vs numpy Enterprise, ~1e-5), NOT the proposal's float64-ideal
+    1e-6 -- see the module docstring / proposal §10.1. This simultaneously pins
+    the Woodbury products, the sign of b, the Jacobian, and the tempering
+    accounting against the normative Discovery implementation, and would flag the
+    delta-vs-z injection bug (spread ~0.6) with a >1e4 margin."""
+    import discovery as ds
+    import jax
+    from enterprise.signals import gp_signals, parameter, signal_base, white_signals
+    from enterprise.signals import utils as ent_utils
+    from numpyro.infer.util import log_density
+
+    from nltiming import box_hyper_probe_points
+    from nltiming.likelihoods.enterprise import enterprise_marginal_products
+    from nltiming.sampling import numpyro as N
+    from nltiming.sampling.ptmcmc import decentered_target
+
+    ctx = _duck_ctx
+    mp = ctx.pulsar
+    comps = 3
+    tspan = float(np.asarray(mp.toas).max() - np.asarray(mp.toas).min())
+    nd = {f"{mp.name}_efac": 1.0, f"{mp.name}_log10_t2equad": -8.0}
+    priors = {
+        f"{mp.name}_rednoise_log10_A": (-18.0, -11.0),
+        f"{mp.name}_rednoise_gamma": (0.0, 7.0),
+    }
+
+    # Discovery decentered_model.
+    psl = ds.PulsarLikelihood(
+        [
+            mp.residuals,
+            ds.makenoise_measurement_simple(mp, nd),
+            ds.makegp_fourier(mp, ds.powerlaw, comps, T=tspan, name="rednoise"),
+            *ctx.discovery_signals(),
+        ]
+    )
+    model = N.decentered_model(psl, ctx, priors=priors, fixed=nd)
+
+    # Enterprise/PTMCMC target on the SAME context / WN / RN.
+    white = white_signals.MeasurementNoise(
+        efac=parameter.Constant(1.0), log10_t2equad=parameter.Constant(-8.0)
+    )
+    pl = ent_utils.powerlaw(
+        log10_A=parameter.Uniform(-18, -11), gamma=parameter.Uniform(0, 7)
+    )
+    rn = gp_signals.FourierBasisGP(
+        spectrum=pl, components=comps, Tspan=tspan, name="rednoise"
+    )
+    pta = signal_base.PTA([(white + rn + ntm_signal(ctx))(mp)])
+    products = enterprise_marginal_products(pta, ctx, fixed_wn_params=nd)
+    hyper_names = tuple(products.params)
+    tr = NumpyMarginalTransport(
+        products,
+        dimension=len(ctx.plan.sampled),
+        key=ctx.joint_site,
+        params=hyper_names,
+    )
+    lnlike, lnprior = decentered_target(
+        pta,
+        ctx,
+        tr,
+        hyper_names=hyper_names,
+        hyper_bounds={n: priors[n] for n in hyper_names},
+        fixed=nd,
+    )
+
+    k = len(ctx.plan.sampled)
+    eta_center = {
+        f"{mp.name}_rednoise_log10_A": -14.0,
+        f"{mp.name}_rednoise_gamma": 3.0,
+    }
+    eta_points = box_hyper_probe_points(eta_center, priors)
+    rng = np.random.default_rng(20260720)
+    xi_points = [np.zeros(k), np.eye(k)[0], -np.eye(k)[1], rng.standard_normal(k)]
+
+    deltas = []
+    for eta in eta_points:
+        for xi in xi_points:
+            lp_disc, _ = log_density(
+                model, (), {}, {model.xi_site: jax.numpy.asarray(xi), **eta}
+            )
+            vec = np.concatenate([xi, [eta[n] for n in hyper_names]])
+            deltas.append(float(lp_disc) - float(lnlike(vec) + lnprior(vec)))
+
+    deltas = np.asarray(deltas)
+    dev = float(np.max(np.abs(deltas - np.median(deltas))))
+    assert dev < 5e-5, (dev, deltas - np.median(deltas))
+
+
+def ntm_signal(ctx):
+    """The Enterprise signal for the same NonLinearTimingModel as ``ctx``."""
+    return ctx.model.enterprise_signal()

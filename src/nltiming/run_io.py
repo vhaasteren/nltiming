@@ -806,6 +806,12 @@ def save_ptmcmc_decentered_checkpoint(
     hyper_names = tuple(hyper_names)
     k = len(ctx.plan.sampled)
     m = len(hyper_names)
+    expected = k + m + 4  # xi (k) + eta (m) + lnpost/lnlike/accept/pt-accept
+    if chain.ndim != 2 or chain.shape[1] != expected:
+        raise ValueError(
+            f"decentered chain must have exactly k+m+4 = {expected} columns "
+            f"(xi={k}, eta={m}, +4 PTMCMC bookkeeping); got shape {chain.shape}"
+        )
     params_block = chain[:, :-4]  # strip lnpost/lnlike/accept/pt-accept
     chain_xi = params_block[:, :k]
     chain_eta = params_block[:, k : k + m]

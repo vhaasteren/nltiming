@@ -190,11 +190,12 @@ def timing_only_sampler(
 # initial_cov/timing_only_sampler) are NOT migrated here. The proposal §6.0
 # assumed the geometry plan deleted ctx.sampled / ctx.model.transform, but
 # ctx.sampled is retained (== ctx.plan.sampled) and eval_params already keys off
-# ctx.model.static_layer; the static-whitening Enterprise assembly moreover uses
-# per-axis `_x_i` parameters (not ctx.delay_keys), so the §6.0 "delta scalars
-# keyed by delay_keys" claim holds only for whitening=None. Migration is a doc
-# reconciliation, not a code fix; it is out of scope for the decentered mode
-# below (which never touches those helpers).
+# ctx.model.static_layer. Under whitening=None the Enterprise delay
+# UserParameters are the prior-normal coordinate **z** scalars keyed by
+# ctx.delay_keys (NOT physical delta); under WhiteningConfig they are per-axis
+# `_x_i` parameters. So §6.0's "delta scalars keyed by delay_keys" is doubly
+# wrong (z, not delta; and only for whitening=None). Migration is a doc
+# reconciliation, not a code fix; the decentered mode below never touches these.
 # ---------------------------------------------------------------------------
 
 
@@ -252,9 +253,12 @@ def decentered_target(pta, ctx, transport, *, hyper_names, hyper_bounds, fixed):
         if np.any(ev < lo) or np.any(ev > hi):
             return -np.inf
         z, _ = transport.apply(eta, xi)  # memo hit after lnprior (E9)
-        delta = np.asarray(ctx.space.delta_from_z(z, np), dtype=float)
+        # Under whitening=None the Enterprise delay UserParameters are the
+        # prior-normal coordinate z (coord_for_static_layer("identity") == "z"),
+        # NOT physical delta: the UserParameter maps z -> delta internally. Pass z
+        # here; physical-delta decoding happens only in decode_decentered_chain.
         params = {**fixed, **eta}
-        for key, value in zip(ctx.delay_keys, delta):
+        for key, value in zip(ctx.delay_keys, z):
             params[key] = float(value)
         return float(pta.get_lnlikelihood(params))
 
