@@ -64,7 +64,10 @@ def test_finite_delta_matches_hand_built():
         assert full[s_t0] == pytest.approx(t0_abs - float(chart.t0_ref_str), abs=1e-9)
 
 
-def test_branch_seam_discontinuity():
+def test_branch_seam_decode_structure():
+    # DECODE-level structure only (review: this is not the full §12.3 waveform
+    # coverage — the waveform-agreement / secular-offset check needs a periodic
+    # DD engine, see test_branch_seam_discontinuity below, skipped here).
     # Two EPS points straddling the +/-180deg Delta-omega seam decode (on the
     # reference-local branch) to engine points differing by (~360deg, ~PB): the
     # same orbit up to secular terms.
@@ -116,8 +119,11 @@ def test_branch_seam_discontinuity():
     _ = phis
 
 
-def test_secular_seam_bound_needs_periodic_engine():
-    # The waveform-jump-equals-secular-offset check requires a real periodic DD
-    # engine with active OMDOT/PBDOT (a linear surrogate is not orbit-periodic),
-    # so it is exercised by the requires_jug J1640 validation (§12.6), not here.
+def test_branch_seam_discontinuity():
+    # The NORMATIVE §12.3 test: waveform agreement across the seam without
+    # secular terms, and jump == analytic secular offset with OMDOT/PBDOT/etc.
+    # This requires a real periodic DD engine (a linear surrogate is not
+    # orbit-periodic: OM+360 is NOT invisible to it), so it is exercised by the
+    # requires_jug J1640 validation (§12.6). The decode-level structure is
+    # covered engine-agnostically by test_branch_seam_decode_structure above.
     pytest.skip("waveform seam-offset bound requires a periodic DD engine (§12.6)")

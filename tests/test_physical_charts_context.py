@@ -19,10 +19,6 @@ from nltiming import TimingInference  # noqa: E402
 from nltiming.engines.base import LinearModel  # noqa: E402
 from nltiming.engines.jug import LinearizedJugEngine  # noqa: E402
 from nltiming.nonlinear_timing_model import NonLinearTimingModel  # noqa: E402
-from nltiming.physical_charts import (  # noqa: E402
-    kepler_from_laplace,
-    unwrap_om_delta_deg,
-)
 from nltiming.priors import delta_uniform, normal  # noqa: E402
 
 REF = {
@@ -124,46 +120,9 @@ def test_cache_key_includes_policy():
     assert ntm_auto._config_fingerprint() != ntm_off._config_fingerprint()
 
 
-def test_zero_delta_residual_identity():
-    _, off = _ctx(binary_chart="off")
-    _, ctx = _ctx()
-    nfit = len(ctx.plan.fitpars)
-    engine = ctx.engine
-    # chart-off zero-delta residual.
-    r_off = np.asarray(engine.residual_delta_jax(jnp.zeros(nfit)))
-    # charted sampled-mode map at zero sampled input.
-    k = len(ctx.plan.sampled)
-    r_chart = np.asarray(
-        engine.residual_delta_jax(
-            ctx.engine_delta_map.full_engine_delta(jnp.zeros(k), jnp)
-        )
-    )
-    np.testing.assert_allclose(r_chart, r_off, atol=1e-12, rtol=0)
-
-
-def test_finite_delta_matches_hand_built():
-    _, ctx = _ctx()
-    chart = ctx.physical_charts[0]
-    # sampled order: F0, EPS1, EPS2, TASC, PB.
-    d_f0, d_e1, d_e2, d_ta, d_pb = 1e-9, 2e-4, -1e-4, 3e-4, 5e-5
-    vals = np.array([d_f0, d_e1, d_e2, d_ta, d_pb])
-    full = np.asarray(ctx.engine_delta_map.full_engine_delta(jnp.asarray(vals), jnp))
-
-    # Hand-built engine delta from the same absolute Kepler point.
-    eps1 = chart.eps1_ref + d_e1
-    eps2 = chart.eps2_ref + d_e2
-    tasc = float(chart.tasc_ref_str) + d_ta
-    pb = chart.pb_ref + d_pb
-    e_abs, om_abs, t0_abs = kepler_from_laplace(eps1, eps2, tasc, pb)
-    d_ecc = e_abs - chart.e_ref
-    d_om = unwrap_om_delta_deg(om_abs, float(chart.om_ref_norm_str))
-    d_t0 = t0_abs - float(chart.t0_ref_str)
-    s_ecc, s_om, s_t0 = chart.slots
-    assert full[0] == pytest.approx(d_f0)  # F0 unchanged
-    assert full[chart.pb_slot] == pytest.approx(d_pb)  # PB unchanged
-    assert full[s_ecc] == pytest.approx(d_ecc, abs=1e-12)
-    assert full[s_om] == pytest.approx(d_om, abs=1e-9)
-    assert full[s_t0] == pytest.approx(d_t0, abs=1e-9)
+# (test_zero_delta_residual_identity and test_finite_delta_matches_hand_built
+# live in test_physical_charts_residual_invariance.py — the spec §12.3 home for
+# residual-invariance checks; kept there only, to avoid duplication.)
 
 
 def test_all_marginalized_bit_identity():
@@ -473,11 +432,15 @@ def test_pint_prior_demotion_end_to_end():
         ntm_on.for_pulsar(_BinaryPulsarPINT(model), condition=False)
 
 
-def test_full_likelihood_origin_certification():
-    # The composed likelihood (chart -> engine -> Gaussian) has FINITE value,
-    # gradient, and Hessian diagonal over shrinking annuli approaching the
-    # eccentricity origin (NaN only at the exact origin, measure zero), and a
-    # leapfrog toward the origin produces no NaN.
+def test_composed_map_origin_finiteness_surrogate():
+    # SURROGATE finiteness gate (review: renamed from the normative
+    # test_full_likelihood_origin_certification to avoid implying strong
+    # coverage). The composed likelihood (chart -> engine -> Gaussian) has FINITE
+    # value, gradient, and Hessian diagonal over shrinking annuli approaching the
+    # eccentricity origin (NaN only at the exact origin, measure zero). The
+    # normative full origin certification (no 1/e blow-through, leapfrog
+    # stability, Discovery/Enterprise density) is a per-backend §12.6 gate on a
+    # real DD engine — see the NOTE below.
     #
     # NOTE (review): the stronger "no 1/e blow-through — cancellation survives
     # autodiff" claim is a *per-backend empirical* gate requiring a real DD

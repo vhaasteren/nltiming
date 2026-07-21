@@ -57,12 +57,19 @@ _SKIP_REASONS = (
 SECULAR_SEAM_PARAMS = ("OMDOT", "PBDOT", "EDOT", "A1DOT", "XDOT")
 
 # Binary-model families whose secular (post-Keplerian) evolution is DERIVED from
-# the model rather than exposed as explicit fitpars, so a name-search over
-# SECULAR_SEAM_PARAMS cannot see it (review: DDGR/T2 epoch coupling invisible to
-# the fallback). When the fallback recognizes such a model on the pulsar's PINT
-# object, it conservatively marks the GR-derived rates present so the seam guard
-# engages. This is a stopgap until engine adapters implement the authoritative
-# per-group ``binary_chart_capability`` (§2.4).
+# the model — unambiguously from the model NAME — rather than exposed as explicit
+# fitpars, so a name-search over SECULAR_SEAM_PARAMS cannot see it. When the
+# fallback recognizes such a model on the pulsar's PINT object it conservatively
+# marks the GR-derived rates present so the seam guard engages.
+#
+# T2 is deliberately NOT in this set (review): T2 is a *wrapper* whose secular
+# behavior depends on its resolved sub-model — a bare T2-DD binary has no
+# derived secular evolution, so flagging every T2 would spuriously demote many
+# healthy binaries. A T2 with active secular rates is caught by the explicit /
+# populated-value name search below when PINT exposes the values; a definitive
+# T2 (or any sub-model) determination needs binary-instance introspection, which
+# is the job of the authoritative per-group ``binary_chart_capability`` (§2.4)
+# on the engine adapter — this name-based fallback is the stopgap.
 _GR_DERIVED_BINARY_MODELS = frozenset({"DDGR"})
 _GR_DERIVED_SECULAR_TERMS = ("OMDOT", "PBDOT")
 

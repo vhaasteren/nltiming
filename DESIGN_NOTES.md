@@ -113,12 +113,17 @@ runtime/in-density guards) and certified at the composed-likelihood level.
 name-search fallback (`_present_secular_terms`) that inspects the pulsar's PINT
 model — including a binary-*type* check that flags GR-derived models (DDGR) whose
 post-Keplerian rates are computed internally and are invisible to a name search.
-Authoritative per-group `binary_chart_capability` on the JUG/PINT/tempo2 adapters
-is deferred: the nltiming engine adapters are constructed by MetaPulsar without
-the binary model plumbed in, and passing it would be a MetaPulsar-side change
-(out of scope). Until an adapter implements the method **and** passes the §12.6
-origin certification, `origin_certified` stays `False`, so low-e binaries whose
-EPS box contains the origin demote under `auto` (a conservative, honest default).
+Authoritative per-group `binary_chart_capability` on the engine adapters is
+**deferred, not blocked** (review correction): the `PintEngine` already wraps the
+PINT model (`from_contribution(model, toas, …)`), so a capability there needs
+**no MetaPulsar change** — it can inspect the binary instance directly for
+convention and active (explicit or derived) secular terms; the `JUG` engine needs
+JUG-session introspection, still nltiming-side. The strengthened name-search +
+DDGR fallback is the sanctioned interim. Separately, until an adapter both
+implements the method **and** passes the §12.6 origin certification,
+`origin_certified` stays `False`, so low-e binaries whose EPS box contains the
+origin demote under `auto` (a conservative, honest default; the chart benefit is
+unreachable on such pulsars until certification lands).
 
 ## Upstream tracks (parallel, non-blocking)
 
