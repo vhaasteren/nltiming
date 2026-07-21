@@ -510,6 +510,64 @@ This uses symmetric/adaptive PTMCMC proposals and is valid for full
 static whitening; `prior_draw_mode` only matters to proposal code that
 explicitly calls `Parameter.sample()`.
 
+### Marginalized dynamic decentering (PTMCMC)
+
+The Enterprise/PTMCMC realization of the third sampling mode — the twin of
+`sampling.numpyro.decentered_model`. Marginalize the well-determined timing
+axes and **all** GP coefficients into the live `C(η)`, and sample only the small
+nonlinear timing block `ξ` plus the free hyperparameters `η` with PTMCMC. No
+gradients are needed: the whitened `ξ` block is an identity-covariance target,
+which is a *good* PTMCMC proposal. Requires `whitening=None` (identity static
+layer) and fixed white noise (the flexfit WN-first MPE).
+
+```python
+from nltiming.decentering import NumpyMarginalTransport
+from nltiming.likelihoods.enterprise import enterprise_marginal_products
+from nltiming.sampling import ptmcmc
+
+# ctx built with whitening=None; `pta` as above (WN + red noise +
+# ntm.enterprise_signal()); noisedict pins every white-noise parameter;
+# eta_mpe are the WN-first MPE hyperparameters.
+products = enterprise_marginal_products(pta, ctx, fixed_wn_params=noisedict)
+hyper_names = products.params                 # sorted; delay keys + WN excluded (E8)
+transport = NumpyMarginalTransport(
+    products, dimension=len(ctx.plan.sampled), key=ctx.joint_site, params=hyper_names)
+
+sampler = ptmcmc.decentered_sampler(
+    pta, ctx, transport, outdir,
+    hyper_names=hyper_names,
+    hyper_bounds={n: (-20.0, -11.0) if "log10_A" in n else (0.0, 7.0)
+                  for n in hyper_names},
+    fixed=noisedict,
+)
+p0 = ptmcmc.decentered_initial_point(ctx, transport, hyper_names, eta_mpe)
+sampler.sample(p0, Niter=200_000)             # default jump groups: [xi block, eta block]
+```
+
+**Density accounting (E2–E4) — the part you own in the log-prior callable:**
+
+- The sampled vector *is* `[ξ | η]`; `decentered_target` builds `lnlike` /
+  `lnprior` so PTMCMC samples the exact reparameterized density (no
+  base-measure `+½‖ξ‖²` term — PTMCMC has no sites to cancel).
+- `lnprior` carries the exact timing prior `−½‖z‖²`, the transport
+  log-Jacobian `ldJ(η)`, and the `η` box normalizer — all on the **prior** side,
+  so parallel tempering never scales them (only `lnlike` is tempered by `1/T`).
+- **`pta.get_lnprior` is never called** in this mode: the Enterprise delay
+  `UserParameter`s carry physical priors that would double-count the timing prior
+  already in `−½‖z‖²`. That is why `decentered_target` builds its own `lnprior`.
+  (The identity-layer delay `UserParameter`s take the prior-normal `z`, not
+  physical δ; `decentered_target` injects `z` and physical-δ decoding happens
+  only at checkpoint time.)
+
+Decode / checkpoint with `run_io.save_ptmcmc_decentered_checkpoint`
+(`latent_decodable=false`; row-wise `decode_decentered_chain`), optionally
+recording the cold-start recipe via `decentered_reconstruction_recipe` +
+`attach_decentered_reconstruction`. Certify the geometry with the same
+`certify_decentered_geometry(model, ctx, ...)` used on the NumPyro path (T-E1
+proves both frontends share `C(η)`, so one certification covers both). Worked
+example:
+[`examples/notebooks/03_j1640_decentering_validation.ipynb`](examples/notebooks/03_j1640_decentering_validation.ipynb) §10.
+
 ### Multiple pulsars
 
 Each pulsar gets its own bound NLT signal instance and, under
