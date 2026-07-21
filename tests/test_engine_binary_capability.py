@@ -181,3 +181,50 @@ def test_composite_shared_binary_agreement_and_disagreement():
         ),
     )
     assert disagree.binary_chart_capability("kepler_laplace", "") is None
+
+
+# ---------------------------------------------------------------------------
+# JUG facts (source of truth) + JugEngine translator (§2.4.1 steps a/b).
+# ---------------------------------------------------------------------------
+
+
+def test_jug_binary_chart_facts():
+    pytest.importorskip("jug")
+    from jug.fitting.binary_delay_plan import binary_chart_facts
+
+    base = {"A1": 1.0, "PB": 8.0, "ECC": 8e-4, "OM": 50.7, "T0": 55000.0}
+    dd = binary_chart_facts({**base, "BINARY": "DD"}, [])
+    assert dd.convention_family == "dd" and dd.epoch_shift_exact is True
+    omdot = binary_chart_facts({**base, "BINARY": "DD", "OMDOT": 1.2e-3}, [])
+    assert omdot.epoch_shift_exact is False and "OMDOT" in omdot.secular_terms
+    # DDGR derives OMDOT/PBDOT internally (invisible to a name search).
+    ddgr = binary_chart_facts({**base, "BINARY": "DDGR"}, [])
+    assert ddgr.epoch_shift_exact is False
+    assert {"OMDOT", "PBDOT"} <= set(ddgr.secular_terms)
+    assert binary_chart_facts({"F0": 100.0}, []) is None
+
+
+def test_jug_engine_translates_facts():
+    pytest.importorskip("jug")
+    from nltiming.engines.jug import JugEngine
+
+    class _LM:
+        fitpars = ("ECC", "OM", "T0", "PB")
+        native_units: dict[str, str] = {}
+
+    class _Facts:
+        convention_family = "dd"
+        epoch_shift_exact = False
+        secular_terms = ("OMDOT", "PBDOT")
+
+    eng = JugEngine(state=None, linear_model=_LM())
+    # No facts resolved (direct construction) -> None -> candidacy fallback.
+    assert eng.binary_chart_capability("kepler_laplace", "") is None
+    # With facts, the translator maps them 1:1 (adding nltiming-owned fields).
+    eng._binary_facts = _Facts()
+    cap = eng.binary_chart_capability("kepler_laplace", "")
+    assert isinstance(cap, BinaryChartCapability)
+    assert cap.kepler_convention == "dd" and cap.epoch_shift_exact is False
+    assert cap.secular_terms == ("OMDOT", "PBDOT")
+    assert cap.origin_certified is False and cap.supports_domain is True
+    assert eng.binary_chart_capability("shapiro", "") is None

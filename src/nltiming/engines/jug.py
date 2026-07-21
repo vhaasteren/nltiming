@@ -29,6 +29,21 @@ _ECLIPTIC_FITPARS = frozenset(
 )
 
 
+def _resolve_binary_facts(session: Any, fit_params: tuple[str, ...]):
+    """Compute JUG's authoritative binary-chart facts from a session, degrading
+    to ``None`` (→ candidacy fallback) on any resolution failure — an
+    unsupported/absent binary must never break engine construction."""
+    try:
+        from jug.fitting.binary_delay_plan import binary_chart_facts
+
+        params = getattr(session, "params", None)
+        if not params:
+            return None
+        return binary_chart_facts(params, list(fit_params))
+    except Exception:
+        return None
+
+
 class JugEngine:
     """Native JUG engine with NumPy and pure-JAX residual-delta paths.
 
@@ -69,6 +84,10 @@ class JugEngine:
         self._exact_linear_indices: tuple[int, ...] = tuple()
         self._jug_fitpars: tuple[str, ...] = self.fitpars
         self._jug_indices: tuple[int, ...] = tuple(range(len(self.fitpars)))
+        # Authoritative Kepler↔Laplace chart facts (§2.4.1), resolved once from
+        # the JUG session at from_contribution time; None for direct/test-double
+        # construction (→ candidacy fallback).
+        self._binary_facts: Any = None
 
     @classmethod
     def from_contribution(
@@ -134,7 +153,30 @@ class JugEngine:
         engine._jug_fitpars = tuple(jug_fitpars)
         engine._jug_indices = tuple(fitpars.index(name) for name in jug_fitpars)
         engine.compatibility = str(getattr(state, "compatibility", compatibility))
+        engine._binary_facts = _resolve_binary_facts(session, tuple(jug_fitpars))
         return engine
+
+    def binary_chart_capability(self, chart_family: str, suffix: str):
+        """Authoritative §2.4 capability, translated from JUG's binary facts
+        (ownership split §2.4.1: JUG owns the physics, this is a thin
+        translator). ``None`` (→ candidacy fallback) when the family is not ours
+        or JUG could not resolve the binary. ``origin_certified`` /
+        ``supports_domain`` are nltiming-owned, not backend facts.
+        """
+        if chart_family != "kepler_laplace":
+            return None
+        facts = getattr(self, "_binary_facts", None)
+        if facts is None:
+            return None
+        from nltiming.protocols import BinaryChartCapability
+
+        return BinaryChartCapability(
+            kepler_convention=facts.convention_family,  # 'dd' | 'ell1' | 'other'
+            epoch_shift_exact=bool(facts.epoch_shift_exact),
+            secular_terms=tuple(facts.secular_terms),
+            origin_certified=False,  # flip only via a passing §12.6 cert PR
+            supports_domain=True,
+        )
 
     def exact_linear_fitpars(self) -> frozenset[str]:
         """Pulsar fitpars evaluated exactly via the design matrix."""
