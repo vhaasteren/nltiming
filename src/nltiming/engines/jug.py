@@ -252,7 +252,12 @@ class JugEngine:
         return np.asarray(self._model.design, dtype=float)
 
     def linearized_design_matrix(self, params: Any | None = None) -> np.ndarray:
-        """Return JUG-owned linearized residual columns in engine fitpar order."""
+        """Return the JUG effective residual-Jacobian basis in fitpar order.
+
+        Exact-linear fallback columns are negated here only. This is a
+        decentering/design-matrix convention fix; ``residual_delta`` and
+        ``residual_delta_jax`` retain their native JUG behavior.
+        """
         design = np.asarray(self._model.design, dtype=float).copy()
         jug_matrix = np.asarray(self._state.design_matrix, dtype=float)
         param_mapping = dict(getattr(self._state, "param_mapping", ()))
@@ -277,6 +282,8 @@ class JugEngine:
                         "design_matrix_method='analytic' or exact_linear for "
                         "ecliptic params until fixed."
                     )
+        for model_col in getattr(self, "_exact_linear_indices", tuple()):
+            design[:, model_col] = -design[:, model_col]
         return design
 
     def residual_delta_jax(self, delta_theta: Any) -> Any:

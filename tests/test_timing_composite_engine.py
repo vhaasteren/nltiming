@@ -11,7 +11,7 @@ from nltiming.engines.composite import (
     build_composite_engine,
 )
 from nltiming.engines import build_engine
-from nltiming.engines.jug import LinearizedJugEngine
+from nltiming.engines.jug import JugEngine, LinearizedJugEngine
 from nltiming.engines.pint import LinearizedPintEngine
 
 
@@ -183,6 +183,42 @@ def test_mapped_but_unevaluable_param_uses_exact_linear_design_column():
     )
     np.testing.assert_allclose(exact_backend.residual_delta(delta), [30.0, 33.0])
     np.testing.assert_allclose(exact_backend.design_matrix()[:, 1], [10.0, 11.0])
+
+
+def test_composite_keeps_jug_effective_exact_linear_column():
+    model = LinearModel.from_design(
+        fitpars=("PB", "JUMP"),
+        design=np.array([[2.0, 10.0], [3.0, 11.0]], dtype=float),
+        theta_exact={"PB": "1.0", "JUMP": "0.0"},
+    )
+
+    class _State:
+        design_matrix = model.design[:, :1]
+        param_mapping = ()
+
+    jug = JugEngine(state=_State(), linear_model=model)
+    jug._jug_indices = (0,)
+    jug._jug_fitpars = ("PB",)
+    jug._exact_linear_indices = (1,)
+    jug._exact_linear_fitpars = frozenset({"JUMP"})
+    engine = build_composite_engine(
+        fitpars=model.fitpars,
+        nrows=2,
+        contributions=[
+            PtaContribution(
+                name="pta",
+                row_indices=np.array([0, 1]),
+                engine=jug,
+                exact_linear_fitpars=frozenset({"JUMP"}),
+            )
+        ],
+        design_matrix=model.design,
+    )
+
+    np.testing.assert_allclose(engine.design_matrix(), model.design)
+    expected = model.design.copy()
+    expected[:, 1] *= -1
+    np.testing.assert_allclose(engine.linearized_design_matrix(), expected)
 
 
 def test_build_engine_accepts_mixed_engine_families():

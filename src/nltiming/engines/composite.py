@@ -242,9 +242,14 @@ class PulsarTimingEngine:
                         "pulsar design matrix was provided"
                     )
                 for name in contribution.exact_linear_fitpars:
-                    out[rows, self._global_index[name]] = self._design_matrix[
-                        rows, self._global_index[name]
-                    ]
+                    # A leaf that owns this fitpar has already supplied its
+                    # effective linearized column (JUG negates its exact-linear
+                    # columns for decentering). Only host-only fallback axes
+                    # need injection from the canonical fitter matrix.
+                    if name not in contribution.engine.fitpars:
+                        out[rows, self._global_index[name]] = self._design_matrix[
+                            rows, self._global_index[name]
+                        ]
         return out
 
 

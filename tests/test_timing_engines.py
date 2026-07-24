@@ -175,6 +175,7 @@ def test_jug_engine_adds_exact_linear_to_numpy_and_jax_paths():
         theta_exact={"PB": "1.0", "Offset": "0.0"},
     )
     state = _FakeJaxState()
+    state.design_matrix = model.design[:, :1].copy()
     state.residual_delta_np = lambda delta: model.design[:, :1] @ np.asarray(
         delta, dtype=float
     )
@@ -199,6 +200,9 @@ def test_jug_engine_adds_exact_linear_to_numpy_and_jax_paths():
     np.testing.assert_allclose(
         np.asarray(engine.residual_delta_jax(jnp.asarray(delta))),
         expected,
+    )
+    np.testing.assert_allclose(
+        engine.linearized_design_matrix()[:, 1], -model.design[:, 1]
     )
 
 
