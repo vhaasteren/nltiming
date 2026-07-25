@@ -14,8 +14,16 @@ from .pint_compat import (
 )
 
 # Physical domains for prior clipping (not unit metadata).
-_NON_NEGATIVE = {"PB", "FB0", "A1", "M2", "MTOT", "MP", "H3", "PX", "PBDOT"}
-_UNIT_INTERVAL = {"ECC", "E", "SINI", "STIGMA"}
+# PX, PBDOT, and H3 are signed timing-fit parameters: PBDOT is negative for
+# GR orbital decay, PX is a linear-response estimator that may fit negative,
+# and H3 is a signed orthometric Shapiro amplitude (the delay is linear in
+# it; a weak-signal fit legitimately crosses zero — same policy as PINT's
+# DDH). Positivity, when scientifically desired, is an explicit prior
+# choice rather than a universal coordinate domain.
+_NON_NEGATIVE = {"PB", "FB0", "A1", "M2", "MTOT", "MP", "STIGMA"}
+# STIGMA is not unit-interval: sigma = tan(i/2) exceeds 1 for i > 90 deg
+# (e.g. J1902-5105, STIG = 1.154); its physical domain is (0, inf).
+_UNIT_INTERVAL = {"ECC", "E", "SINI"}
 _KIN_INTERVAL_DEG = (0.0, 180.0)
 
 

@@ -94,6 +94,91 @@ def test_prior_center_recovers_when_engine_reference_is_outside():
     assert lin.source == "prior_center"
 
 
+class _SignedDomainPulsar:
+    """Pulsar whose engine references exercise signed / σ>1 physical domains."""
+
+    def __init__(self):
+        self.name = "J1234+5678"
+        self.fitpars = ("PX", "PBDOT", "H3", "STIGMA")
+        n = 12
+        t = np.linspace(0.0, 1.0, n)
+        # Weak columns → wide WLS cheat boxes so clipped physical bounds (not
+        # the empty-box fallback) would exclude delta=0 under the old domains.
+        design = 1.0e-12 * np.column_stack(
+            [np.ones(n), t - 0.5, np.sin(3.0 * t), np.cos(2.0 * t)]
+        )
+        self._toas = t * 3.15e7 + 5.3e4
+        self._residuals = 1e-6 * np.sin(5.0 * t)
+        self._toaerrs = np.full(n, 1.0e-6)
+        self._freqs = np.full(n, 1400.0)
+        self._backend_flags = np.array(["demo"] * n, dtype="U8")
+        self._flags = {"pta": self._backend_flags}
+        model = LinearModel.from_design(
+            fitpars=self.fitpars,
+            design=design,
+            theta_exact={
+                "PX": "-0.37",
+                "PBDOT": "-1.7e-12",
+                "H3": "-2e-8",
+                "STIGMA": "1.154",
+            },
+        )
+        self._backend = LinearizedJugEngine.from_linear_model(model)
+
+    @property
+    def toas(self):
+        return self._toas
+
+    @property
+    def residuals(self):
+        return self._residuals
+
+    @property
+    def toaerrs(self):
+        return self._toaerrs
+
+    @property
+    def freqs(self):
+        return self._freqs
+
+    @property
+    def Mmat(self):
+        return self._backend.design_matrix()
+
+    @property
+    def flags(self):
+        return self._flags
+
+    @property
+    def backend_flags(self):
+        return self._backend_flags
+
+    def state_id(self):
+        return "signed-domain-token"
+
+    def pint_model(self):
+        return None
+
+    def timing_engine(self, engines="jug", **kwargs):
+        return self._backend
+
+
+def test_engine_reference_admits_signed_px_pbdot_h3_and_stigma_above_one():
+    # Default wide_default + engine_reference must keep delta=0 interior for
+    # negative PX/PBDOT/H3 and STIGMA>1 (formerly clipped out of the cheat box).
+    # identically_linear=[] forces the uniform cheat-box path (LinearTimingEngine
+    # otherwise declares every axis identically linear → unbounded Gaussians).
+    model = NonLinearTimingModel(
+        engines="jug",
+        inference=TimingInference.sample_all(),
+        identically_linear=[],
+        name="timing",
+    )
+    lin = model.for_pulsar(_SignedDomainPulsar(), condition=False).linearization
+    assert lin.source == "engine_reference"
+    np.testing.assert_allclose(lin.delta_expansion, np.zeros(4))
+
+
 def test_large_affine_normal_expansion_is_not_boundary_failure():
     # Gaussian (affine_normal) charts are unbounded: a large explicit delta is
     # representable and never a boundary failure.
