@@ -87,7 +87,8 @@ def test_vela_engine_routes_unsupported_params_to_exact_linear():
     out = engine.residual_delta(delta)
     spnta = _MockSPNTA()
     nonlinear = spnta.response @ (delta[:3] * spnta.scale_factors)
-    exact = model.design[:, [3, 4]] @ delta[[3, 4]]
+    # Exact-linear path follows the fitter sign contract residual ≈ -M δ.
+    exact = -(model.design[:, [3, 4]] @ delta[[3, 4]])
     np.testing.assert_allclose(out, nonlinear + exact)
 
 
@@ -128,9 +129,19 @@ def test_normalize_engines_accepts_vela_for_pint_family():
         normalize_engines({"tempo2": "vela"})
 
 
-def test_delta_engine_subtracts_weighted_phase_mean_by_default():
+def test_delta_engine_is_gauge_free_by_default():
+    """Default phase_mean_mode=None exports residuals with no mean removal."""
     spnta = _MockSPNTA()
     engine = VelaDeltaEngine(spnta)
+    delta = engine.delta_residuals({"F0": 1.0})
+    raw_delta = spnta.response @ np.array([1.0 * 2.0, 0.0, 0.0])
+    np.testing.assert_allclose(delta, raw_delta)
+    assert abs(delta.mean()) > 1e-15
+
+
+def test_delta_engine_subtracts_weighted_phase_mean_when_enabled():
+    spnta = _MockSPNTA()
+    engine = VelaDeltaEngine(spnta, phase_mean_mode="weighted")
     delta = engine.delta_residuals({"F0": 1.0})
     raw_delta = spnta.response @ np.array([1.0 * 2.0, 0.0, 0.0])
     # Mock uncertainties are uniform, so the weighted mean is the plain mean.

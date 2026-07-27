@@ -104,8 +104,16 @@ def test_engine_linearity_declaration_via_linear_engine():
     from nltiming.engines.base import LinearModel, LinearTimingEngine
 
     fitpars = ("F0", "F1", "DM")
+    from nltiming.protocols import GaugeProvenance
+
     eng = LinearTimingEngine(
-        LinearModel.from_design(fitpars=fitpars, design=np.eye(3))
+        LinearModel.from_design(fitpars=fitpars, design=np.eye(3)),
+        gauge_provenance=GaugeProvenance(
+            export="none",
+            reference_mode="unknown",
+            reporting_mode="mean",
+            reporting_weighted=True,
+        ),
     )
     res = resolve_linearity(_Pulsar(fitpars), eng)
     assert res.effective_names == set(fitpars)

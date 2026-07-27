@@ -21,7 +21,7 @@ from nltiming.whitening import schur_delta_wls
 class _Pulsar:
     def __init__(self):
         self.name = "J0000+0000"
-        self.fitpars = ("F0", "F1", "DM")
+        self.fitpars = ("Offset", "F0", "F1", "DM")
         self._toas = np.linspace(0.0, 1.0, 8)
         self._residuals = np.linspace(-2e-6, 2e-6, 8)
         self._toaerrs = np.full(8, 1.0e-6, dtype=float)
@@ -30,26 +30,23 @@ class _Pulsar:
         self._backend_flags = np.array(["demo"] * 8, dtype="U8")
         self._state_id = "token-v1"
         self.backend_calls = []
-        self.default_analytically_marginalize = ["F0", "DM"]
+        self.default_analytically_marginalize = ["Offset", "F0", "DM"]
 
-        design = np.array(
+        # Offset = constant gauge column; F0 must not be collinear with it.
+        t = np.linspace(0.0, 1.0, 8)
+        design = np.column_stack(
             [
-                [1.0, 0.0, 0.2],
-                [1.0, 0.1, 0.3],
-                [1.0, 0.2, -0.1],
-                [1.0, -0.3, 0.4],
-                [1.0, 0.4, -0.2],
-                [1.0, -0.5, 0.1],
-                [1.0, 0.6, -0.2],
-                [1.0, -0.7, 0.3],
-            ],
-            dtype=float,
-        )
+                np.ones(8),
+                t - 0.5,
+                np.array([0.0, 0.1, 0.2, -0.3, 0.4, -0.5, 0.6, -0.7]),
+                np.array([0.2, 0.3, -0.1, 0.4, -0.2, 0.1, -0.2, 0.3]),
+            ]
+        ).astype(float)
         self._design = design
         model = LinearModel.from_design(
             fitpars=self.fitpars,
             design=design,
-            theta_exact={"F0": "10.0", "F1": "1.0", "DM": "5.0"},
+            theta_exact={"Offset": "0.0", "F0": "10.0", "F1": "1.0", "DM": "5.0"},
         )
         self._jug_backend = LinearizedJugEngine.from_linear_model(model)
         self._pint_backend = LinearizedPintEngine.from_linear_model(model)
@@ -126,9 +123,8 @@ def _schur_fisher(pulsar, *, analytically_marginalize, variance):
 
 def _autodiff_test_matrix(pulsar):
     design = np.asarray(pulsar.Mmat, dtype=float).copy()
-    design[:, 0] *= 2.0
-    design[:, 1] *= 3.0
-    design[:, 2] *= 4.0
+    for j in range(design.shape[1]):
+        design[:, j] *= float(j + 2)
     return design
 
 
@@ -154,7 +150,7 @@ def test_component_config_only_build_and_with_engines():
     ntm = NonLinearTimingModel(
         engines="jug",
         whitening=WhiteningConfig(),
-        inference=TimingInference.groups(delta_flat=["F0"]),
+        inference=TimingInference.groups(delta_flat=["Offset", "F0"]),
         prior_policy="wide_default",
         name="timing",
     )
@@ -172,7 +168,7 @@ def test_space_cached_and_invalidated_by_state_id(pulsar):
     ntm = NonLinearTimingModel(
         engines="jug",
         whitening=WhiteningConfig(),
-        inference=TimingInference.groups(delta_flat=["F0", "DM"]),
+        inference=TimingInference.groups(delta_flat=["Offset", "F0", "DM"]),
         name="timing",
     )
     first = ntm.for_pulsar(pulsar).space
@@ -191,11 +187,11 @@ def test_whitening_config_roundtrip_and_space_shape(pulsar):
     ntm_default = NonLinearTimingModel(
         engines="jug",
         whitening=WhiteningConfig(),
-        inference=TimingInference.groups(delta_flat=["F0", "DM"]),
+        inference=TimingInference.groups(delta_flat=["Offset", "F0", "DM"]),
     )
     ntm_toa = NonLinearTimingModel(
         engines="jug",
-        inference=TimingInference.groups(delta_flat=["F0", "DM"]),
+        inference=TimingInference.groups(delta_flat=["Offset", "F0", "DM"]),
         whitening=WhiteningConfig(reference_noise="toa_errors"),
     )
     sp_default = ntm_default.for_pulsar(pulsar).space
@@ -238,19 +234,21 @@ def test_whitening_builders_condition_fisher_to_unit_scale(pulsar):
 
 def test_autodiff_design_matrix_method_feeds_whitening(pulsar):
     autodiff_matrix = _autodiff_test_matrix(pulsar)
-    pulsar._jug_backend.linearized_design_matrix = lambda params=None: autodiff_matrix
+    pulsar._jug_backend.residual_jacobian = lambda: -np.asarray(
+        autodiff_matrix, dtype=float
+    )
     ntm = NonLinearTimingModel(
         engines="jug",
-        design_matrix_method="autodiff",
+        derivative_method="autodiff",
         whitening=WhiteningConfig(),
-        inference=TimingInference.groups(delta_flat=["F0", "DM"]),
+        inference=TimingInference.groups(delta_flat=["Offset", "F0", "DM"]),
         name="timing",
     )
 
     resolved = ntm.for_pulsar(pulsar)
     np.testing.assert_allclose(resolved.design_matrix, autodiff_matrix)
 
-    part = plan_for(pulsar, delta_flat=["F0", "DM"])
+    part = plan_for(pulsar, delta_flat=["Offset", "F0", "DM"])
     expected_fisher = schur_delta_wls(
         pulsar=pulsar,
         partition=part,
@@ -303,10 +301,12 @@ def test_cheat_wls_prior_is_wide_uniform_box(pulsar):
 
 def test_autodiff_design_matrix_method_feeds_cheat_prior_widths(pulsar):
     autodiff_matrix = _autodiff_test_matrix(pulsar)
-    pulsar._jug_backend.linearized_design_matrix = lambda params=None: autodiff_matrix
+    pulsar._jug_backend.residual_jacobian = lambda: -np.asarray(
+        autodiff_matrix, dtype=float
+    )
     ntm = NonLinearTimingModel(
         engines="jug",
-        design_matrix_method="autodiff",
+        derivative_method="autodiff",
         whitening=WhiteningConfig(),
         inference=TimingInference.sample_all(),
         identically_linear=[],
@@ -334,12 +334,18 @@ def test_cheat_prior_box_clipped_to_physical_bounds():
     class _BoundedHost(_Pulsar):
         def __init__(self):
             super().__init__()
-            self.fitpars = ("ECC", "F1", "DM")
+            self.fitpars = ("Offset", "ECC", "F1", "DM")
             self._ecc_ref = 1.0e-5
+            # Reuse Offset + three independent columns; rename F0 → ECC.
             model = LinearModel.from_design(
                 fitpars=self.fitpars,
                 design=self._design,
-                theta_exact={"ECC": repr(self._ecc_ref), "F1": "1.0", "DM": "5.0"},
+                theta_exact={
+                    "Offset": "0.0",
+                    "ECC": repr(self._ecc_ref),
+                    "F1": "1.0",
+                    "DM": "5.0",
+                },
             )
             self._jug_backend = LinearizedJugEngine.from_linear_model(model)
 
@@ -347,14 +353,14 @@ def test_cheat_prior_box_clipped_to_physical_bounds():
     ntm = NonLinearTimingModel(
         engines="jug",
         whitening=WhiteningConfig(),
-        inference=TimingInference.groups(delta_flat=["F1", "DM"]),
+        inference=TimingInference.groups(delta_flat=["Offset", "F1", "DM"]),
         identically_linear=[],
         name="timing",
     )
     block = ntm.for_pulsar(bounded).priors
     fisher = _schur_fisher(
         bounded,
-        analytically_marginalize=["F1", "DM"],
+        analytically_marginalize=["Offset", "F1", "DM"],
         variance=np.asarray(bounded.toaerrs, dtype=float) ** 2,
     )
     sigma_ecc = float(np.sqrt(_covariance_from_fisher(fisher)[0, 0]))
@@ -372,18 +378,20 @@ def test_discovery_signals_delta_only_and_jax_gate(pulsar):
     ntm = NonLinearTimingModel(
         engines="jug",
         whitening=WhiteningConfig(),
-        inference=TimingInference.groups(delta_flat=["F0", "DM"]),
+        inference=TimingInference.groups(delta_flat=["Offset", "F0", "DM"]),
         name="timing",
     )
     signals = ntm.for_pulsar(pulsar).discovery_signals()
     delay = signals[-1]
     output = np.asarray(delay({f"{pulsar.name}_timing_F1": 0.25}), dtype=float)
-    expected = -pulsar._jug_backend.residual_delta(np.array([0.0, 0.25, 0.0]))
+    expected = -pulsar._jug_backend.residual_delta(
+        np.array([0.0, 0.0, 0.25, 0.0])
+    )
     np.testing.assert_allclose(output, expected)
 
     ntm_nonjax = NonLinearTimingModel(
         engines={"tempo2": "jug", "pint": "pint"},
-        inference=TimingInference.groups(delta_flat=["F0", "DM"]),
+        inference=TimingInference.groups(delta_flat=["Offset", "F0", "DM"]),
         name="timing",
     )
     with pytest.raises(ValueError, match="JAX-capable engine"):
@@ -392,7 +400,9 @@ def test_discovery_signals_delta_only_and_jax_gate(pulsar):
 
 def test_autodiff_design_matrix_method_feeds_discovery_gp_basis(pulsar, monkeypatch):
     autodiff_matrix = _autodiff_test_matrix(pulsar)
-    pulsar._jug_backend.linearized_design_matrix = lambda params=None: autodiff_matrix
+    pulsar._jug_backend.residual_jacobian = lambda: -np.asarray(
+        autodiff_matrix, dtype=float
+    )
     captured = {}
 
     def fake_makegp_improper(psr, basis, *, constant, name):
@@ -404,9 +414,9 @@ def test_autodiff_design_matrix_method_feeds_discovery_gp_basis(pulsar, monkeypa
     monkeypatch.setattr("discovery.signals.makegp_improper", fake_makegp_improper)
     ntm = NonLinearTimingModel(
         engines="jug",
-        design_matrix_method="autodiff",
+        derivative_method="autodiff",
         whitening=WhiteningConfig(),
-        inference=TimingInference.groups(delta_flat=["F0", "DM"]),
+        inference=TimingInference.groups(delta_flat=["Offset", "F0", "DM"]),
         name="timing",
     )
 
@@ -414,7 +424,8 @@ def test_autodiff_design_matrix_method_feeds_discovery_gp_basis(pulsar, monkeypa
 
     assert signals[0] == "gp"
     np.testing.assert_allclose(
-        captured["basis"], normalized_basis(autodiff_matrix[:, [0, 2]])
+        captured["basis"],
+        normalized_basis(autodiff_matrix[:, [0, 1, 3]]),  # Offset, F0, DM
     )
     assert not hasattr(pulsar, "iisort")
 
@@ -422,7 +433,7 @@ def test_autodiff_design_matrix_method_feeds_discovery_gp_basis(pulsar, monkeypa
 def test_all_analytically_marginalized_paths(pulsar):
     ntm = NonLinearTimingModel(
         engines={"tempo2": "jug", "pint": "pint"},
-        inference=TimingInference.groups(delta_flat=["F0", "F1", "DM"]),
+        inference=TimingInference.groups(delta_flat=["Offset", "F0", "F1", "DM"]),
         name="timing",
     )
     assert len(ntm.for_pulsar(pulsar).discovery_signals()) == 1
@@ -436,7 +447,7 @@ def test_non_timing_params_and_timing_param_keys_are_plain_set_subtraction(pulsa
     ntm = NonLinearTimingModel(
         engines="jug",
         whitening=WhiteningConfig(),
-        inference=TimingInference.groups(delta_flat=["F0", "DM"]),
+        inference=TimingInference.groups(delta_flat=["Offset", "F0", "DM"]),
         name="timing",
     )
     keys = ntm.for_pulsar(pulsar).timing_param_keys()
@@ -451,7 +462,7 @@ def test_non_timing_params_and_timing_param_keys_are_plain_set_subtraction(pulsa
 
     ntm_all_marg = NonLinearTimingModel(
         engines="jug",
-        inference=TimingInference.groups(delta_flat=["F0", "F1", "DM"]),
+        inference=TimingInference.groups(delta_flat=["Offset", "F0", "F1", "DM"]),
         name="timing",
     )
     plain = ("efac", "gamma", "log10_A")
@@ -465,7 +476,7 @@ def test_sample_timing_x_site_samples_and_injects_delta_deterministic(
     ntm = NonLinearTimingModel(
         engines="jug",
         whitening=WhiteningConfig(),
-        inference=TimingInference.groups(delta_flat=["F0", "DM"]),
+        inference=TimingInference.groups(delta_flat=["Offset", "F0", "DM"]),
         name="timing",
     )
     calls = _monkeypatch_numpyro(monkeypatch, sample_value=np.array([0.2]))
@@ -489,7 +500,7 @@ def test_sample_timing_x_site_samples_and_injects_delta_deterministic(
 def test_sample_timing_noop_when_no_sampled(pulsar, monkeypatch):
     ntm = NonLinearTimingModel(
         engines="jug",
-        inference=TimingInference.groups(delta_flat=["F0", "F1", "DM"]),
+        inference=TimingInference.groups(delta_flat=["Offset", "F0", "F1", "DM"]),
         name="timing",
     )
     calls = _monkeypatch_numpyro(monkeypatch, sample_value=np.array([]))
@@ -503,7 +514,7 @@ def test_sample_timing_noop_when_no_sampled(pulsar, monkeypatch):
 def test_set_prior_validated_against_sampled_partition(pulsar):
     ntm = NonLinearTimingModel(
         engines="jug",
-        inference=TimingInference.groups(delta_flat=["F0", "DM"]),
+        inference=TimingInference.groups(delta_flat=["Offset", "F0", "DM"]),
         prior_override_policy="strict",
         name="timing",
     )
@@ -516,7 +527,7 @@ def test_set_prior_validated_against_sampled_partition(pulsar):
 def test_set_prior_unknown_name_raises(pulsar):
     ntm = NonLinearTimingModel(
         engines="jug",
-        inference=TimingInference.groups(delta_flat=["F0", "DM"]),
+        inference=TimingInference.groups(delta_flat=["Offset", "F0", "DM"]),
         prior_override_policy="strict",
         name="timing",
     )
@@ -528,7 +539,7 @@ def test_set_prior_unknown_name_raises(pulsar):
 def test_enterprise_signal_forwards_engines(pulsar):
     ntm = NonLinearTimingModel(
         engines="jug",
-        inference=TimingInference.groups(delta_flat=["F0", "DM"]),
+        inference=TimingInference.groups(delta_flat=["Offset", "F0", "DM"]),
         name="timing",
     )
     ent = ntm.enterprise_signal()
@@ -537,17 +548,19 @@ def test_enterprise_signal_forwards_engines(pulsar):
     # with the model's full timing_engine kwargs (not a bare re-query).
     engines_seen, kwargs_seen = pulsar.backend_calls[-1]
     assert engines_seen == {"tempo2": "jug", "pint": "jug"}
-    assert kwargs_seen["design_matrix_method"] == "analytic"
+    assert kwargs_seen["derivative_method"] == "analytic"
     assert kwargs_seen["subtract_tzr"] is False
 
 
 def test_autodiff_design_matrix_method_feeds_enterprise_gp_basis(pulsar):
     autodiff_matrix = _autodiff_test_matrix(pulsar)
-    pulsar._jug_backend.linearized_design_matrix = lambda params=None: autodiff_matrix
+    pulsar._jug_backend.residual_jacobian = lambda: -np.asarray(
+        autodiff_matrix, dtype=float
+    )
     ntm = NonLinearTimingModel(
         engines="jug",
-        design_matrix_method="autodiff",
-        inference=TimingInference.groups(delta_flat=["F0", "DM"]),
+        derivative_method="autodiff",
+        inference=TimingInference.groups(delta_flat=["Offset", "F0", "DM"]),
         name="timing",
     )
 
@@ -555,7 +568,8 @@ def test_autodiff_design_matrix_method_feeds_enterprise_gp_basis(pulsar):
     bound = ent(pulsar)
 
     np.testing.assert_allclose(
-        bound.get_basis(), normalized_basis(autodiff_matrix[:, [0, 2]])
+        bound.get_basis(),
+        normalized_basis(autodiff_matrix[:, [0, 1, 3]]),  # Offset, F0, DM
     )
 
 
@@ -563,7 +577,7 @@ def test_sample_timing_x_site_has_vector_event_shape(pulsar):
     ntm = NonLinearTimingModel(
         engines="jug",
         whitening=WhiteningConfig(),
-        inference=TimingInference.groups(delta_flat=["F0", "DM"]),
+        inference=TimingInference.groups(delta_flat=["Offset", "F0", "DM"]),
         name="timing",
     )
 
@@ -684,7 +698,7 @@ def test_whitening_vector_parameter_is_joint_and_size_one_stays_a_vector(pulsar)
     ntm = NonLinearTimingModel(
         engines="jug",
         whitening=WhiteningConfig(),
-        inference=TimingInference.groups(delta_flat=["F0", "DM"]),
+        inference=TimingInference.groups(delta_flat=["Offset", "F0", "DM"]),
         name="timing",
     )
     bound = ntm.enterprise_signal()(pulsar)
@@ -707,7 +721,7 @@ def test_whitening_vector_sample_and_ppf_describe_the_same_distribution(pulsar):
     ntm = NonLinearTimingModel(
         engines="jug",
         whitening=WhiteningConfig(),
-        inference=TimingInference.groups(delta_flat=["DM"]),
+        inference=TimingInference.groups(delta_flat=["Offset", "DM"]),
         name="timing",
     )
     bound = ntm.enterprise_signal()(pulsar)

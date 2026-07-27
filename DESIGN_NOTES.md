@@ -34,7 +34,7 @@ consumers.
 ## Engineering caveats
 
 **Tempo2 / JUG nonlinear path** — default tempo2 nonlinear fits should use
-`design_matrix_method="autodiff"`, not analytic columns for the full nonlinear
+`derivative_method="autodiff"`, not analytic columns for the full nonlinear
 tangent. Pulsar residual agreement is at the picosecond tier on curated fixtures;
 see JUG's agreement checks for production coverage.
 

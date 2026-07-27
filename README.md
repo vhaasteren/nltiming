@@ -4,6 +4,13 @@ Nonlinear pulsar-timing likelihood components for
 [Discovery](https://github.com/nanograv/discovery) and
 [Enterprise](https://github.com/nanograv/enterprise).
 
+**Phase gauge.** Engines export gauge-free `residual_delta` /
+`residual_jacobian` (\(J=-M\)). `design_matrix` / \(M\) is the delay tangent
+(fitter sign). `derivative_method="analytic"|"autodiff"` selects the route to
+\(M\) (`pulsar.Mmat` vs `-residual_jacobian()`), not a different object. The
+old `waveform_jacobian` noun is deleted. Design notes:
+[`feature_phase_gauge.md`](../jug/feature_phase_gauge.md) (in the JUG checkout).
+
 Instead of holding every timing parameter fixed at its par-file value (or
 only analytically marginalizing a linear timing model), `nltiming` lets you
 choose — per fitpar — whether to *numerically sample* that axis or
@@ -756,7 +763,7 @@ assembled likelihood builds class 3 and marks it non-`approximate`.
 A persisted run is a **scientific record**: decode it with the exact space it
 was sampled with, and build a live model only for fresh calculations. A valid
 read needs only the on-disk products — `nlt_run_meta.json` (schema
-`nlt-run-meta-v3`) plus the serialized `ParameterSpace` and the raw chain — never
+`nlt-run-meta-v4`) plus the serialized `ParameterSpace` and the raw chain — never
 a live PTA, Discovery model, or PINT reload.
 
 ```python
@@ -818,7 +825,7 @@ from nltiming.space import ParameterSpace
 timing = TimingEvaluator.from_pulsar(
     pulsar,
     engines={"pint": "jug", "tempo2": "jug"},
-    design_matrix_method="autodiff",
+    derivative_method="autodiff",
 )
 
 timing.parameters["F0"]
@@ -927,7 +934,7 @@ and requires **Python ≥ 3.12**.
   records, optional geometry certifier
 - `metric.py` — `WhiteningConfig`, `LocalPosteriorMetric`, reference-noise metric
   builders, and the static/dynamic transport records
-- `run_io.py` — the `nlt-run-meta-v3` run-metadata format, `RunResults`,
+- `run_io.py` — the `nlt-run-meta-v4` run-metadata format, `RunResults`,
   and the static/dynamic checkpoint writers
 
 ## Development

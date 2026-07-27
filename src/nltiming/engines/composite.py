@@ -8,7 +8,7 @@ from typing import Any, Mapping
 
 import numpy as np
 
-from nltiming.protocols import JaxTimingEngine, TimingEngine
+from nltiming.protocols import GaugeProvenance, JaxTimingEngine, TimingEngine
 
 
 @dataclass(frozen=True)
@@ -142,11 +142,45 @@ class PulsarTimingEngine:
             [float(self._ref_exact[name]) for name in self.fitpars], dtype=float
         )
 
-    def _contribution_delta_and_exact_linear(
-        self, contribution: PtaContribution, delta_theta: np.ndarray
-    ) -> tuple[np.ndarray, np.ndarray]:
-        local = np.zeros(len(contribution.engine.fitpars), dtype=float)
+    def _host_only_exact_linear_names(
+        self, contribution: PtaContribution
+    ) -> list[str]:
+        """Exact-linear axes owned by the host, not the leaf."""
+        leaf_fitpars = set(contribution.engine.fitpars)
+        return [
+            name
+            for name in contribution.exact_linear_fitpars
+            if name not in leaf_fitpars
+        ]
 
+    def _host_only_exact_linear_numpy(
+        self, contribution: PtaContribution, delta_theta: np.ndarray
+    ) -> np.ndarray:
+        host_only = [
+            name
+            for name in self._host_only_exact_linear_names(contribution)
+            if delta_theta[self._global_index[name]] != 0.0
+        ]
+        rows = np.asarray(contribution.row_indices, dtype=int)
+        if not host_only:
+            return np.zeros(len(rows), dtype=float)
+        if self._design_matrix is None:
+            raise ValueError(
+                f"Contribution '{contribution.name}' requires exact-linear evaluation for "
+                f"{host_only}, but no pulsar design matrix was provided"
+            )
+        exact_delta = np.zeros(len(rows), dtype=float)
+        for name in host_only:
+            exact_delta -= (
+                self._design_matrix[rows, self._global_index[name]]
+                * delta_theta[self._global_index[name]]
+            )
+        return exact_delta
+
+    def _contribution_local_delta(
+        self, contribution: PtaContribution, delta_theta: np.ndarray
+    ) -> np.ndarray:
+        local = np.zeros(len(contribution.engine.fitpars), dtype=float)
         for i, name in enumerate(contribution.engine.fitpars):
             if name in self._global_index:
                 local[i] = delta_theta[self._global_index[name]]
@@ -154,28 +188,7 @@ class PulsarTimingEngine:
                 raise ValueError(
                     f"Contribution '{contribution.name}' fitpar '{name}' is not a canonical pulsar fitpar"
                 )
-
-        exact_linear = [
-            name
-            for name in contribution.exact_linear_fitpars
-            if delta_theta[self._global_index[name]] != 0.0
-        ]
-        if exact_linear and self._design_matrix is not None:
-            rows = np.asarray(contribution.row_indices, dtype=int)
-            exact_delta = np.zeros(len(rows), dtype=float)
-            for name in exact_linear:
-                exact_delta += (
-                    self._design_matrix[rows, self._global_index[name]]
-                    * delta_theta[self._global_index[name]]
-                )
-        elif exact_linear:
-            raise ValueError(
-                f"Contribution '{contribution.name}' requires exact-linear evaluation for "
-                f"{exact_linear}, but no pulsar design matrix was provided"
-            )
-        else:
-            exact_delta = np.zeros(len(contribution.row_indices), dtype=float)
-        return local, exact_delta
+        return local
 
     def residual_delta(self, delta_theta: np.ndarray) -> np.ndarray:
         delta = np.asarray(delta_theta, dtype=float)
@@ -183,9 +196,8 @@ class PulsarTimingEngine:
             raise ValueError("delta_theta shape mismatch with fitpars")
         out = np.zeros(self._nrows, dtype=float)
         for contribution in self._contributions:
-            local_delta, exact_linear = self._contribution_delta_and_exact_linear(
-                contribution, delta
-            )
+            local_delta = self._contribution_local_delta(contribution, delta)
+            exact_linear = self._host_only_exact_linear_numpy(contribution, delta)
             block = (
                 np.asarray(contribution.engine.residual_delta(local_delta), dtype=float)
                 + exact_linear
@@ -207,50 +219,32 @@ class PulsarTimingEngine:
                     )
                 out[rows, self._global_index[name]] = block[:, local_j]
             if contribution.exact_linear_fitpars:
-                if self._design_matrix is None:
+                host_only = self._host_only_exact_linear_names(contribution)
+                if host_only and self._design_matrix is None:
                     raise ValueError(
                         f"Contribution '{contribution.name}' requires exact-linear evaluation but no "
                         "pulsar design matrix was provided"
                     )
-                for name in contribution.exact_linear_fitpars:
+                for name in host_only:
                     out[rows, self._global_index[name]] = self._design_matrix[
                         rows, self._global_index[name]
                     ]
         return out
 
-    def linearized_design_matrix(self, params: Any | None = None) -> np.ndarray:
-        """Assemble each contribution's selected linearized residual basis."""
-        out = np.zeros((self._nrows, len(self.fitpars)), dtype=float)
-        for contribution in self._contributions:
-            matrix_fn = getattr(
-                contribution.engine,
-                "linearized_design_matrix",
-                contribution.engine.design_matrix,
-            )
-            block = np.asarray(matrix_fn(params=params), dtype=float)
-            rows = np.asarray(contribution.row_indices, dtype=int)
-            for local_j, name in enumerate(contribution.engine.fitpars):
-                if name not in self._global_index:
-                    raise ValueError(
-                        f"Contribution '{contribution.name}' fitpar '{name}' is not a canonical pulsar fitpar"
-                    )
-                out[rows, self._global_index[name]] = block[:, local_j]
-            if contribution.exact_linear_fitpars:
-                if self._design_matrix is None:
-                    raise ValueError(
-                        f"Contribution '{contribution.name}' requires exact-linear evaluation but no "
-                        "pulsar design matrix was provided"
-                    )
-                for name in contribution.exact_linear_fitpars:
-                    # A leaf that owns this fitpar has already supplied its
-                    # effective linearized column (JUG negates its exact-linear
-                    # columns for decentering). Only host-only fallback axes
-                    # need injection from the canonical fitter matrix.
-                    if name not in contribution.engine.fitpars:
-                        out[rows, self._global_index[name]] = self._design_matrix[
-                            rows, self._global_index[name]
-                        ]
-        return out
+    def gauge_provenance(self) -> GaugeProvenance:
+        """Composites have no own provenance; readers use the context map."""
+        raise AttributeError(
+            "PulsarTimingEngine has no own gauge_provenance; use "
+            "TimingContext.gauge_provenance (one entry per contribution)"
+        )
+
+    @property
+    def gauge_applied(self) -> bool:
+        """OR over leaves — diagnostic only; never gates arithmetic."""
+        return any(
+            bool(getattr(c.engine, "gauge_applied", False))
+            for c in self._contributions
+        )
 
 
 class PulsarJaxTimingEngine(PulsarTimingEngine):
@@ -299,8 +293,35 @@ class PulsarJaxTimingEngine(PulsarTimingEngine):
             block = jnp.asarray(
                 contribution.engine.residual_delta_jax(local), dtype=delta.dtype
             )
+            host_only = self._host_only_exact_linear_names(contribution)
+            if host_only:
+                if self._design_matrix is None:
+                    raise ValueError(
+                        f"Contribution '{contribution.name}' requires exact-linear evaluation for "
+                        f"{host_only}, but no pulsar design matrix was provided"
+                    )
+                rows = jnp.asarray(contribution.row_indices, dtype=int)
+                exact = jnp.zeros((len(contribution.row_indices),), dtype=delta.dtype)
+                design = jnp.asarray(self._design_matrix, dtype=delta.dtype)
+                for name in host_only:
+                    col = design[rows, self._global_index[name]]
+                    exact = exact - col * delta[self._global_index[name]]
+                block = block + exact
             out = out.at[jnp.asarray(contribution.row_indices, dtype=int)].set(block)
         return out
+
+    def residual_jacobian(self) -> np.ndarray:
+        """Cached ``jacfwd(residual_delta_jax)`` at the reference (zeros)."""
+        cached = self.__dict__.get("_residual_jacobian_cache")
+        if cached is not None:
+            return cached
+        import jax
+        import jax.numpy as jnp
+
+        zeros = jnp.zeros((len(self.fitpars),), dtype=jnp.float64)
+        J = np.asarray(jax.jacfwd(self.residual_delta_jax)(zeros), dtype=float)
+        self.__dict__["_residual_jacobian_cache"] = J
+        return J
 
     def precision_critical_fitpars(self) -> frozenset[str]:
         return self._precision_union

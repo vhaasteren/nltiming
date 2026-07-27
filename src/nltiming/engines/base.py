@@ -8,7 +8,7 @@ from typing import Mapping
 
 import numpy as np
 
-from nltiming.protocols import EnterprisePulsarLike, TimingEngine
+from nltiming.protocols import EnterprisePulsarLike, GaugeProvenance, TimingEngine
 
 # Lives here so importing it never pulls in jax/jug.
 _NUMPY_RESIDUAL_DEPRECATION = (
@@ -50,7 +50,7 @@ def validate_enterprise_pulsar(pulsar: EnterprisePulsarLike) -> None:
 def zero_delta_tolerance(engine: TimingEngine, requested: float) -> float:
     """Return the strict caller-requested residual-delta tolerance.
 
-    JUG's former tempo2-specific relaxation represented the now-closed G1
+    JUG's former tempo2-specific relaxation represented a closed
     reference-state gap. Current tempo2 compatibility has picosecond-tier
     zero-delta behavior and is validated by the same checks as other engines.
     """
@@ -98,7 +98,7 @@ def validate_engine_against_pulsar(
     """Validate engine outputs against pulsar canonical row and column ordering."""
     validate_enterprise_pulsar(pulsar)
     validate_engine_shapes(engine)
-    validate_engine_zero_delta(engine, tol=tol)  # may relax tol for JUG(tempo2)
+    validate_engine_zero_delta(engine, tol=tol)
     design = np.asarray(engine.design_matrix(), dtype=float)
     pulsar_design = np.asarray(pulsar.Mmat, dtype=float)
     nrows = len(pulsar.toas)
@@ -155,14 +155,16 @@ class LinearModel:
         delta = np.asarray(delta_theta, dtype=float)
         if delta.shape != (len(self.fitpars),):
             raise ValueError("delta_theta shape mismatch with fitpars")
-        return self.design @ delta
+        # Fitter sign: Δr ≈ -M δ
+        return -(self.design @ delta)
 
 
 class LinearTimingEngine:
     """Concrete TimingEngine wrapper around a LinearModel."""
 
-    def __init__(self, model: LinearModel):
+    def __init__(self, model: LinearModel, *, gauge_provenance: GaugeProvenance):
         self._model = model
+        self._gauge_provenance = gauge_provenance
         self.fitpars = model.fitpars
         self.native_units = dict(model.native_units)
 
@@ -179,5 +181,16 @@ class LinearTimingEngine:
     def residual_delta(self, delta_theta: np.ndarray) -> np.ndarray:
         return self._model.residual_delta(delta_theta)
 
+    def residual_jacobian(self) -> np.ndarray:
+        """J = -M for the linearized model."""
+        return -np.asarray(self._model.design, dtype=float)
+
     def design_matrix(self, params=None) -> np.ndarray:
         return np.asarray(self._model.design, dtype=float)
+
+    def gauge_provenance(self) -> GaugeProvenance:
+        return self._gauge_provenance
+
+    @property
+    def gauge_applied(self) -> bool:
+        return self.gauge_provenance().export != "none"

@@ -17,14 +17,16 @@ from nltiming.nonlinear_timing_model import NonLinearTimingModel  # noqa: E402
 
 
 class _Pulsar:
-    """Linear JAX-differentiable pulsar (F0, F1, DM)."""
+    """Linear JAX-differentiable pulsar (Offset + F0, F1, DM)."""
 
     def __init__(self):
         self.name = "J1234+5678"
-        self.fitpars = ("F0", "F1", "DM")
+        self.fitpars = ("Offset", "F0", "F1", "DM")
         n = 12
         t = np.linspace(0.0, 1.0, n)
-        design = np.column_stack([np.ones(n), t - 0.5, np.sin(3.0 * t)])
+        design = np.column_stack(
+            [np.ones(n), t - 0.5, np.sin(3.0 * t), np.cos(2.0 * t)]
+        )
         self._toas = t * 3.15e7 + 5.3e4
         self._residuals = 1e-6 * np.sin(5.0 * t)
         self._toaerrs = np.full(n, 1.0e-6)
@@ -34,7 +36,12 @@ class _Pulsar:
         model = LinearModel.from_design(
             fitpars=self.fitpars,
             design=design,
-            theta_exact={"F0": "100.0", "F1": "-1e-15", "DM": "10.0"},
+            theta_exact={
+                "Offset": "0.0",
+                "F0": "100.0",
+                "F1": "-1e-15",
+                "DM": "10.0",
+            },
         )
         self._backend = LinearizedJugEngine.from_linear_model(model)
 
@@ -59,7 +66,10 @@ class _Pulsar:
 
 def _ctx(**kw):
     ntm = NonLinearTimingModel(
-        engines="jug", inference=TimingInference.sample_all(), name="timing", **kw
+        engines="jug",
+        inference=TimingInference.groups(delta_flat=["Offset"]),
+        name="timing",
+        **kw,
     )
     return ntm.for_pulsar(_Pulsar(), condition=False)
 
@@ -86,7 +96,7 @@ def test_expansion_waveform_and_autodiff_basis_match_finite_difference():
         return -np.asarray(engine.residual_delta(full), dtype=float)
 
     z_e = np.asarray(lin.z_expansion, dtype=float)
-    np.testing.assert_allclose(lin.sampled_waveform_expansion, d_np(z_e), atol=1e-12)
+    np.testing.assert_allclose(lin.sampled_delay_expansion, d_np(z_e), atol=1e-12)
     h = 1e-4
     fd = np.stack(
         [(d_np(z_e + h * np.eye(3)[j]) - d_np(z_e - h * np.eye(3)[j])) / (2 * h)
@@ -146,7 +156,9 @@ def test_joint_transport_uses_expansion_effective_residual(monkeypatch):
         coordinate_policy=TimingCoordinatePolicy(nonaffine_identically_linear="ignore"),
         name="timing")
     base = ntm.for_pulsar(_Pulsar(), condition=False)
-    refined = base.with_expansion(delta={"F0": 3e-13, "F1": 0.0, "DM": 5e-3})
+    refined = base.with_expansion(
+        delta={"Offset": 0.0, "F0": 3e-13, "F1": 0.0, "DM": 5e-3}
+    )
     build_joint_transport(_Likelihood(), refined, center=False)
 
     y = np.asarray(refined.pulsar.residuals, dtype=float)
@@ -167,11 +179,11 @@ def test_effective_residual_reconstructs_local_surrogate_with_correct_sign():
 
     z_e = np.asarray(lin.z_expansion, dtype=float)
     assert np.linalg.norm(z_e) > 0  # genuinely off-zero
-    expected = y - lin.sampled_waveform_expansion + lin.sampled_basis @ z_e
+    expected = y - lin.sampled_delay_expansion + lin.sampled_basis @ z_e
     np.testing.assert_allclose(lin.transport_effective_residual(y), expected, atol=1e-12)
     # The W_s @ z_e term is present (a zero-only test would miss it).
     assert not np.allclose(
-        lin.transport_effective_residual(y), y - lin.sampled_waveform_expansion)
+        lin.transport_effective_residual(y), y - lin.sampled_delay_expansion)
 
 
 def test_with_expansion_is_immutable_and_before_conditioning_only():

@@ -6,6 +6,8 @@ from typing import Any, Mapping
 
 import numpy as np
 
+from nltiming.protocols import GaugeProvenance
+
 from .base import LinearModel, LinearTimingEngine
 from .engines import PintDeltaEngine
 
@@ -111,6 +113,19 @@ class PintEngine:
     def design_matrix(self, params=None) -> np.ndarray:
         return np.asarray(self._model.design, dtype=float)
 
+    def gauge_provenance(self) -> GaugeProvenance:
+        # Constructed with subtract_mean=False (gauge-free export).
+        return GaugeProvenance(
+            export="none",
+            reference_mode="none",
+            reporting_mode="mean",
+            reporting_weighted=True,
+        )
+
+    @property
+    def gauge_applied(self) -> bool:
+        return self.gauge_provenance().export != "none"
+
 
 def _delta_dict(fitpars: tuple[str, ...], delta_theta: np.ndarray) -> dict[str, float]:
     delta = np.asarray(delta_theta, dtype=float).reshape(-1)
@@ -125,5 +140,17 @@ class LinearizedPintEngine(LinearTimingEngine):
     engine_name = "pint"
 
     @classmethod
-    def from_linear_model(cls, model: LinearModel) -> "LinearizedPintEngine":
-        return cls(model)
+    def from_linear_model(
+        cls,
+        model: LinearModel,
+        *,
+        gauge_provenance: GaugeProvenance | None = None,
+    ) -> "LinearizedPintEngine":
+        if gauge_provenance is None:
+            gauge_provenance = GaugeProvenance(
+                export="none",
+                reference_mode="unknown",
+                reporting_mode="mean",
+                reporting_weighted=True,
+            )
+        return cls(model, gauge_provenance=gauge_provenance)

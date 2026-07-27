@@ -6,12 +6,18 @@ from typing import Mapping
 
 import numpy as np
 
+from nltiming.protocols import GaugeProvenance
+
 from .base import LinearModel, LinearTimingEngine, is_exact_linear_param
 from .engines import Tempo2DeltaEngine
 
 
 class LibstempoEngine:
-    """Native libstempo residual-deltan engine."""
+    """Native libstempo residual-deltan engine.
+
+    libstempo centres residuals internally with no switch. Provenance
+    reports ``export="applied-unknown"``; ``gauge_applied`` is derived from that.
+    """
 
     engine_name = "tempo2"
 
@@ -77,7 +83,7 @@ class LibstempoEngine:
         return self._exact_linear_fitpars
 
     def identically_linear_fitpars(self) -> frozenset[str]:
-        """Fitpars whose engine waveform is affine in delta (§4.3)."""
+        """Fitpars whose engine delay is affine in delta (§4.3)."""
         return self._exact_linear_fitpars
 
     def reference_theta(self) -> np.ndarray:
@@ -92,13 +98,13 @@ class LibstempoEngine:
             raise ValueError("delta_theta shape mismatch with fitpars")
 
         delta_native = delta[np.asarray(self._native_indices, dtype=int)]
-        delta = _delta_dict(self._native_fitpars, delta_native)
+        delta_dict = _delta_dict(self._native_fitpars, delta_native)
         if self._param_mapping:
-            delta = {
+            delta_dict = {
                 self._param_mapping.get(name, name): value
-                for name, value in delta.items()
+                for name, value in delta_dict.items()
             }
-        return self._engine.delta_residuals(delta) + self._exact_linear_delta(
+        return self._engine.delta_residuals(delta_dict) + self._exact_linear_delta(
             delta_theta
         )
 
@@ -114,7 +120,19 @@ class LibstempoEngine:
         columns = np.asarray(
             self._model.design[:, list(self._exact_linear_indices)], dtype=float
         )
-        return columns @ delta[np.asarray(self._exact_linear_indices, dtype=int)]
+        return -(columns @ delta[np.asarray(self._exact_linear_indices, dtype=int)])
+
+    def gauge_provenance(self) -> GaugeProvenance:
+        return GaugeProvenance(
+            export="applied-unknown",
+            reference_mode="unknown",
+            reporting_mode="mean",
+            reporting_weighted=False,
+        )
+
+    @property
+    def gauge_applied(self) -> bool:
+        return self.gauge_provenance().export != "none"
 
 
 def _delta_dict(fitpars: tuple[str, ...], delta_theta: np.ndarray) -> dict[str, float]:
@@ -130,5 +148,18 @@ class LinearizedLibstempoEngine(LinearTimingEngine):
     engine_name = "tempo2"
 
     @classmethod
-    def from_linear_model(cls, model: LinearModel) -> "LinearizedLibstempoEngine":
-        return cls(model)
+    def from_linear_model(
+        cls,
+        model: LinearModel,
+        *,
+        gauge_provenance: GaugeProvenance | None = None,
+    ) -> "LinearizedLibstempoEngine":
+        if gauge_provenance is None:
+            # Residual product is gauge-free (LinearModel); host reference gauge
+            # is not known from a bare design matrix — do not claim "none".
+            gauge_provenance = GaugeProvenance(
+                export="none",
+                reference_mode="unknown",
+                reporting_mode="unknown",
+            )
+        return cls(model, gauge_provenance=gauge_provenance)

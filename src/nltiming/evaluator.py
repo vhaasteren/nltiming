@@ -15,12 +15,12 @@ from typing import Any, Literal, cast
 import numpy as np
 
 from .selection import match_fitpars
-from .protocols import JaxTimingEngine
+from .protocols import JacobianTimingEngine, JaxTimingEngine
 from .space import ParameterSpace
 from .units import lookup_pint_param, normalize_param_name, units_map
 
 Frame = Literal["delta", "absolute"]
-JacobianMethod = Literal["auto", "reference", "analytic", "autodiff"]
+JacobianMethod = Literal["auto", "reference", "exact", "autodiff"]
 
 
 def _readonly_array(values: Any, *, dtype: Any = float) -> np.ndarray:
@@ -92,6 +92,7 @@ class TimingCapabilities:
     nonlinear: bool
     jax: bool
     autodiff_jacobian: bool
+    exact_jacobian: bool
     reference_jacobian: bool
     session_engines: Mapping[str, str]
     exact_linear: tuple[str, ...]
@@ -350,6 +351,7 @@ class TimingEvaluator:
             nonlinear=hasattr(self.engine, "residual_delta"),
             jax=isinstance(self.engine, JaxTimingEngine),
             autodiff_jacobian=isinstance(self.engine, JaxTimingEngine),
+            exact_jacobian=isinstance(self.engine, JacobianTimingEngine),
             reference_jacobian=hasattr(self.engine, "design_matrix"),
             session_engines=session_engines,
             exact_linear=tuple(exact_linear),
@@ -437,17 +439,34 @@ class TimingEvaluator:
     ) -> np.ndarray:
         """Return ``d residual_delta / d delta_theta`` in canonical order."""
         if method == "auto":
-            method = "autodiff" if self.capabilities.autodiff_jacobian else "reference"
-        if method in {"reference", "analytic"}:
+            if self.capabilities.autodiff_jacobian:
+                method = "autodiff"
+            elif self.capabilities.exact_jacobian:
+                method = "exact"
+            else:
+                method = "reference"
+        if method == "exact":
             if at is not None and np.any(self.delta_vector(at, frame=frame)):
                 raise ValueError(
-                    f"method={method!r} only provides the reference-point matrix; "
+                    "method='exact' only provides the reference-point matrix; "
                     "use method='autodiff' for an arbitrary point"
                 )
-            return np.asarray(self.engine.design_matrix(), dtype=float)
+            if not isinstance(self.engine, JacobianTimingEngine):
+                raise ValueError(
+                    "method='exact' requires an engine exposing residual_jacobian()"
+                )
+            return np.asarray(self.engine.residual_jacobian(), dtype=float)
+        if method == "reference":
+            if at is not None and np.any(self.delta_vector(at, frame=frame)):
+                raise ValueError(
+                    "method='reference' only provides the reference-point matrix; "
+                    "use method='autodiff' for an arbitrary point"
+                )
+            # Analytic-tangent approximation to J (= -M).
+            return -np.asarray(self.engine.design_matrix(), dtype=float)
         if method != "autodiff":
             raise ValueError(
-                "method must be 'auto', 'reference', 'analytic', or 'autodiff'"
+                "method must be 'auto', 'reference', 'exact', or 'autodiff'"
             )
         if not isinstance(self.engine, JaxTimingEngine):
             raise ValueError("autodiff requires a JAX-capable timing engine")
@@ -591,7 +610,7 @@ class TimingEvaluator:
         """Return ``d residual_delta / d z`` for the supplied ParameterSpace."""
         z_vector = self._z_vector(space, z)
         delta = self._delta_from_space_z(space, z_vector)
-        jacobian_at = None if method in {"reference", "analytic"} else delta
+        jacobian_at = None if method in {"reference", "exact"} else delta
         jacobian_delta = self.jacobian(jacobian_at, frame="delta", method=method)
         timing_indices = np.asarray(
             [self._index[name] for name in space.names], dtype=int
@@ -718,9 +737,7 @@ class TimingEvaluator:
         iterations = 0
         for iterations in range(1, int(max_iter) + 1):
             evaluation = self.evaluate(delta, frame="delta")
-            jacobian_at = (
-                None if jacobian_method in {"reference", "analytic"} else delta
-            )
+            jacobian_at = None if jacobian_method in {"reference", "exact"} else delta
             jacobian = self.jacobian(jacobian_at, frame="delta", method=jacobian_method)
             weighted_jacobian = jacobian[:, indices] / errors[:, None]
             weighted_residuals = evaluation.residuals / errors
@@ -734,7 +751,7 @@ class TimingEvaluator:
                 converged = True
                 break
         best = self.evaluate(delta, frame="delta")
-        final_at = None if jacobian_method in {"reference", "analytic"} else delta
+        final_at = None if jacobian_method in {"reference", "exact"} else delta
         final_jacobian = self.jacobian(final_at, frame="delta", method=jacobian_method)[
             :, indices
         ]

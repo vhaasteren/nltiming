@@ -7,6 +7,7 @@ import pytest
 
 from nltiming import TimingEvaluator
 from nltiming.bijectors import PriorBijector
+from nltiming.protocols import GaugeProvenance
 from nltiming.space import ParameterSpace
 
 
@@ -25,12 +26,16 @@ class LinearJaxBackend:
         return {"F0": "10.0000000000000001", "F1": "-1e-15"}
 
     def residual_delta(self, delta_theta):
-        return self._design @ np.asarray(delta_theta)
+        # Fitter sign: Δr ≈ -M δ
+        return -(self._design @ np.asarray(delta_theta))
 
     def residual_delta_jax(self, delta_theta):
         import jax.numpy as jnp
 
-        return jnp.asarray(self._design) @ jnp.asarray(delta_theta)
+        return -(jnp.asarray(self._design) @ jnp.asarray(delta_theta))
+
+    def residual_jacobian(self):
+        return -self._design
 
     def design_matrix(self, params=None):
         return self._design
@@ -38,11 +43,23 @@ class LinearJaxBackend:
     def precision_critical_fitpars(self):
         return frozenset({"F0"})
 
+    def gauge_provenance(self):
+        return GaugeProvenance(
+            export="none",
+            reference_mode="none",
+            reporting_mode="mean",
+            reporting_weighted=True,
+        )
+
+    @property
+    def gauge_applied(self):
+        return False
+
 
 class NonlinearJaxBackend(LinearJaxBackend):
     def residual_delta(self, delta_theta):
         delta = np.asarray(delta_theta)
-        linear = self._design @ delta
+        linear = -(self._design @ delta)
         curved = np.array([0.5 * delta[0] ** 2, 0.0, delta[0] ** 2, 0.0])
         return linear + curved
 
@@ -50,7 +67,7 @@ class NonlinearJaxBackend(LinearJaxBackend):
         import jax.numpy as jnp
 
         delta = jnp.asarray(delta_theta)
-        linear = jnp.asarray(self._design) @ delta
+        linear = -(jnp.asarray(self._design) @ delta)
         curved = jnp.asarray([0.5 * delta[0] ** 2, 0.0, delta[0] ** 2, 0.0])
         return linear + curved
 
@@ -103,7 +120,7 @@ def test_evaluate_partial_delta_and_absolute_mapping():
 
     np.testing.assert_allclose(delta.delta, [0.25, 0.0])
     np.testing.assert_allclose(absolute.delta, delta.delta)
-    np.testing.assert_allclose(delta.residuals, timing.pulsar.residuals + 0.25)
+    np.testing.assert_allclose(delta.residuals, timing.pulsar.residuals - 0.25)
     np.testing.assert_allclose(delta.delay, -delta.residual_delta)
     assert timing.reference_exact["F0"] == "10.0000000000000001"
     assert timing.parameters["F0"].sessions == ("pta_a",)
@@ -115,12 +132,12 @@ def test_capabilities_and_autodiff_jacobian():
     assert timing.capabilities.jax
     assert timing.capabilities.autodiff_jacobian
     assert timing.capabilities.session_engines == {"J1234+5678": "jug"}
-    np.testing.assert_allclose(timing.jacobian(method="reference"), timing.pulsar.Mmat)
+    np.testing.assert_allclose(timing.jacobian(method="reference"), -timing.pulsar.Mmat)
     np.testing.assert_allclose(
-        timing.jacobian({"F0": 0.2}, method="autodiff"), timing.pulsar.Mmat
+        timing.jacobian({"F0": 0.2}, method="autodiff"), -timing.pulsar.Mmat
     )
     with pytest.raises(ValueError, match="reference-point"):
-        timing.jacobian({"F0": 0.2}, method="analytic")
+        timing.jacobian({"F0": 0.2}, method="reference")
 
 
 def test_scan_exposes_residual_and_white_statistics():
@@ -145,7 +162,7 @@ def test_fit_is_immutable_and_recovers_linear_solution():
     )
 
     assert result.converged
-    np.testing.assert_allclose(result.best_fit.delta, [-0.2, 0.05], atol=1e-12)
+    np.testing.assert_allclose(result.best_fit.delta, [0.2, -0.05], atol=1e-12)
     np.testing.assert_allclose(result.best_fit.residuals, 0.0, atol=1e-12)
     np.testing.assert_allclose(pulsar.residuals, original)
     np.testing.assert_allclose(supplied_initial, 0.0)
@@ -171,7 +188,7 @@ def test_jacobian_z_scales_physical_columns_by_prior_derivative():
 
     np.testing.assert_allclose(
         jacobian_z,
-        timing.pulsar.Mmat * np.array([2.0, 0.5], dtype=float)[None, :],
+        -timing.pulsar.Mmat * np.array([2.0, 0.5], dtype=float)[None, :],
     )
 
 
@@ -188,7 +205,7 @@ def test_fit_z_recovers_linear_solution_and_covariances():
     )
 
     result = timing.fit_z(space, jacobian_method="reference")
-    expected_weighted_jacobian = pulsar.Mmat * np.array([2.0, 0.5])[None, :]
+    expected_weighted_jacobian = -pulsar.Mmat * np.array([2.0, 0.5])[None, :]
     expected_covariance_z = np.linalg.pinv(
         expected_weighted_jacobian.T @ expected_weighted_jacobian
     )
@@ -198,8 +215,8 @@ def test_fit_z_recovers_linear_solution_and_covariances():
     assert result.iterations == 1
     assert result.covariance_coord == "z"
     assert result.rank == 2
-    np.testing.assert_allclose(result.z_best, [-0.1, 0.1], atol=1e-12)
-    np.testing.assert_allclose(result.best_fit.delta, [-0.2, 0.05], atol=1e-12)
+    np.testing.assert_allclose(result.z_best, [0.1, -0.1], atol=1e-12)
+    np.testing.assert_allclose(result.best_fit.delta, [0.2, -0.05], atol=1e-12)
     np.testing.assert_allclose(result.best_fit.residuals, 0.0, atol=1e-12)
     np.testing.assert_allclose(result.covariance, expected_covariance_z)
     np.testing.assert_allclose(

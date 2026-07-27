@@ -3,14 +3,14 @@
 from __future__ import annotations
 
 import logging
-import warnings
 from typing import Any, Mapping
 
 import numpy as np
 
+from nltiming.protocols import GaugeProvenance
+
 from .engines import infer_jug_param_mapping
 from .base import (
-    _NUMPY_RESIDUAL_DEPRECATION,
     LinearModel,
     LinearTimingEngine,
     is_exact_linear_param,
@@ -51,24 +51,55 @@ def _resolve_binary_facts(session: Any, fit_params: tuple[str, ...]):
         return None
 
 
+def _reporting_from_compatibility(compatibility: str) -> tuple[str, bool | None]:
+    """Host reporting convention (engine_conventions.py:303)."""
+    if str(compatibility).lower().startswith("tempo2"):
+        return "mean", False
+    return "mean", True
+
+
+def _provenance_from_frozen_model(state: Any) -> GaugeProvenance:
+    """Translate JUG ``ReferenceGauge`` into backend-neutral provenance."""
+    reference_gauge = getattr(state, "reference_gauge", None)
+    compatibility = str(getattr(state, "compatibility", "pint"))
+    reporting_mode, reporting_weighted = _reporting_from_compatibility(compatibility)
+    if reference_gauge is None:
+        return GaugeProvenance(
+            export="none",
+            reference_mode="none",
+            reporting_mode=reporting_mode,
+            reporting_weighted=reporting_weighted,
+        )
+    mode = str(getattr(reference_gauge, "mode", "none"))
+    weights = getattr(reference_gauge, "weights", None)
+    reference_weighted = None if mode != "mean" else (weights is not None)
+    return GaugeProvenance(
+        export="none",
+        reference_mode=mode,  # type: ignore[arg-type]
+        reference_weighted=reference_weighted,
+        reporting_mode=reporting_mode,
+        reporting_weighted=reporting_weighted,
+    )
+
+
 class JugEngine:
     """Native JUG engine with NumPy and pure-JAX residual-delta paths.
 
-    The nonlinear residuals are evaluated by a frozen JUG ``JaxTimingState``.
+    The nonlinear residuals are evaluated by a frozen JUG ``FrozenResidualModel``.
     ``design_matrix`` and reference theta metadata are intentionally served from
     the pulsar-derived ``LinearModel`` so the pulsar timing engine uses the same
     canonical columns and analytically marginalized basis as ``MetaPulsar.Mmat``.
 
     Unit convention: this engine's entire external surface — ``design_matrix``,
-    ``linearized_design_matrix``, ``residual_delta`` and ``residual_delta_jax`` —
+    ``residual_jacobian``, ``residual_delta`` and ``residual_delta_jax`` —
     speaks the **pulsar fit-unit** ``delta_theta`` convention that ``MetaPulsar.Mmat``
     (and the libstempo/Velan engines) use, e.g. RAJ in hourangle and DECJ in
-    degrees. The frozen ``JaxTimingState`` is internally **native** (RAJ/DECJ in
-    radians), so incoming deltas are divided by the per-parameter fit/native
-    factor (``jug.utils.units.native_to_fit_value``) before reaching the state,
-    and JUG's native autodiff design columns are divided by the same factor on
-    the way out. This keeps ``residual_delta(delta) == design_matrix @ delta`` in
-    the linear regime for every parameter regardless of ``design_matrix_method``.
+    degrees. The frozen model is internally **native** (RAJ/DECJ in radians), so
+    incoming deltas are divided by the per-parameter fit/native factor before
+    reaching the state, and JUG's native residual-Jacobian columns are divided by
+    the same factor on the way out. With gauge-free residuals the fitter identity
+    ``residual_delta(delta) ≈ -(design_matrix @ delta)`` holds in the linear
+    regime under either ``derivative_method``.
     """
 
     engine_name = "jug"
@@ -95,6 +126,7 @@ class JugEngine:
         # the JUG session at from_contribution time; None for direct/test-double
         # construction (→ candidacy fallback).
         self._binary_facts: Any = None
+        self.compatibility = str(getattr(state, "compatibility", "auto"))
 
     @classmethod
     def from_contribution(
@@ -102,13 +134,11 @@ class JugEngine:
         session: Any,
         *,
         linear_model: LinearModel,
-        compatibility: str = "auto",
         param_mapping: Mapping[str, str] | None = None,
         subtract_tzr: bool = True,
-        design_matrix_method: str = "analytic",
     ) -> "JugEngine":
         """Build a native JUG engine from an already-created JUG session."""
-        from jug.fitting.jax_timing_state import export_jax_timing_state
+        from jug.fitting.residual_model import export_frozen_residual_model
 
         fitpars = tuple(linear_model.fitpars)
         mapping = dict(param_mapping or {})
@@ -139,14 +169,11 @@ class JugEngine:
                 f"exact-linear candidates: {exact_linear}"
             )
 
-        state = export_jax_timing_state(
+        state = export_frozen_residual_model(
             session,
             fit_params=tuple(jug_fitpars),
             subtract_tzr=subtract_tzr,
-            compatibility=compatibility,
             param_mapping=mapping,
-            isort=None,
-            design_matrix_method=design_matrix_method,
         )
         engine = cls(
             state=state,
@@ -159,7 +186,7 @@ class JugEngine:
         )
         engine._jug_fitpars = tuple(jug_fitpars)
         engine._jug_indices = tuple(fitpars.index(name) for name in jug_fitpars)
-        engine.compatibility = str(getattr(state, "compatibility", compatibility))
+        engine.compatibility = str(getattr(state, "compatibility", "auto"))
         engine._binary_facts = _resolve_binary_facts(session, tuple(jug_fitpars))
         return engine
 
@@ -195,7 +222,7 @@ class JugEngine:
         return getattr(self, "_exact_linear_fitpars", frozenset())
 
     def identically_linear_fitpars(self) -> frozenset[str]:
-        """Fitpars whose engine waveform is affine in delta (§4.3)."""
+        """Fitpars whose engine delay is affine in delta (§4.3)."""
         return getattr(self, "_exact_linear_fitpars", frozenset())
 
     @property
@@ -223,16 +250,6 @@ class JugEngine:
         """JUG-evaluable delta in the state's native units (fit -> native)."""
         return self._jug_delta(delta_theta) / self._native_scale
 
-    def _exact_linear_delta(self, delta_theta: np.ndarray) -> np.ndarray:
-        indices = getattr(self, "_exact_linear_indices", tuple())
-        if not indices:
-            return np.zeros(self.design_matrix().shape[0], dtype=float)
-        delta = np.asarray(delta_theta, dtype=float).reshape(-1)
-        if delta.shape != (len(self.fitpars),):
-            raise ValueError("delta_theta shape mismatch with fitpars")
-        columns = np.asarray(self._model.design[:, list(indices)], dtype=float)
-        return columns @ delta[np.asarray(indices, dtype=int)]
-
     def reference_theta(self) -> np.ndarray:
         return self._model.reference_theta()
 
@@ -240,34 +257,24 @@ class JugEngine:
         return dict(self._model.theta_exact)
 
     def residual_delta(self, delta_theta: np.ndarray) -> np.ndarray:
-        warnings.warn(
-            _NUMPY_RESIDUAL_DEPRECATION,
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        nonlinear = self._state.residual_delta_np(self._jug_delta_native(delta_theta))
-        return nonlinear + self._exact_linear_delta(delta_theta)
+        return np.asarray(self.residual_delta_jax(delta_theta), dtype=float)
 
     def design_matrix(self, params: Any | None = None) -> np.ndarray:
         return np.asarray(self._model.design, dtype=float)
 
-    def linearized_design_matrix(self, params: Any | None = None) -> np.ndarray:
-        """Return the JUG effective residual-Jacobian basis in fitpar order.
+    def residual_jacobian(self) -> np.ndarray:
+        """J in pulsar fit units, gauge-free, cached on the frozen model."""
+        cached = self.__dict__.get("_residual_jacobian_cache")
+        if cached is not None:
+            return cached
 
-        Exact-linear fallback columns are negated here only. This is a
-        decentering/design-matrix convention fix; ``residual_delta`` and
-        ``residual_delta_jax`` retain their native JUG behavior.
-        """
-        design = np.asarray(self._model.design, dtype=float).copy()
-        jug_matrix = np.asarray(self._state.design_matrix, dtype=float)
+        J = -np.asarray(self._model.design, dtype=float).copy()
+        jug_matrix = self._native_residual_jacobian()
         param_mapping = dict(getattr(self._state, "param_mapping", ()))
         jug_fitpars = getattr(self, "_jug_fitpars", self.fitpars)
         for local_col, model_col in enumerate(self._jug_indices):
-            # JUG's autodiff columns are native (RAJ/DECJ in radians); divide by
-            # the fit/native factor to express them in pulsar fit units.
-            design[:, model_col] = (
-                jug_matrix[:, local_col] / self._native_scale[local_col]
-            )
+            # Native residual Jacobian → fit units: divide by fit/native factor.
+            J[:, model_col] = jug_matrix[:, local_col] / self._native_scale[local_col]
             canonical = jug_fitpars[local_col]
             engine = param_mapping.get(canonical, canonical)
             if (
@@ -277,14 +284,34 @@ class JugEngine:
                 col_norm = float(np.linalg.norm(jug_matrix[:, local_col]))
                 if col_norm < 1e-30:
                     raise ValueError(
-                        f"JUG autodiff design-matrix column for {canonical!r} is "
+                        f"JUG residual-jacobian column for {canonical!r} is "
                         "numerically zero; ecliptic sync may be broken. Use "
-                        "design_matrix_method='analytic' or exact_linear for "
+                        "derivative_method='analytic' or exact_linear for "
                         "ecliptic params until fixed."
                     )
-        for model_col in getattr(self, "_exact_linear_indices", tuple()):
-            design[:, model_col] = -design[:, model_col]
-        return design
+        self.__dict__["_residual_jacobian_cache"] = J
+        return J
+
+    def _native_residual_jacobian(self) -> np.ndarray:
+        fn = getattr(self._state, "residual_jacobian_native", None)
+        if callable(fn):
+            return np.asarray(fn(), dtype=float)
+        # No design_matrix attribute fallback: that name means M, not J.
+        # Test doubles and FrozenResidualModel must expose residual_jacobian_native.
+        import jax
+        import jax.numpy as jnp
+
+        scale = jnp.asarray(self._native_scale, dtype=jnp.float64)
+        zeros = jnp.zeros((len(self._jug_fitpars),), dtype=jnp.float64)
+
+        def residual_of_native(native_delta):
+            full = jnp.zeros((len(self.fitpars),), dtype=native_delta.dtype)
+            full = full.at[jnp.asarray(self._jug_indices, dtype=int)].set(
+                native_delta * scale
+            )
+            return self.residual_delta_jax(full)
+
+        return np.asarray(jax.jacfwd(residual_of_native)(zeros), dtype=float)
 
     def residual_delta_jax(self, delta_theta: Any) -> Any:
         import jax.numpy as jnp
@@ -299,10 +326,22 @@ class JugEngine:
             return nonlinear
         design = jnp.asarray(self._model.design[:, list(indices)], dtype=delta.dtype)
         fallback_delta = delta[jnp.asarray(indices, dtype=int)]
-        return nonlinear + design @ fallback_delta
+        return nonlinear - design @ fallback_delta
 
     def precision_critical_fitpars(self) -> frozenset[str]:
         return self._precision_critical
+
+    def gauge_provenance(self) -> GaugeProvenance:
+        return _provenance_from_frozen_model(self._state)
+
+    @property
+    def gauge_applied(self) -> bool:
+        return self.gauge_provenance().export != "none"
+
+    def verify_native_chain(self) -> None:
+        fn = getattr(self._state, "verify_native_chain", None)
+        if callable(fn):
+            fn()
 
 
 def _native_delta_scale(jug_fitpars: tuple[str, ...]) -> np.ndarray:
@@ -339,40 +378,20 @@ def _canonical_high_precision(
     )
 
 
-def verify_jug_native_chain(
-    engine: object,
-    *,
-    design_matrix_method: str = "autodiff",
-) -> None:
+def verify_jug_native_chain(engine: object) -> None:
     """Smoke-check tempo2 JUG contributions export native-chain JAX state."""
-    if str(design_matrix_method).lower() != "autodiff":
+    verify = getattr(engine, "verify_native_chain", None)
+    if callable(verify):
+        verify()
         return
     contributions = getattr(engine, "contributions", None) or getattr(
         engine, "_contributions", ()
     )
     for contribution in contributions:
-        jug_engine = contribution.engine
-        if type(jug_engine).__name__ != "JugEngine":
-            continue
-        setup = getattr(getattr(jug_engine, "_state", None), "setup", None)
-        if setup is None:
-            raise RuntimeError(
-                f"JugEngine for {contribution.name!r} has no GeneralFitSetup."
-            )
-        compat = str(getattr(setup, "compatibility", "")).lower()
-        if not compat.startswith("tempo2"):
-            continue
-        static = getattr(setup, "native_chain_static", None)
-        if static is None:
-            raise RuntimeError(
-                f"PTA {contribution.name!r}: native_chain_static is None; "
-                "re-run timing_engine with prime_sessions=True."
-            )
-        td = static.get("term_diagnostics") or {}
-        if "tempo2_obs_state" not in td:
-            raise RuntimeError(
-                f"PTA {contribution.name!r}: native_chain_static missing tempo2_obs_state."
-            )
+        leaf = contribution.engine
+        leaf_verify = getattr(leaf, "verify_native_chain", None)
+        if callable(leaf_verify):
+            leaf_verify()
 
 
 class LinearizedJugEngine(LinearTimingEngine):
@@ -384,10 +403,11 @@ class LinearizedJugEngine(LinearTimingEngine):
         self,
         model: LinearModel,
         *,
+        gauge_provenance: GaugeProvenance,
         compatibility: str = "auto",
         precision_critical: frozenset[str] | set[str] = frozenset(),
     ):
-        super().__init__(model)
+        super().__init__(model, gauge_provenance=gauge_provenance)
         self.compatibility = compatibility
         self._precision_critical = frozenset(precision_critical)
 
@@ -396,11 +416,25 @@ class LinearizedJugEngine(LinearTimingEngine):
         cls,
         model: LinearModel,
         *,
+        gauge_provenance: GaugeProvenance | None = None,
         compatibility: str = "auto",
         precision_critical: frozenset[str] | set[str] = frozenset(),
     ) -> "LinearizedJugEngine":
+        if gauge_provenance is None:
+            reporting_mode, reporting_weighted = _reporting_from_compatibility(
+                compatibility
+            )
+            # Export is gauge-free; reference gauge of the host path is unknown
+            # for a bare LinearModel (do not claim reference_mode="none").
+            gauge_provenance = GaugeProvenance(
+                export="none",
+                reference_mode="unknown",
+                reporting_mode=reporting_mode,
+                reporting_weighted=reporting_weighted,
+            )
         return cls(
             model,
+            gauge_provenance=gauge_provenance,
             compatibility=compatibility,
             precision_critical=precision_critical,
         )
@@ -410,10 +444,7 @@ class LinearizedJugEngine(LinearTimingEngine):
 
         design = jnp.asarray(self.design_matrix(), dtype=jnp.asarray(delta_theta).dtype)
         delta = jnp.asarray(delta_theta)
-        return design @ delta
-
-    def linearized_design_matrix(self, params: Any | None = None) -> np.ndarray:
-        return self.design_matrix(params=params)
+        return -(design @ delta)
 
     def precision_critical_fitpars(self) -> frozenset[str]:
         return self._precision_critical

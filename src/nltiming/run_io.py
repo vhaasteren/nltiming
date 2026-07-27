@@ -19,7 +19,7 @@ from .physical_charts import DEG2RAD, PI, RAD2DEG, TWO_PI
 from .space import ParameterSpace, coord_for_static_layer
 from .units import units_map
 
-RUN_META_SCHEMA = "nlt-run-meta-v3"
+RUN_META_SCHEMA = "nlt-run-meta-v4"
 RUN_META_FILENAME = "nlt_run_meta.json"
 PARAMETER_SPACE_STEM = "nlt_parameter_space"
 ENTERPRISE_NPZ_NAME = "enterprise_x.npz"
@@ -172,7 +172,8 @@ class RunManifest:
     sampled: tuple[str, ...]
     coord: str
     static_layer: str
-    design_matrix_method: str
+    derivative_method: str
+    gauge: dict[str, Any]
     engines: dict[str, str]
     native_units: dict[str, str]
     display_units: dict[str, str]
@@ -265,7 +266,8 @@ class RunManifest:
             "latent_name": self.latent_name,
             "sampled": list(self.sampled),
             "static_layer": self.static_layer,
-            "design_matrix_method": self.design_matrix_method,
+            "derivative_method": self.derivative_method,
+            "gauge": dict(self.gauge),
             "engines": dict(self.engines),
             "tempo2_native": self.tempo2_native,
             "prior_override_policy": self.prior_override_policy,
@@ -378,7 +380,8 @@ def build_run_manifest(
         sampled=sampled,
         coord=coord_for_static_layer(ntm.static_layer),
         static_layer=ntm.static_layer,
-        design_matrix_method=ntm.design_matrix_method,
+        derivative_method=ntm.derivative_method,
+        gauge=_gauge_manifest_block(ctx),
         engines=dict(ntm.engines),
         tempo2_native=tempo2_native,
         prior_override_policy=ntm.prior_override_policy,
@@ -396,6 +399,49 @@ def build_run_manifest(
         transport=transport,
         binary_chart=ctx.binary_chart_manifest(),
     )
+
+
+def _gauge_manifest_block(ctx) -> dict[str, Any]:
+    """Serialize ``ctx.gauge_provenance`` into the per-contribution gauge block."""
+    provenance = getattr(ctx, "gauge_provenance", None) or ()
+    if not provenance:
+        raise RunIOError(
+            "TimingContext.gauge_provenance is empty; gauge facts must be "
+            "normalized at context construction."
+        )
+    contributions: dict[str, Any] = {}
+    export_modes: list[str] = []
+    reporting_keys: list[tuple[str, bool | None]] = []
+    for name, prov in provenance:
+        export_modes.append(prov.export)
+        reporting_keys.append((prov.reporting_mode, prov.reporting_weighted))
+        reference: dict[str, Any] = {"mode": prov.reference_mode}
+        if prov.reference_mode == "mean":
+            reference["weighted"] = bool(prov.reference_weighted)
+        reporting: dict[str, Any] = {"mode": prov.reporting_mode}
+        if prov.reporting_mode == "mean":
+            reporting["weighted"] = bool(prov.reporting_weighted)
+        contributions[str(name)] = {
+            "export": prov.export,
+            "reference": reference,
+            "reporting": reporting,
+        }
+
+    def _summary(values):
+        first = values[0]
+        return first if all(v == first for v in values) else "mixed"
+
+    export_summary = _summary(export_modes)
+    reporting_summary = _summary(reporting_keys)
+    if reporting_summary == "mixed":
+        reporting_out: Any = "mixed"
+    else:
+        reporting_out = reporting_summary[0]  # mode string when contributions agree
+    return {
+        "export": export_summary,
+        "reporting": reporting_out,
+        "contributions": contributions,
+    }
 
 
 def save_discovery_checkpoint(

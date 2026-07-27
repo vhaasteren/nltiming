@@ -42,7 +42,8 @@ class _Pulsar:
 
     def __init__(self):
         self.name = "J0000+0000"
-        self.fitpars = ("F0", "F1", "DM")
+        # Col0 is the constant gauge column (named Offset).
+        self.fitpars = ("Offset", "F1", "DM")
         self._toas = np.linspace(0.0, 1.0, 8)
         self._residuals = np.linspace(-2e-6, 2e-6, 8)
         self._toaerrs = np.full(8, 1.0e-6, dtype=float)
@@ -67,7 +68,7 @@ class _Pulsar:
         model = LinearModel.from_design(
             fitpars=self.fitpars,
             design=design,
-            theta_exact={"F0": "10.0", "F1": "1.0", "DM": "5.0"},
+            theta_exact={"Offset": "0.0", "F1": "1.0", "DM": "5.0"},
         )
         self._jug_backend = LinearizedJugEngine.from_linear_model(model)
         self._pint_backend = LinearizedPintEngine.from_linear_model(model)
@@ -294,11 +295,11 @@ def test_affine_normal_z_prior_marginalization_is_expansion_independent(pulsar):
 
     base = ntm.for_pulsar(pulsar, condition=False)
     shifted = base.with_expansion(
-        delta={"F0": 0.0, "F1": 0.0, "DM": 5.0e-4}, source="explicit_delta")
+        delta={"Offset": 0.0, "F1": 0.0, "DM": 5.0e-4}, source="explicit_delta")
 
-    # F0/F1 sampled point (engine-native delta); DM is analytically marginalized.
+    # Offset/F1 sampled point (engine-native delta); DM is analytically marginalized.
     values = [1.0e-13, 2.0e-21]
-    assert base.plan.sampled == ("F0", "F1")
+    assert base.plan.sampled == ("Offset", "F1")
     l0 = _logL_at(base, values)
     l1 = _logL_at(shifted, values)
     assert np.isfinite(l0)

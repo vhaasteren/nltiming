@@ -40,7 +40,7 @@ from .physical_charts import (
     resolve_chart_candidates,
     sampling_reference_strings,
 )
-from .protocols import JaxTimingEngine
+from .protocols import GaugeProvenance, JacobianTimingEngine, JaxTimingEngine
 from .inference import (
     InferencePreset,
     TimingInference,
@@ -65,29 +65,210 @@ from .units import lookup_pint_param, native_physical_bounds, to_native
 from .whitening import posterior_linear_transform, schur_delta_wls
 from .engines import normalize_engines
 
-_DESIGN_MATRIX_METHODS = {"analytic", "autodiff"}
+_DERIVATIVE_METHODS = {"analytic", "autodiff"}
 _PRIOR_OVERRIDE_POLICIES = {"warn", "strict"}
 
 
-def _normalize_design_matrix_method(method: str) -> str:
+class GaugeColumnMissingError(ValueError):
+    """Raised when the marginalized basis cannot absorb the phase gauge."""
+
+
+def _normalize_derivative_method(method: str) -> str:
     normalized = str(method or "analytic").lower()
-    if normalized not in _DESIGN_MATRIX_METHODS:
+    if normalized not in _DERIVATIVE_METHODS:
         raise ValueError(
-            "design_matrix_method must be 'analytic' or 'autodiff'; " f"got {method!r}"
+            "derivative_method must be 'analytic' or 'autodiff'; " f"got {method!r}"
         )
     return normalized
 
 
 def _timing_design_matrix(pulsar, engine, *, method: str) -> np.ndarray:
+    """Engine-frame design matrix M, gauge-free, in the fitter sign convention.
+
+    ``method`` selects the route, not the object: both branches return M. The
+    analytic route's source of record is ``pulsar.Mmat`` — the array
+    enterprise/discovery marginalize, owning host unit conventions and the
+    per-PTA Offset columns — not ``engine.design_matrix()``.
+    """
     if method == "autodiff":
-        matrix_fn = getattr(engine, "linearized_design_matrix", None)
-        if matrix_fn is None:
-            raise ValueError(
-                "design_matrix_method='autodiff' requires an engine that exposes "
-                "linearized_design_matrix()."
+        if not isinstance(engine, JacobianTimingEngine):
+            leaf_note = ""
+            contributions = getattr(engine, "contributions", None) or getattr(
+                engine, "_contributions", ()
             )
-        return np.asarray(matrix_fn(), dtype=float)
+            offending = [
+                f"{c.name}:{type(c.engine).__name__}"
+                for c in contributions
+                if not isinstance(c.engine, JacobianTimingEngine)
+            ]
+            if offending:
+                leaf_note = (
+                    f" Offending leaf/leaves: {offending}. A composite containing "
+                    "a non-JAX leaf (e.g. LibstempoEngine) never exposes "
+                    "residual_jacobian."
+                )
+            raise ValueError(
+                "derivative_method='autodiff' requires an engine exposing "
+                "residual_jacobian(); got "
+                f"{type(engine).__name__}.{leaf_note}"
+            )
+        return -np.asarray(engine.residual_jacobian(), dtype=float)
     return np.asarray(pulsar.Mmat, dtype=float)
+
+
+def _is_gauge_column_name(name: str, contribution_name: str | None) -> bool:
+    """Named gauge columns: Offset / Offset_<pta> / PHOFF*."""
+    if name == "Offset" or name == "PHOFF" or name.startswith("PHOFF"):
+        return True
+    if contribution_name is None:
+        return False
+    return name in (f"Offset_{contribution_name}", f"PHOFF_{contribution_name}")
+
+
+def _svd_left_basis(A: np.ndarray) -> np.ndarray:
+    """Left singular vectors retained by the NumPy matrix_rank cutoff."""
+    A = np.asarray(A, dtype=float)
+    if A.size == 0:
+        return np.zeros((A.shape[0], 0), dtype=float)
+    u, s, _ = np.linalg.svd(A, full_matrices=False)
+    if s.size == 0:
+        return np.zeros((A.shape[0], 0), dtype=float)
+    cutoff = s[0] * max(A.shape) * np.finfo(np.float64).eps
+    rank = int(np.sum(s > cutoff))
+    return u[:, :rank]
+
+
+def assert_gauge_column_present(pulsar, engine, basis: np.ndarray) -> None:
+    """Every contribution's rows must span the constant direction in ``basis``.
+
+    Gauge-free engines return residuals defined only modulo span(1) per
+    contribution. Raises GaugeColumnMissingError naming the offending
+    contribution and which check failed: structural (no named gauge column),
+    local numeric, or joint numeric.
+    """
+    basis = np.asarray(basis, dtype=float)
+    fitpars = tuple(pulsar.fitpars)
+    n_toa = basis.shape[0]
+    contributions = getattr(engine, "contributions", None) or getattr(
+        engine, "_contributions", None
+    )
+    if not contributions:
+        contributions = [
+            type(
+                "C",
+                (),
+                {
+                    "name": str(getattr(pulsar, "name", "pulsar")),
+                    "row_indices": np.arange(n_toa),
+                    "engine": engine,
+                },
+            )()
+        ]
+
+    block_indicators = []
+    gauge_col_indices: set[int] = set()
+    for contribution in contributions:
+        rows = np.asarray(contribution.row_indices, dtype=int)
+        cname = str(contribution.name)
+        local_gauge = [
+            j
+            for j, name in enumerate(fitpars)
+            if _is_gauge_column_name(name, cname)
+        ]
+        if not local_gauge:
+            leaf = contribution.engine
+            gauge_applied = bool(getattr(leaf, "gauge_applied", False))
+            raise GaugeColumnMissingError(
+                f"Contribution {cname!r} has no named gauge column "
+                f"(Offset / Offset_{cname} / PHOFF*); structural check failed "
+                f"(leaf gauge_applied={gauge_applied})."
+            )
+        A_k = basis[np.ix_(rows, local_gauge)]
+        ones = np.ones(len(rows), dtype=float)
+        Q = _svd_left_basis(A_k)
+        if Q.shape[1] == 0:
+            proj_err = 1.0
+        else:
+            proj_err = float(
+                np.linalg.norm(ones - Q @ (Q.T @ ones)) / np.linalg.norm(ones)
+            )
+        if proj_err >= 1e-8:
+            leaf = contribution.engine
+            gauge_applied = bool(getattr(leaf, "gauge_applied", False))
+            # Diagnostic only: full-basis projection (never decides pass/fail).
+            Q_full = _svd_left_basis(basis[rows])
+            if Q_full.shape[1]:
+                full_err = float(
+                    np.linalg.norm(ones - Q_full @ (Q_full.T @ ones))
+                    / np.linalg.norm(ones)
+                )
+            else:
+                full_err = 1.0
+            extra = ""
+            if full_err < 1e-8:
+                extra = (
+                    " The constant is spanned by other columns, but not by the "
+                    "named gauge column."
+                )
+            raise GaugeColumnMissingError(
+                f"Contribution {cname!r} named gauge columns do not span the "
+                f"constant direction (relative residual {proj_err:.3e} >= 1e-8); "
+                f"local numeric check failed "
+                f"(leaf gauge_applied={gauge_applied}).{extra}"
+            )
+        indicator = np.zeros(n_toa, dtype=float)
+        indicator[rows] = 1.0
+        block_indicators.append(indicator)
+        gauge_col_indices.update(local_gauge)
+
+    B = np.column_stack(block_indicators)
+    A_G = basis[:, sorted(gauge_col_indices)]
+    Q = _svd_left_basis(A_G)
+    if Q.shape[1] == 0:
+        joint_err = 1.0
+    else:
+        joint_err = float(
+            np.linalg.norm(B - Q @ (Q.T @ B), ord="fro")
+            / max(np.linalg.norm(B, ord="fro"), 1e-300)
+        )
+    if joint_err >= 1e-8:
+        rank = 0 if Q.size == 0 else Q.shape[1]
+        shared = [
+            name
+            for j, name in enumerate(fitpars)
+            if j in gauge_col_indices and name in ("Offset", "PHOFF")
+        ]
+        raise GaugeColumnMissingError(
+            f"Named gauge subspace does not span all {B.shape[1]} contribution "
+            f"block constants (joint relative residual {joint_err:.3e} >= 1e-8, "
+            f"rank={rank}, deficit≈{B.shape[1] - rank}); joint check failed. "
+            f"Unsuffixed shared columns: {shared}."
+        )
+
+
+def _normalize_gauge_provenance(pulsar, engine) -> tuple[tuple[str, GaugeProvenance], ...]:
+    """Build the context-level per-contribution gauge map."""
+    contributions = getattr(engine, "contributions", None) or getattr(
+        engine, "_contributions", None
+    )
+    if contributions:
+        out = []
+        for contribution in contributions:
+            leaf = contribution.engine
+            if not hasattr(leaf, "gauge_provenance"):
+                raise ValueError(
+                    f"Contribution {contribution.name!r} leaf "
+                    f"{type(leaf).__name__} omits gauge_provenance(); "
+                    "required at context construction."
+                )
+            out.append((str(contribution.name), leaf.gauge_provenance()))
+        return tuple(out)
+    if not hasattr(engine, "gauge_provenance"):
+        raise ValueError(
+            f"Engine {type(engine).__name__} omits gauge_provenance(); "
+            "required at context construction."
+        )
+    return ((str(getattr(pulsar, "name", "pulsar")), engine.gauge_provenance()),)
 
 
 def _stable_json(value: object) -> str:
@@ -96,9 +277,9 @@ def _stable_json(value: object) -> str:
 
 @dataclass(frozen=True)
 class LocalTimingBlock:
-    """Waveform Jacobian of the timing model in prior-normal ``z`` (§6.3).
+    """Delay Jacobian of the timing model in prior-normal ``z`` (§6.3).
 
-    ``basis`` is ``W_z`` such that the timing waveform subtracted from ``y`` is
+    ``basis`` is ``W_z`` such that the timing delay subtracted from ``y`` is
     ``W_z z`` to first order at the reference; ``prior_precision`` is the exact
     prior precision in ``z`` (identity, by probability-integral-transform / PIT
     construction). Passed to discovery's ``array_block`` as an external
@@ -161,6 +342,8 @@ class TimingContext:
     linearization: "TimingLinearization"
     proper_space: ParameterSpace
     marginal_z_space: ParameterSpace
+    derivative_method: str = "analytic"
+    gauge_provenance: tuple[tuple[str, GaugeProvenance], ...] = ()
     metric: LocalPosteriorMetric | None = None
     transport: StaticTransportRecord | None = None
     physical_charts: tuple = ()             # tuple[KeplerLaplaceChart, ...]
@@ -408,7 +591,7 @@ class TimingContext:
             "coord": coord_for_static_layer(self.model.static_layer),
             "sampled": list(self.sampled),
             "engines": sorted(self.model.engines.items()),
-            "design_matrix_method": self.model.design_matrix_method,
+            "derivative_method": self.model.derivative_method,
             "metric_source": None if self.metric is None else self.metric.fingerprint(),
             "transport": (
                 None if self.transport is None else self.transport.fingerprint()
@@ -431,12 +614,14 @@ class TimingContext:
         return f"{self.name_stem}_timing_z"
 
     def local_timing_block(self) -> "LocalTimingBlock":
-        """Sampled-block timing waveform Jacobian in prior-normal ``z``.
+        """Sampled-block timing delay Jacobian in prior-normal ``z``.
 
         Thin projection of :attr:`linearization`: ``basis`` is
         ``W_s = -∂(residual_delta(δ(z)))/∂z`` at the fixed expansion point (the
         engine reference by default, a refined point after
         :meth:`with_expansion`), and ``z_ref`` is that expansion coordinate.
+        With gauge-free residuals, ``delay = -residual_delta`` and
+        ``r = y - delay``, so ``W_s`` is exactly the delay Jacobian.
         There is no parallel autodiff path — the sole differentiation of the
         exact engine residual lives in ``build_linearization`` (§5.2).
 
@@ -595,7 +780,7 @@ class NonLinearTimingModel:
         self,
         *,
         engines: str | Mapping[str, str] = "jug",
-        design_matrix_method: str = "analytic",
+        derivative_method: str = "analytic",
         tempo2_native: str | None = None,
         tempo2_jug_options: Mapping[str, Any] | None = None,
         inference: TimingInference | InferencePreset | str | None = None,
@@ -630,9 +815,7 @@ class NonLinearTimingModel:
         self.expansion = expansion
         self.binary_chart = coerce_binary_chart_policy(binary_chart)
         self.engines = normalize_engines(engines)
-        self.design_matrix_method = _normalize_design_matrix_method(
-            design_matrix_method
-        )
+        self.derivative_method = _normalize_derivative_method(derivative_method)
         self.tempo2_native = tempo2_native
         self._tempo2_jug_options_raw = (
             None if tempo2_jug_options is None else dict(tempo2_jug_options)
@@ -749,7 +932,7 @@ class NonLinearTimingModel:
         """Return a new model config with a different engine selection."""
         other = NonLinearTimingModel(
             engines=engines,
-            design_matrix_method=self.design_matrix_method,
+            derivative_method=self.derivative_method,
             tempo2_native=self.tempo2_native,
             tempo2_jug_options=self._tempo2_jug_options_raw,
             inference=self.inference,
@@ -768,7 +951,7 @@ class NonLinearTimingModel:
     def _config_fingerprint(self) -> str:
         payload = {
             "engines": sorted(self.engines.items()),
-            "design_matrix_method": self.design_matrix_method,
+            "derivative_method": self.derivative_method,
             "tempo2_native": self._tempo2_native_fingerprint(),
             "tempo2_jug_options": self.tempo2_jug_options,
             "static_layer": self.static_layer,
@@ -826,7 +1009,7 @@ class NonLinearTimingModel:
     def _engine_for_pulsar(self, pulsar):
         return pulsar.timing_engine(
             self.engines,
-            design_matrix_method=self.design_matrix_method,
+            derivative_method=self.derivative_method,
             **self._timing_engine_kwargs(),
         )
 
@@ -1301,8 +1484,10 @@ class NonLinearTimingModel:
             coordinate_policy=self.coordinate_policy,
         )
         engine_design_matrix = _timing_design_matrix(
-            pulsar, engine, method=self.design_matrix_method
+            pulsar, engine, method=self.derivative_method
         )
+        assert_gauge_column_present(pulsar, engine, engine_design_matrix)
+        gauge_provenance = _normalize_gauge_provenance(pulsar, engine)
         partition, chart_resolutions, chart_records = activate_charts(
             partition,
             candidates,
@@ -1409,6 +1594,8 @@ class NonLinearTimingModel:
             ),
             design_matrix=design_matrix,
             engine_design_matrix=engine_design_matrix,
+            derivative_method=self.derivative_method,
+            gauge_provenance=gauge_provenance,
             physical_charts=charts,
             binary_chart_records=chart_records,
             linearization=linearization,

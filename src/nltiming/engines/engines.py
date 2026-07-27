@@ -103,7 +103,9 @@ class PintDeltaEngine:
             )
         delta_pulse_numbers = Phase(self._toas.table["delta_pulse_number"])
 
-        subtract_mean = "PhaseOffset" not in model.components
+        # Gauge-free export: never subtract a phase mean here.
+        # PINT also disables implicit subtraction when PhaseOffset is present.
+        subtract_mean = False
         if getattr(model, "TRACK").value == "-2":
             track_mode = "use_pulse_numbers"
         elif getattr(model, "TRACK").value == "0":
@@ -189,9 +191,10 @@ class Tempo2DeltaEngine:
     def _linearized_unrecomputed_delta(
         self, delta_params: dict[str, float], delta_residuals: np.ndarray
     ) -> np.ndarray:
+        # Fitter sign: exact-linear unrecomputed terms contribute -M δ.
         linearized = np.zeros_like(self._reference_residuals)
         if "Offset" in delta_params:
-            linearized += self._designmatrix[:, 0] * float(delta_params["Offset"])
+            linearized -= self._designmatrix[:, 0] * float(delta_params["Offset"])
 
         if not np.array_equal(delta_residuals, np.zeros_like(delta_residuals)):
             return linearized
@@ -200,7 +203,7 @@ class Tempo2DeltaEngine:
             if name == "Offset" or name not in self._fit_param_names:
                 continue
             col = self._fit_param_names.index(name) + 1
-            linearized += self._designmatrix[:, col] * float(delta)
+            linearized -= self._designmatrix[:, col] * float(delta)
 
         return linearized
 

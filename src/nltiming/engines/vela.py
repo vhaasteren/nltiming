@@ -19,6 +19,8 @@ from typing import Any, Mapping
 
 import numpy as np
 
+from nltiming.protocols import GaugeProvenance
+
 from .base import LinearModel, is_exact_linear_param
 from .engines import _is_zero_delta
 
@@ -51,12 +53,10 @@ def _ensure_par_uncertainties(par_file) -> Path:
 class VelaDeltaEngine:
     """pyvela-backed residual-deviation engine.
 
-    ``Vela.form_residuals`` does not remove a phase mean, while the canonical
-    residual-delta convention (PINT/JUG pint-compatibility) removes the
-    weighted phase mean on every evaluation. The engine therefore subtracts
-    the weighted mean (fixed weights from the reference TOA uncertainties)
-    from each residual delta; pass ``phase_mean_mode=None`` for raw deltas or
-    ``"unweighted"`` for the tempo2 convention.
+    ``Vela.form_residuals`` does not remove a phase mean. The default
+    ``phase_mean_mode=None`` therefore exports gauge-free residual deltas.
+    Optional ``"weighted"`` / ``"unweighted"`` modes remain available for
+    diagnostics that deliberately re-apply a mean.
     """
 
     def __init__(
@@ -64,7 +64,7 @@ class VelaDeltaEngine:
         spnta: Any,
         *,
         isort: np.ndarray | None = None,
-        phase_mean_mode: str | None = "weighted",
+        phase_mean_mode: str | None = None,
         weights: np.ndarray | None = None,
     ):
         self._spnta = spnta
@@ -161,7 +161,7 @@ class VelaEngine:
         linear_model: LinearModel,
         param_mapping: Mapping[str, str] | None = None,
         isort: np.ndarray | None = None,
-        phase_mean_mode: str | None = "weighted",
+        phase_mean_mode: str | None = None,
         weights: np.ndarray | None = None,
     ) -> "VelaEngine":
         """Build a native Velan engine from an already-created ``SPNTA``."""
@@ -206,7 +206,7 @@ class VelaEngine:
         linear_model: LinearModel,
         param_mapping: Mapping[str, str] | None = None,
         isort: np.ndarray | None = None,
-        phase_mean_mode: str | None = "weighted",
+        phase_mean_mode: str | None = None,
         weights: np.ndarray | None = None,
         spnta_kwargs: Mapping[str, Any] | None = None,
     ) -> "VelaEngine":
@@ -230,7 +230,7 @@ class VelaEngine:
         return self._exact_linear_fitpars
 
     def identically_linear_fitpars(self) -> frozenset[str]:
-        """Fitpars whose engine waveform is affine in delta (§4.3)."""
+        """Fitpars whose engine delay is affine in delta (§4.3)."""
         return self._exact_linear_fitpars
 
     def reference_theta(self) -> np.ndarray:
@@ -262,4 +262,16 @@ class VelaEngine:
         columns = np.asarray(
             self._model.design[:, list(self._exact_linear_indices)], dtype=float
         )
-        return columns @ delta[np.asarray(self._exact_linear_indices, dtype=int)]
+        return -(columns @ delta[np.asarray(self._exact_linear_indices, dtype=int)])
+
+    def gauge_provenance(self) -> GaugeProvenance:
+        return GaugeProvenance(
+            export="none",
+            reference_mode="none",
+            reporting_mode="mean",
+            reporting_weighted=True,
+        )
+
+    @property
+    def gauge_applied(self) -> bool:
+        return self.gauge_provenance().export != "none"
