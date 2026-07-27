@@ -8,6 +8,24 @@ code, and notebooks are updated together. Delete wrong APIs; do not shim them.
 
 ---
 
+## Terminology lock (normative)
+
+Locked with JUG / MetaPulsar. See
+`ref-packages/jug/feature_designmatrix_naming_conventions.md` (terminology lock)
+and MetaPulsar `docs/design_matrix_terminology.md`.
+
+| Symbol | Public name | Meaning |
+|---|---|---|
+| \(M\) | **`design_matrix`** | Raw fitter basis (PINT/tempo2). What every other PTA package means by “design matrix”. |
+| \(J\) | **`residual_jacobian`** | \(\partial(\Delta r)/\partial\theta\). Never a design matrix. |
+| \(W\) | **`waveform_jacobian`** | Delay tangent; \(W=-J\). |
+
+Hard rules: `design_matrix` means only raw \(M\); `residual_jacobian` is derived
+only from the residual function; bare “Jacobian” in docs means you should
+probably write **residual Jacobian** if you mean \(J\).
+
+---
+
 ## 0. Executive decision
 
 nltiming uses the same raw design-matrix meaning as JUG and PINT:
