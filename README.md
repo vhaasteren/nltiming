@@ -11,6 +11,12 @@ Nonlinear pulsar-timing likelihood components for
 old `waveform_jacobian` noun is deleted. Design notes:
 [`feature_phase_gauge.md`](../jug/feature_phase_gauge.md) (in the JUG checkout).
 
+**Hybrid residual linearization.** `NonLinearTimingModel(nonlinear_params=...)`
+forwards a closed mode (`None` | `"binary"` | `"binary+"`) into
+`MetaPulsar.timing_engine` → JUG session export. JUG executes the matching
+residual formula; nltiming does not choose a mode from the inference plan.
+See [`feature_hybrid_linear_binary.md`](../jug/feature_hybrid_linear_binary.md).
+
 Instead of holding every timing parameter fixed at its par-file value (or
 only analytically marginalizing a linear timing model), `nltiming` lets you
 choose — per fitpar — whether to *numerically sample* that axis or

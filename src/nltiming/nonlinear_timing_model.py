@@ -82,6 +82,20 @@ def _normalize_derivative_method(method: str) -> str:
     return normalized
 
 
+def _validate_nonlinear_params(value: str | None) -> str | None:
+    """Validate hybrid residual-linearization mode (closed set; jug owns rules)."""
+    if value is None:
+        return None
+    try:
+        from jug.fitting.nonlinear_params import validate_nonlinear_params
+    except ImportError as exc:  # pragma: no cover - exercised when jug absent
+        raise ImportError(
+            "nonlinear_params requires jug; install jug to use hybrid "
+            "residual linearization"
+        ) from exc
+    return validate_nonlinear_params(value)
+
+
 def _timing_design_matrix(pulsar, engine, *, method: str) -> np.ndarray:
     """Engine-frame design matrix M, gauge-free, in the fitter sign convention.
 
@@ -786,6 +800,7 @@ class NonLinearTimingModel:
         derivative_method: str = "analytic",
         tempo2_native: str | None = None,
         tempo2_jug_options: Mapping[str, Any] | None = None,
+        nonlinear_params: str | None = None,
         inference: TimingInference | InferencePreset | str | None = None,
         identically_linear: Sequence[str] | None = None,
         priors: Mapping[str, PriorOverrideSpec] | None = None,
@@ -823,6 +838,7 @@ class NonLinearTimingModel:
         self._tempo2_jug_options_raw = (
             None if tempo2_jug_options is None else dict(tempo2_jug_options)
         )
+        self.nonlinear_params = _validate_nonlinear_params(nonlinear_params)
         self.prior_override_policy = override_policy
         self.inference = inference
         self.identically_linear = identically_linear
@@ -857,6 +873,7 @@ class NonLinearTimingModel:
             "jug" in self.engines.values()
             or self.tempo2_native is not None
             or self._tempo2_jug_options_raw is not None
+            or self.nonlinear_params is not None
         )
 
     @property
@@ -931,6 +948,7 @@ class NonLinearTimingModel:
             derivative_method=self.derivative_method,
             tempo2_native=self.tempo2_native,
             tempo2_jug_options=self._tempo2_jug_options_raw,
+            nonlinear_params=self.nonlinear_params,
             inference=self.inference,
             identically_linear=self.identically_linear,
             prior_policy=self.prior_policy,
@@ -950,6 +968,7 @@ class NonLinearTimingModel:
             "derivative_method": self.derivative_method,
             "tempo2_native": self._tempo2_native_fingerprint(),
             "tempo2_jug_options": self.tempo2_jug_options,
+            "nonlinear_params": self._nonlinear_params_fingerprint(),
             "static_layer": self.static_layer,
             "inference": self.inference.as_dict(),
             "identically_linear": (
@@ -993,10 +1012,15 @@ class NonLinearTimingModel:
     def _tempo2_native_fingerprint(self) -> str:
         return self.resolved_tempo2_native
 
+    def _nonlinear_params_fingerprint(self) -> str | None:
+        """Fingerprinted residual-linearization mode (``None`` when native)."""
+        return self.nonlinear_params
+
     def _timing_engine_kwargs(self) -> dict[str, Any]:
         return {
             "tempo2_native": self.resolved_tempo2_native,
             "tempo2_jug_options": self.tempo2_jug_options,
+            "nonlinear_params": self.nonlinear_params,
             "prime_sessions": True,
             "verify_wiring": False,
             "subtract_tzr": False,

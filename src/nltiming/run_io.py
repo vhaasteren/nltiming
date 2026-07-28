@@ -46,6 +46,14 @@ def _run_meta_tempo2_native(ntm) -> str | dict[str, Any] | None:
     return str(value)
 
 
+def _run_meta_nonlinear_params(ntm) -> str | None:
+    """Record residual-linearization mode (``None`` = native path)."""
+    value = getattr(ntm, "nonlinear_params", None)
+    if value is None:
+        return None
+    return str(value)
+
+
 class RunIOError(RuntimeError):
     """Raised when NLT run products are missing, mismatched, or unreadable."""
 
@@ -181,6 +189,7 @@ class RunManifest:
     space_fingerprint: str
     name_stem: str
     tempo2_native: str | dict[str, Any] | None = None
+    nonlinear_params: str | None = None
     prior_override_policy: str | None = None
     scenario: str | None = None
     latent: dict[str, Any] | None = None
@@ -270,6 +279,7 @@ class RunManifest:
             "gauge": dict(self.gauge),
             "engines": dict(self.engines),
             "tempo2_native": self.tempo2_native,
+            "nonlinear_params": self.nonlinear_params,
             "prior_override_policy": self.prior_override_policy,
             "native_units": self.native_units,
             "display_units": self.display_units,
@@ -351,6 +361,7 @@ def build_run_manifest(
         raise RunIOError(f"pulsar {pulsar.name!r} has no sampled timing parameters")
     pint_model = pulsar.pint_model()
     tempo2_native = _run_meta_tempo2_native(ntm)
+    nonlinear_params = _run_meta_nonlinear_params(ntm)
     metric_source = ctx.metric.provenance() if ctx.metric is not None else None
     transport = None
     if dynamic_transport is not None:
@@ -384,6 +395,7 @@ def build_run_manifest(
         gauge=_gauge_manifest_block(ctx),
         engines=dict(ntm.engines),
         tempo2_native=tempo2_native,
+        nonlinear_params=nonlinear_params,
         prior_override_policy=ntm.prior_override_policy,
         native_units=units_map(sampled, pint_model, kind="native"),
         display_units=units_map(sampled, pint_model, kind="display"),

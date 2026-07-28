@@ -233,3 +233,57 @@ def test_resolved_tempo2_native_is_fingerprinted():
     # produces a distinct fingerprint from the resolved default.
     assert default._tempo2_native_fingerprint() == "fixed_state_stripped"
     assert default._config_fingerprint() != explicit._config_fingerprint()
+
+
+# ---------------------------------------------------------------------------
+# nonlinear_params residual-linearization forwarding (§10.1)
+#
+
+
+def test_omitted_nonlinear_params_stays_none():
+    ntm = NonLinearTimingModel(engines="jug", name="timing")
+    assert ntm.nonlinear_params is None
+    assert ntm._timing_engine_kwargs()["nonlinear_params"] is None
+    assert ntm._nonlinear_params_fingerprint() is None
+
+
+def test_explicit_nonlinear_params_forwarded_and_fingerprinted():
+    native = NonLinearTimingModel(engines="jug", name="timing")
+    hybrid = NonLinearTimingModel(
+        engines="jug", nonlinear_params="binary", name="timing"
+    )
+    assert hybrid.nonlinear_params == "binary"
+    assert hybrid._timing_engine_kwargs()["nonlinear_params"] == "binary"
+    assert hybrid._nonlinear_params_fingerprint() == "binary"
+    assert hybrid._config_fingerprint() != native._config_fingerprint()
+    carried = hybrid.with_engines("jug")
+    assert carried.nonlinear_params == "binary"
+
+
+def test_nonlinear_params_rejects_unknown_mode():
+    import pytest
+
+    with pytest.raises(ValueError, match="nonlinear_params"):
+        NonLinearTimingModel(engines="jug", nonlinear_params="all", name="timing")
+
+
+def test_nonlinear_params_implies_jug_use():
+    # Hybrid mode requires jug even if engines omit it in the sense that
+    # _uses_jug is true whenever nonlinear_params is set.
+    ntm = NonLinearTimingModel(
+        engines={"pint": "pint", "tempo2": "libstempo"},
+        nonlinear_params="binary+",
+        name="timing",
+    )
+    assert ntm._uses_jug() is True
+
+
+def test_run_meta_records_nonlinear_params():
+    from nltiming.run_io import _run_meta_nonlinear_params
+
+    omitted = NonLinearTimingModel(engines="jug", name="timing")
+    hybrid = NonLinearTimingModel(
+        engines="jug", nonlinear_params="binary", name="timing"
+    )
+    assert _run_meta_nonlinear_params(omitted) is None
+    assert _run_meta_nonlinear_params(hybrid) == "binary"
