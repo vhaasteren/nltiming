@@ -59,7 +59,13 @@ def zero_delta_tolerance(engine: TimingEngine, requested: float) -> float:
 
 
 def is_exact_linear_param(param_name: str) -> bool:
-    """Return true for fitpars that should use exact design-matrix columns."""
+    """Return true for fitpars that should use exact design-matrix columns.
+
+    Note: PTA-suffixed aliases such as ``Offset_epta`` currently do *not* match
+    bare ``Offset`` (unlike ``JUMP1_epta``, which matches via ``startswith``).
+    Changing that alters the MCMC residual path; do it only together with a
+    chain re-run, not when overlaying GLS on already-sampled chains.
+    """
     name = param_name.upper()
     if name == "OFFSET":
         return True

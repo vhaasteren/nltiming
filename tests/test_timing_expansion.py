@@ -9,24 +9,27 @@ jax = pytest.importorskip("jax")
 jax.config.update("jax_enable_x64", True)
 pytest.importorskip("jug")
 
-from nltiming import (  # noqa: E402
+from nltiming import (
     ExpansionOutsidePriorInteriorError,
     TimingExpansionSpec,
     TimingInference,
 )
-from nltiming import priors as P  # noqa: E402
-from nltiming.engines.base import LinearModel  # noqa: E402
-from nltiming.engines.jug import LinearizedJugEngine  # noqa: E402
-from nltiming.nonlinear_timing_model import NonLinearTimingModel  # noqa: E402
+from nltiming import priors as P
+from nltiming.engines.base import LinearModel
+from nltiming.engines.jug import LinearizedJugEngine
+from nltiming.nonlinear_timing_model import NonLinearTimingModel
 
 
 class _Pulsar:
     def __init__(self):
         self.name = "J1234+5678"
-        self.fitpars = ("F0", "F1", "DM")
+        # Offset is required as a named gauge column under the phase-gauge contract.
+        self.fitpars = ("Offset", "F0", "F1", "DM")
         n = 12
         t = np.linspace(0.0, 1.0, n)
-        design = np.column_stack([np.ones(n), t - 0.5, np.sin(3.0 * t)])
+        design = np.column_stack(
+            [np.ones(n), t - 0.5, np.sin(3.0 * t), np.cos(2.0 * t)]
+        )
         self._toas = t * 3.15e7 + 5.3e4
         self._residuals = 1e-6 * np.sin(5.0 * t)
         self._toaerrs = np.full(n, 1.0e-6)
@@ -34,46 +37,76 @@ class _Pulsar:
         self._backend_flags = np.array(["demo"] * n, dtype="U8")
         self._flags = {"pta": self._backend_flags}
         model = LinearModel.from_design(
-            fitpars=self.fitpars, design=design,
-            theta_exact={"F0": "100.0", "F1": "-1e-15", "DM": "10.0"})
+            fitpars=self.fitpars,
+            design=design,
+            theta_exact={
+                "Offset": "0.0",
+                "F0": "100.0",
+                "F1": "-1e-15",
+                "DM": "10.0",
+            },
+        )
         self._backend = LinearizedJugEngine.from_linear_model(model)
 
     @property
-    def toas(self): return self._toas
+    def toas(self):
+        return self._toas
+
     @property
-    def residuals(self): return self._residuals
+    def residuals(self):
+        return self._residuals
+
     @property
-    def toaerrs(self): return self._toaerrs
+    def toaerrs(self):
+        return self._toaerrs
+
     @property
-    def freqs(self): return self._freqs
+    def freqs(self):
+        return self._freqs
+
     @property
-    def Mmat(self): return self._backend.design_matrix()
+    def Mmat(self):
+        return self._backend.design_matrix()
+
     @property
-    def flags(self): return self._flags
+    def flags(self):
+        return self._flags
+
     @property
-    def backend_flags(self): return self._backend_flags
-    def state_id(self): return "exp-token"
-    def pint_model(self): return None
-    def timing_engine(self, engines="jug", **kwargs): return self._backend
+    def backend_flags(self):
+        return self._backend_flags
+
+    def state_id(self):
+        return "exp-token"
+
+    def pint_model(self):
+        return None
+
+    def timing_engine(self, engines="jug", **kwargs):
+        return self._backend
 
 
 def _model(**kw):
     return NonLinearTimingModel(
-        engines="jug", inference=TimingInference.sample_all(), name="timing", **kw)
+        engines="jug", inference=TimingInference.sample_all(), name="timing", **kw
+    )
 
 
 def test_default_is_engine_reference():
     lin = _model().for_pulsar(_Pulsar(), condition=False).linearization
     assert lin.source == "engine_reference"
-    np.testing.assert_allclose(lin.delta_expansion, np.zeros(3))
+    np.testing.assert_allclose(lin.delta_expansion, np.zeros(4))
 
 
 def test_explicit_prior_center_expansion_is_opt_in():
-    lin = _model(expansion=TimingExpansionSpec.prior_center()).for_pulsar(
-        _Pulsar(), condition=False).linearization
+    lin = (
+        _model(expansion=TimingExpansionSpec.prior_center())
+        .for_pulsar(_Pulsar(), condition=False)
+        .linearization
+    )
     assert lin.source == "prior_center"
     # z_e = 0 at the prior center by construction.
-    np.testing.assert_allclose(lin.z_expansion, np.zeros(3), atol=1e-10)
+    np.testing.assert_allclose(lin.z_expansion, np.zeros(4), atol=1e-10)
 
 
 def test_engine_reference_on_prior_boundary_raises_without_clipping():
@@ -95,17 +128,23 @@ def test_prior_center_recovers_when_engine_reference_is_outside():
 
 
 class _SignedDomainPulsar:
-    """Pulsar whose engine references exercise signed / σ>1 physical domains."""
+    """Pulsar whose engine references exercise signed PBDOT and σ>1 STIGMA."""
 
     def __init__(self):
         self.name = "J1234+5678"
-        self.fitpars = ("PX", "PBDOT", "H3", "STIGMA")
+        self.fitpars = ("Offset", "PBDOT", "STIGMA", "PX", "H3")
         n = 12
         t = np.linspace(0.0, 1.0, n)
         # Weak columns → wide WLS cheat boxes so clipped physical bounds (not
         # the empty-box fallback) would exclude delta=0 under the old domains.
         design = 1.0e-12 * np.column_stack(
-            [np.ones(n), t - 0.5, np.sin(3.0 * t), np.cos(2.0 * t)]
+            [
+                np.ones(n),
+                t - 0.5,
+                np.sin(3.0 * t),
+                np.cos(2.0 * t),
+                np.sin(5.0 * t),
+            ]
         )
         self._toas = t * 3.15e7 + 5.3e4
         self._residuals = 1e-6 * np.sin(5.0 * t)
@@ -117,10 +156,12 @@ class _SignedDomainPulsar:
             fitpars=self.fitpars,
             design=design,
             theta_exact={
-                "PX": "-0.37",
+                "Offset": "0.0",
+                # Signed orbital derivative is physical; PX/H3 stay interior.
                 "PBDOT": "-1.7e-12",
-                "H3": "-2e-8",
                 "STIGMA": "1.154",
+                "PX": "0.37",
+                "H3": "2e-8",
             },
         )
         self._backend = LinearizedJugEngine.from_linear_model(model)
@@ -163,9 +204,9 @@ class _SignedDomainPulsar:
         return self._backend
 
 
-def test_engine_reference_admits_signed_px_pbdot_h3_and_stigma_above_one():
+def test_engine_reference_admits_signed_pbdot_and_stigma_above_one():
     # Default wide_default + engine_reference must keep delta=0 interior for
-    # negative PX/PBDOT/H3 and STIGMA>1 (formerly clipped out of the cheat box).
+    # negative PBDOT and STIGMA>1. PX/H3 remain non-negative domains.
     # identically_linear=[] forces the uniform cheat-box path (LinearTimingEngine
     # otherwise declares every axis identically linear → unbounded Gaussians).
     model = NonLinearTimingModel(
@@ -176,14 +217,16 @@ def test_engine_reference_admits_signed_px_pbdot_h3_and_stigma_above_one():
     )
     lin = model.for_pulsar(_SignedDomainPulsar(), condition=False).linearization
     assert lin.source == "engine_reference"
-    np.testing.assert_allclose(lin.delta_expansion, np.zeros(4))
+    np.testing.assert_allclose(lin.delta_expansion, np.zeros(5))
 
 
 def test_large_affine_normal_expansion_is_not_boundary_failure():
     # Gaussian (affine_normal) charts are unbounded: a large explicit delta is
     # representable and never a boundary failure.
     ctx = _model().for_pulsar(_Pulsar(), condition=False)
-    big = ctx.with_expansion(delta={"F0": 5.0e-11, "F1": 0.0, "DM": 3.0e-2})
+    big = ctx.with_expansion(
+        delta={"Offset": 0.0, "F0": 5.0e-11, "F1": 0.0, "DM": 3.0e-2}
+    )
     assert np.all(np.isfinite(big.linearization.z_expansion))
     # 3e-2 DM delta at ~1e-3 std -> |z| well above any PIT interior limit, yet fine.
     assert np.max(np.abs(big.linearization.z_expansion)) > 5.0
@@ -195,7 +238,7 @@ def test_refinement_improves_exact_objective_and_re_expands():
     from nltiming.expansion import refine_timing_expansion
 
     ctx = _model().for_pulsar(_Pulsar(), condition=False)
-    z_star = jnp.array([1.5, -0.8, 0.6])
+    z_star = jnp.array([0.0, 1.5, -0.8, 0.6])
 
     def obj(z):  # exact conditional target incl. its own 0.5 z@z-style curvature
         return 0.5 * jnp.sum((z - z_star) ** 2)
@@ -206,7 +249,8 @@ def test_refinement_improves_exact_objective_and_re_expands():
     assert res.objective_final <= res.objective_initial
     assert res.context.linearization.source == "refined"
     np.testing.assert_allclose(
-        res.context.linearization.z_expansion, np.asarray(z_star), atol=1e-4)
+        res.context.linearization.z_expansion, np.asarray(z_star), atol=1e-4
+    )
 
 
 def test_refinement_returns_original_context_on_nonconvergence():

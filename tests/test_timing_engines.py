@@ -15,8 +15,8 @@ from nltiming.engines.jug import (
     LinearizedJugEngine,
 )
 from nltiming.engines.pint import (
-    PintEngine,
     LinearizedPintEngine,
+    PintEngine,
 )
 from nltiming.engines.tempo2 import (
     LibstempoEngine,
@@ -27,7 +27,8 @@ from nltiming.engines.tempo2 import (
 class _FakeDeltaEngine:
     def delta_residuals(self, delta_params):
         delta = np.array([delta_params["F0"], delta_params["F1"]], dtype=float)
-        return _linear_model().design @ delta
+        # Fitter sign: Δr ≈ -M δ
+        return -(_linear_model().design @ delta)
 
 
 class _StrictTempo2Engine:
@@ -40,7 +41,8 @@ class _StrictTempo2Engine:
         if unknown:
             raise KeyError(f"unexpected native params: {unknown}")
         self.calls.append(dict(delta_params))
-        return np.array([2.0, 3.0, 5.0], dtype=float) * delta_params.get("PB", 0.0)
+        # Fitter sign: Δr ≈ -M δ for the native PB column.
+        return -np.array([2.0, 3.0, 5.0], dtype=float) * delta_params.get("PB", 0.0)
 
 
 class _FakeLTPulsarParam:
@@ -81,12 +83,15 @@ class _FakeLTPulsarWithJump:
 
 class _FakeJaxState:
     def residual_delta_np(self, delta):
-        return _linear_model().design @ np.asarray(delta, dtype=float)
+        return -(_linear_model().design @ np.asarray(delta, dtype=float))
 
     def residual_delta_jax(self, delta):
         import jax.numpy as jnp
 
-        return jnp.asarray(_linear_model().design) @ jnp.asarray(delta)
+        return -(jnp.asarray(_linear_model().design) @ jnp.asarray(delta))
+
+    def residual_jacobian_native(self):
+        return -np.asarray(_linear_model().design, dtype=float)
 
 
 def _linear_model():
@@ -108,11 +113,18 @@ def _linear_model():
 
 def _assert_linear_tangent(engine):
     delta = np.array([0.2, -0.5], dtype=float)
+    # Phase-gauge contract: residual_delta(δ) ≈ -M δ = residual_jacobian @ δ
     np.testing.assert_allclose(
         engine.residual_delta(delta),
-        engine.design_matrix() @ delta,
+        -(engine.design_matrix() @ delta),
         atol=1e-12,
     )
+    if hasattr(engine, "residual_jacobian"):
+        np.testing.assert_allclose(
+            engine.residual_jacobian(),
+            -engine.design_matrix(),
+            atol=1e-12,
+        )
     validate_engine_zero_delta(engine)
     validate_engine_shapes(engine)
 
@@ -144,7 +156,7 @@ def test_jug_engine_jax_surface_and_precision_metadata():
     delta = jnp.asarray([0.1, 0.3], dtype=jnp.float64)
     np.testing.assert_allclose(
         np.asarray(engine.residual_delta_jax(delta)),
-        engine.design_matrix() @ np.asarray(delta),
+        -(engine.design_matrix() @ np.asarray(delta)),
         atol=1e-12,
     )
 
@@ -174,16 +186,17 @@ def test_jug_engine_adds_exact_linear_to_numpy_and_jax_paths():
         ),
         theta_exact={"PB": "1.0", "Offset": "0.0"},
     )
+    # JUG native Jacobian is J = -M for the evaluable column.
+    native = -model.design[:, :1].copy()
     state = _FakeJaxState()
-    state.design_matrix = model.design[:, :1].copy()
-    state.residual_delta_np = lambda delta: model.design[:, :1] @ np.asarray(
-        delta, dtype=float
-    )
+    state.design_matrix = native
+    state.residual_delta_np = lambda delta: native @ np.asarray(delta, dtype=float)
+    state.residual_jacobian_native = lambda: np.asarray(native, dtype=float)
 
     def residual_delta_jax(delta):
         import jax.numpy as jnp
 
-        return jnp.asarray(model.design[:, :1]) @ jnp.asarray(delta)
+        return jnp.asarray(native) @ jnp.asarray(delta)
 
     state.residual_delta_jax = residual_delta_jax
     engine = JugEngine(state=state, linear_model=model)
@@ -193,7 +206,7 @@ def test_jug_engine_adds_exact_linear_to_numpy_and_jax_paths():
     engine._exact_linear_fitpars = frozenset({"Offset"})
 
     delta = np.array([0.5, -0.25], dtype=float)
-    expected = model.design @ delta
+    expected = -(model.design @ delta)
     np.testing.assert_allclose(engine.residual_delta(delta), expected)
 
     jnp = __import__("jax.numpy", fromlist=["*"])
@@ -201,9 +214,7 @@ def test_jug_engine_adds_exact_linear_to_numpy_and_jax_paths():
         np.asarray(engine.residual_delta_jax(jnp.asarray(delta))),
         expected,
     )
-    np.testing.assert_allclose(
-        engine.linearized_design_matrix()[:, 1], -model.design[:, 1]
-    )
+    np.testing.assert_allclose(engine.residual_jacobian(), -model.design)
 
 
 def test_jug_engine_converts_astrometry_fit_units_to_native():
@@ -212,7 +223,7 @@ def test_jug_engine_converts_astrometry_fit_units_to_native():
     ``MetaPulsar.Mmat`` carries RAJ in hourangle and DECJ in degrees, while the
     frozen ``JaxTimingState`` is native (radians). Without the conversion the
     residual response is over-scaled by ``12/pi`` (RAJ) / ``180/pi`` (DECJ);
-    with it, ``residual_delta == design_matrix @ delta`` holds for every axis.
+    with it, ``residual_delta == -design_matrix @ delta`` holds for every axis.
     """
     pytest.importorskip("jax")
     pytest.importorskip("jug.utils.units")
@@ -234,10 +245,10 @@ def test_jug_engine_converts_astrometry_fit_units_to_native():
         design=pulsar_design,
         theta_exact={"RAJ": "0.0", "DECJ": "0.0", "F0": "100.0"},
     )
-    # Native state: same physical derivative, re-expressed per column in native
-    # units (host_col * fit_per_native), acting linearly on the native delta.
+    # Native J = -M_native; M_native columns are host columns * fit_per_native.
     scale = np.array([native_to_fit_value(name, 1.0) for name in fitpars])
     native_design = pulsar_design * scale
+    native_J = -native_design
 
     class _NativeState:
         design_matrix = native_design
@@ -245,14 +256,17 @@ def test_jug_engine_converts_astrometry_fit_units_to_native():
         param_mapping = ()
 
         def residual_delta_np(self, delta):
-            return native_design @ np.asarray(delta, dtype=float)
+            return native_J @ np.asarray(delta, dtype=float)
 
         def residual_delta_jax(self, delta):
-            return jnp.asarray(native_design) @ jnp.asarray(delta)
+            return jnp.asarray(native_J) @ jnp.asarray(delta)
+
+        def residual_jacobian_native(self):
+            return np.asarray(native_J, dtype=float)
 
     engine = JugEngine(state=_NativeState(), linear_model=model)
     fit_delta = np.array([7.0e-8, 5.0e-7, 1.0e-9], dtype=float)
-    expected = pulsar_design @ fit_delta
+    expected = -(pulsar_design @ fit_delta)
 
     np.testing.assert_allclose(engine.residual_delta(fit_delta), expected, rtol=1e-12)
     np.testing.assert_allclose(
@@ -260,10 +274,8 @@ def test_jug_engine_converts_astrometry_fit_units_to_native():
         expected,
         rtol=1e-12,
     )
-    # linearized_design_matrix is served in pulsar fit units too (native / scale).
-    np.testing.assert_allclose(
-        engine.linearized_design_matrix(), pulsar_design, rtol=1e-12
-    )
+    # residual_jacobian is served in pulsar fit units (J = -M).
+    np.testing.assert_allclose(engine.residual_jacobian(), -pulsar_design, rtol=1e-12)
 
 
 def test_exact_linear_policy_does_not_capture_spin_frequency_params():
@@ -271,8 +283,11 @@ def test_exact_linear_policy_does_not_capture_spin_frequency_params():
     assert not is_exact_linear_param("F1")
     assert not is_exact_linear_param("F12")
     assert is_exact_linear_param("Offset")
+    # Documented asymmetry vs JUMP*: suffixed Offset is not exact-linear yet.
+    assert not is_exact_linear_param("Offset_epta")
     assert is_exact_linear_param("DMX_0001")
     assert is_exact_linear_param("JUMP1")
+    assert is_exact_linear_param("JUMP1_epta")
 
 
 def test_libstempo_engine_routes_jump_through_exact_linear_design_column():
@@ -297,7 +312,7 @@ def test_libstempo_engine_routes_jump_through_exact_linear_design_column():
     )
 
     delta = np.array([0.25, -0.5], dtype=float)
-    np.testing.assert_allclose(engine.residual_delta(delta), model.design @ delta)
+    np.testing.assert_allclose(engine.residual_delta(delta), -(model.design @ delta))
     assert strict.calls == [{"PB": 0.25}]
     assert engine.exact_linear_fitpars() == frozenset({"JUMP"})
 
@@ -322,7 +337,7 @@ def test_libstempo_from_contribution_marks_unsettable_jump_exact_linear():
     assert engine.exact_linear_fitpars() == frozenset({"JUMP"})
     np.testing.assert_allclose(
         engine.residual_delta(np.array([0.0, 0.5], dtype=float)),
-        model.design[:, 1] * 0.5,
+        -(model.design[:, 1] * 0.5),
     )
 
 

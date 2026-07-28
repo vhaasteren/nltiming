@@ -89,13 +89,13 @@ def test_native_physical_bounds():
     assert native_physical_bounds("J1640+2224_timing_M2") == (0.0, None)
     assert native_physical_bounds("RAJ") == (None, None)
     assert native_physical_bounds("F0") == (None, None)
-    # Signed timing-fit parameters (not universal non-negative domains).
-    assert native_physical_bounds("PX") == (None, None)
-    assert native_physical_bounds("PX_ng9") == (None, None)
+    # PX / H3 are non-negative; PBDOT is signed.
+    assert native_physical_bounds("PX") == (0.0, None)
+    assert native_physical_bounds("PX_ng9") == (0.0, None)
+    assert native_physical_bounds("H3") == (0.0, None)
+    assert native_physical_bounds("H3_epta") == (0.0, None)
     assert native_physical_bounds("PBDOT") == (None, None)
     assert native_physical_bounds("PBDOT_epta") == (None, None)
-    assert native_physical_bounds("H3") == (None, None)
-    assert native_physical_bounds("H3_epta") == (None, None)
     # STIG normalizes to STIGMA; sigma is positive-unbounded, not unit-interval.
     assert normalize_param_name("STIG") == "STIGMA"
     assert native_physical_bounds("STIG") == (0.0, None)
