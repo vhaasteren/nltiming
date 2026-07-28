@@ -10,13 +10,6 @@ import numpy as np
 
 from nltiming.protocols import EnterprisePulsarLike, GaugeProvenance, TimingEngine
 
-# Lives here so importing it never pulls in jax/jug.
-_NUMPY_RESIDUAL_DEPRECATION = (
-    "JUG NumPy residual path (residual_delta_np) is deprecated and will be "
-    "removed once JAX residual_delta_jax reaches full parity. Use "
-    "residual_delta_jax for new code."
-)
-
 
 def _as_1d_float(arr, *, name: str) -> np.ndarray:
     out = np.asarray(arr, dtype=float)
@@ -25,7 +18,7 @@ def _as_1d_float(arr, *, name: str) -> np.ndarray:
     return out
 
 
-def validate_enterprise_pulsar(pulsar: EnterprisePulsarLike) -> None:
+def validate_pulsar_surface(pulsar: EnterprisePulsarLike) -> None:
     """Validate basic frozen pulsar-surface shape invariants."""
     toas = _as_1d_float(pulsar.toas, name="toas")
     residuals = _as_1d_float(pulsar.residuals, name="residuals")
@@ -64,7 +57,7 @@ def is_exact_linear_param(param_name: str) -> bool:
     Note: PTA-suffixed aliases such as ``Offset_epta`` currently do *not* match
     bare ``Offset`` (unlike ``JUMP1_epta``, which matches via ``startswith``).
     Changing that alters the MCMC residual path; do it only together with a
-    chain re-run, not when overlaying GLS on already-sampled chains.
+    chain re-run, not when overlaying GPs on already-sampled chains.
     """
     name = param_name.upper()
     if name == "OFFSET":
@@ -102,7 +95,7 @@ def validate_engine_against_pulsar(
     engine: TimingEngine, pulsar: EnterprisePulsarLike, tol: float = 1e-12
 ) -> None:
     """Validate engine outputs against pulsar canonical row and column ordering."""
-    validate_enterprise_pulsar(pulsar)
+    validate_pulsar_surface(pulsar)
     validate_engine_shapes(engine)
     validate_engine_zero_delta(engine, tol=tol)
     design = np.asarray(engine.design_matrix(), dtype=float)

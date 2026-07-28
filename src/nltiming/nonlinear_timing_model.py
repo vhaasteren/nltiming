@@ -63,7 +63,7 @@ from .priors import (
 from .space import ParameterSpace, coord_for_static_layer
 from .units import lookup_pint_param, native_physical_bounds, to_native
 from .whitening import posterior_linear_transform, schur_delta_wls
-from .engines import normalize_engines
+from .engine_config import normalize_engines
 
 _DERIVATIVE_METHODS = {"analytic", "autodiff"}
 _PRIOR_OVERRIDE_POLICIES = {"warn", "strict"}
@@ -758,13 +758,16 @@ class TimingContext:
             dynamic_transport=dynamic_transport,
         )
 
-    def write(self, run_dir, **kwargs):
+    def write(self, run_dir, *, force: bool = False, **kwargs):
         """Build the run manifest and write run metadata + parameter space to ``run_dir``.
+
+        Pass ``force=True`` to overwrite an existing incompatible run directory
+        (see :meth:`nltiming.run_io.RunManifest.write`, §7.4).
 
         Returns the written ``RunManifest`` (needed for checkpoint helpers).
         """
         manifest = self.run_manifest(**kwargs)
-        manifest.write(run_dir)
+        manifest.write(run_dir, force=force)
         return manifest
 
 
@@ -820,7 +823,6 @@ class NonLinearTimingModel:
         self._tempo2_jug_options_raw = (
             None if tempo2_jug_options is None else dict(tempo2_jug_options)
         )
-        self._tempo2_jug_options_resolved: dict[str, Any] | None = None
         self.prior_override_policy = override_policy
         self.inference = inference
         self.identically_linear = identically_linear
@@ -859,20 +861,14 @@ class NonLinearTimingModel:
 
     @property
     def tempo2_jug_options(self) -> dict[str, Any] | None:
-        """Resolved JUG tempo2 session options; ``None`` for JUG-free configs.
+        """Opaque user-supplied JUG tempo2 options; ``None`` for JUG-free configs.
 
-        Resolution imports ``jug.timing`` lazily so that libstempo/PINT-only
-        configurations construct and resolve for a pulsar without JUG installed.
+        Backend owners (MetaPulsar) resolve defaults. An empty mapping means
+        the backend applies its own defaults.
         """
         if not self._uses_jug():
             return None
-        if self._tempo2_jug_options_resolved is None:
-            from jug.timing import resolve_tempo2_jug_options
-
-            self._tempo2_jug_options_resolved = resolve_tempo2_jug_options(
-                self._tempo2_jug_options_raw
-            )
-        return self._tempo2_jug_options_resolved
+        return dict(self._tempo2_jug_options_raw or {})
 
     def set_prior(
         self,

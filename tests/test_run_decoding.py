@@ -13,8 +13,8 @@ import pytest
 
 from nltiming import WhiteningConfig
 from nltiming import TimingInference
-from nltiming.engines.base import LinearModel
-from nltiming.engines.jug import LinearizedJugEngine
+from _engine_stubs import JaxLinearTestEngine
+from nltiming.engine_support import LinearModel
 from nltiming.nonlinear_timing_model import NonLinearTimingModel
 from nltiming.run_io import (
     DISCOVERY_FINAL_NAME,
@@ -29,7 +29,7 @@ from nltiming.run_io import (
 class _Pulsar:
     def __init__(self, state_id="decode-token"):
         self.name = "J3333+3333"
-        self.fitpars = ("F0", "F1")
+        self.fitpars = ("Offset", "F1")
         self._toaerrs = np.full(6, 1.0e-6)
         self._backend_flags = np.array(["demo"] * 6, dtype="U8")
         self._state_id = state_id
@@ -37,9 +37,9 @@ class _Pulsar:
         model = LinearModel.from_design(
             fitpars=self.fitpars,
             design=design,
-            theta_exact={"F0": "100.0", "F1": "1.0"},
+            theta_exact={"Offset": "0.0", "F1": "1.0"},
         )
-        self._backend = LinearizedJugEngine.from_linear_model(model)
+        self._backend = JaxLinearTestEngine.from_linear_model(model)
 
     @property
     def toas(self):
@@ -89,7 +89,7 @@ def ntm():
     return NonLinearTimingModel(
         engines="jug",
         whitening=WhiteningConfig(),
-        inference=TimingInference.groups(delta_flat=["F0"]),
+        inference=TimingInference.groups(delta_flat=["Offset"]),
         name="timing",
     )
 
@@ -143,7 +143,7 @@ def test_wrong_live_context_fails_assert_consistent_with(tmp_path, ntm, pulsar):
     other = NonLinearTimingModel(
         engines="jug",
         whitening=None,
-        inference=TimingInference.groups(delta_flat=["F0"]),
+        inference=TimingInference.groups(delta_flat=["Offset"]),
         name="timing",
     )
     other_ctx = other.for_pulsar(_Pulsar())
@@ -184,7 +184,7 @@ def test_no_overwrite_of_incompatible_run(tmp_path, ntm, pulsar):
     other = NonLinearTimingModel(
         engines="jug",
         whitening=None,
-        inference=TimingInference.groups(delta_flat=["F0"]),
+        inference=TimingInference.groups(delta_flat=["Offset"]),
         name="timing",
     )
     other_manifest = other.for_pulsar(pulsar).run_manifest(

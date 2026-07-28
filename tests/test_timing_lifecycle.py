@@ -9,8 +9,8 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from nltiming.engines.base import LinearModel
-from nltiming.engines.jug import LinearizedJugEngine
+from _engine_stubs import JaxLinearTestEngine
+from nltiming.engine_support import LinearModel
 from nltiming.metric import (
     LocalPosteriorMetric,
     WhiteningConfig,
@@ -23,16 +23,16 @@ from nltiming.nonlinear_timing_model import NonLinearTimingModel
 class _Pulsar:
     def __init__(self):
         self.name = "J2222+2222"
-        self.fitpars = ("F0", "F1")
+        self.fitpars = ("Offset", "F1")
         self._toaerrs = np.full(6, 1.0e-6)
         self._backend_flags = np.array(["demo"] * 6, dtype="U8")
         design = np.column_stack([np.ones(6), np.linspace(-0.5, 0.5, 6)])
         model = LinearModel.from_design(
             fitpars=self.fitpars,
             design=design,
-            theta_exact={"F0": "100.0", "F1": "1.0"},
+            theta_exact={"Offset": "0.0", "F1": "1.0"},
         )
-        self._backend = LinearizedJugEngine.from_linear_model(model)
+        self._backend = JaxLinearTestEngine.from_linear_model(model)
 
     @property
     def toas(self):
@@ -125,7 +125,7 @@ def test_with_transport_rejects_wrong_metric_order_and_dimension(pulsar):
 
     wrong_dim = LocalPosteriorMetric(
         fisher_delta=np.eye(1),
-        sampled=("F0",),
+        sampled=("Offset",),
         expansion_delta=np.zeros(1),
         reference_noise="toa_errors",
         source="toa_errors",

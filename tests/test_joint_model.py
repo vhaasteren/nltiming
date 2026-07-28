@@ -14,12 +14,10 @@ jax = pytest.importorskip("jax")
 jax.config.update("jax_enable_x64", True)
 import jax.numpy as jnp  # noqa: E402
 
-# LinearizedJugEngine import requires the jug extra.
-pytest.importorskip("jug")
 
 from nltiming import TimingInference, WhiteningConfig  # noqa: E402
-from nltiming.engines.base import LinearModel  # noqa: E402
-from nltiming.engines.jug import LinearizedJugEngine  # noqa: E402
+from _engine_stubs import JaxLinearTestEngine
+from nltiming.engine_support import LinearModel  # noqa: E402
 from nltiming.nonlinear_timing_model import NonLinearTimingModel  # noqa: E402
 
 
@@ -28,7 +26,7 @@ class _Pulsar:
 
     def __init__(self):
         self.name = "J1234+5678"
-        self.fitpars = ("F0", "F1", "DM")
+        self.fitpars = ("Offset", "F1", "DM")
         n = 12
         t = np.linspace(0.0, 1.0, n)
         design = np.column_stack([np.ones(n), t - 0.5, np.sin(3.0 * t)])
@@ -41,9 +39,9 @@ class _Pulsar:
         model = LinearModel.from_design(
             fitpars=self.fitpars,
             design=design,
-            theta_exact={"F0": "100.0", "F1": "-1e-15", "DM": "10.0"},
+            theta_exact={"Offset": "0.0", "F1": "-1e-15", "DM": "10.0"},
         )
-        self._backend = LinearizedJugEngine.from_linear_model(model)
+        self._backend = JaxLinearTestEngine.from_linear_model(model)
 
     @property
     def toas(self):
@@ -95,22 +93,22 @@ def _joint_ctx():
 def test_sample_all_plan_via_model():
     _, ctx = _joint_ctx()
     # Joint full-basis: every timing axis sampled, nothing marginalized.
-    assert ctx.plan.sampled == ("F0", "F1", "DM")
+    assert ctx.plan.sampled == ("Offset", "F1", "DM")
     assert ctx.plan.marginalized_delta == ()
     assert ctx.plan.marginalized_z == ()
     assert ctx.marginalized == ()
     assert ctx.sampled_all == ctx.sampled
     # A linear JUG engine declares every fitpar identically linear; DM is also
     # in the fallback registry.
-    assert set(ctx.identically_linear) == {"F0", "F1", "DM"}
+    assert set(ctx.identically_linear) == {"Offset", "F1", "DM"}
     assert "fallback" in ctx.linearity_sources_for("DM")
-    assert "engine" in ctx.linearity_sources_for("F0")
+    assert "engine" in ctx.linearity_sources_for("Offset")
 
 
 def test_chart_records_tag_proper_axes_affine_normal():
     _, ctx = _joint_ctx()
     summary = {d["name"]: d for d in ctx.chart_summary()}
-    assert set(summary) == {"F0", "F1", "DM"}
+    assert set(summary) == {"Offset", "F1", "DM"}
     # The linear JUG engine declares every axis identically linear -> Gaussian
     # delta prior -> affine_normal chart on every proper axis.
     assert all(d["prior_chart"] == "affine_normal" for d in summary.values())
@@ -128,7 +126,7 @@ def test_nonlinear_axis_uses_prior_pit_chart():
     )
     ctx = ntm.for_pulsar(_Pulsar())
     charts = {d["name"]: d["prior_chart"] for d in ctx.chart_summary()}
-    assert charts == {"F0": "prior_pit", "F1": "prior_pit", "DM": "prior_pit"}
+    assert charts == {"Offset": "prior_pit", "F1": "prior_pit", "DM": "prior_pit"}
 
 
 def test_uniform_override_on_identically_linear_axis_is_reported_nonaffine():
@@ -226,15 +224,15 @@ def test_z_prior_context_builds_with_wm_block_and_discovery_gp():
     )
     ctx = ntm.for_pulsar(_Pulsar())
     assert ctx.plan.marginalized_z == ("DM",)
-    assert ctx.plan.sampled == ("F0", "F1")
-    assert ctx.plan.proper == ("F0", "F1", "DM")
+    assert ctx.plan.sampled == ("Offset", "F1")
+    assert ctx.plan.proper == ("Offset", "F1", "DM")
     lin = ctx.linearization
     assert lin.marginalized_z_names == ("DM",)
     assert lin.marginalized_z_basis.shape[1] == 1
     assert lin.sampled_basis.shape[1] == 2
     # the z subspace is a real, separate ParameterSpace
     assert ctx.marginal_z_space.names == ("DM",)
-    assert ctx.space.names == ("F0", "F1")
+    assert ctx.space.names == ("Offset", "F1")
     # discovery emits a standard-normal GP for the z-prior block
     sigs = ctx.discovery_signals()
     gpnames = [getattr(s, "gpname", "") for s in sigs]
@@ -314,7 +312,7 @@ def test_local_timing_block_is_negative_autodiff_jacobian():
     _, ctx = _joint_ctx()
     blk = ctx.local_timing_block()
     assert blk.dimension == 3
-    assert blk.names == ("F0", "F1", "DM")
+    assert blk.names == ("Offset", "F1", "DM")
     assert blk.prior_precision == 1.0
     assert blk.joint_site == ctx.joint_site
 

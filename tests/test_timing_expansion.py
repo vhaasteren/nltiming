@@ -7,7 +7,6 @@ import pytest
 
 jax = pytest.importorskip("jax")
 jax.config.update("jax_enable_x64", True)
-pytest.importorskip("jug")
 
 from nltiming import (
     ExpansionOutsidePriorInteriorError,
@@ -15,8 +14,8 @@ from nltiming import (
     TimingInference,
 )
 from nltiming import priors as P
-from nltiming.engines.base import LinearModel
-from nltiming.engines.jug import LinearizedJugEngine
+from _engine_stubs import JaxLinearTestEngine
+from nltiming.engine_support import LinearModel
 from nltiming.nonlinear_timing_model import NonLinearTimingModel
 
 
@@ -46,7 +45,7 @@ class _Pulsar:
                 "DM": "10.0",
             },
         )
-        self._backend = LinearizedJugEngine.from_linear_model(model)
+        self._backend = JaxLinearTestEngine.from_linear_model(model)
 
     @property
     def toas(self):
@@ -164,7 +163,7 @@ class _SignedDomainPulsar:
                 "H3": "2e-8",
             },
         )
-        self._backend = LinearizedJugEngine.from_linear_model(model)
+        self._backend = JaxLinearTestEngine.from_linear_model(model)
 
     @property
     def toas(self):

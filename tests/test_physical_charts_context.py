@@ -13,16 +13,15 @@ jax = pytest.importorskip("jax")
 jax.config.update("jax_enable_x64", True)
 import jax.numpy as jnp  # noqa: E402
 
-pytest.importorskip("jug")
 
 from nltiming import TimingInference  # noqa: E402
-from nltiming.engines.base import LinearModel  # noqa: E402
-from nltiming.engines.jug import LinearizedJugEngine  # noqa: E402
+from _engine_stubs import JaxLinearTestEngine
+from nltiming.engine_support import LinearModel  # noqa: E402
 from nltiming.nonlinear_timing_model import NonLinearTimingModel  # noqa: E402
 from nltiming.priors import delta_uniform, normal  # noqa: E402
 
 REF = {
-    "F0": "100.0",
+    "Offset": "0.0",
     "ECC": "8e-4",
     "OM": "50.7",
     "T0": "55000.0",
@@ -33,7 +32,7 @@ REF = {
 class _BinaryPulsar:
     def __init__(self, seed=1):
         self.name = "JBIN+0000"
-        self.fitpars = ("F0", "ECC", "OM", "T0", "PB")
+        self.fitpars = ("Offset", "ECC", "OM", "T0", "PB")
         n = 60
         rng = np.random.default_rng(seed)
         t = np.linspace(0.0, 1.0, n)
@@ -49,7 +48,7 @@ class _BinaryPulsar:
         model = LinearModel.from_design(
             fitpars=self.fitpars, design=design, theta_exact=dict(REF)
         )
-        self._backend = LinearizedJugEngine.from_linear_model(model)
+        self._backend = JaxLinearTestEngine.from_linear_model(model)
 
     toas = property(lambda s: s._toas)
     residuals = property(lambda s: s._residuals)
@@ -85,11 +84,11 @@ def _ctx(inference=None, binary_chart="auto", **kw):
 
 def test_plan_names_and_slots():
     _, off = _ctx(binary_chart="off")
-    assert off.plan.axis_names == ("F0", "ECC", "OM", "T0", "PB")
+    assert off.plan.axis_names == ("Offset", "ECC", "OM", "T0", "PB")
     assert off.physical_charts == ()
 
     _, ctx = _ctx()
-    assert ctx.plan.axis_names == ("F0", "EPS1", "EPS2", "TASC", "PB")
+    assert ctx.plan.axis_names == ("Offset", "EPS1", "EPS2", "TASC", "PB")
     for eng, samp in (("ECC", "EPS1"), ("OM", "EPS2"), ("T0", "TASC")):
         off_ax = off.plan.axis(eng)
         ax = ctx.plan.axis(samp)
@@ -106,7 +105,7 @@ def test_plan_names_and_slots():
 def test_delay_keys_and_sites():
     _, ctx = _ctx()
     assert ctx.delay_keys == tuple(
-        f"JBIN+0000_t_{n}" for n in ("F0", "EPS1", "EPS2", "TASC", "PB")
+        f"JBIN+0000_t_{n}" for n in ("Offset", "EPS1", "EPS2", "TASC", "PB")
     )
 
 
@@ -190,9 +189,8 @@ def test_delta_flat_charted_columns_reference():
         e = np.zeros(nfit)
         e[slot] = h
         fd = (r_of_full(e) - r_of_full(-e)) / (2 * h)
-        # design_matrix column = d(residual delta)/d(sampling axis); the emitted
-        # delay is -residual, so the design column is +d(residual)/d(axis) here.
-        np.testing.assert_allclose(ctx.design_matrix[:, slot], fd, rtol=1e-5, atol=1e-8)
+        # Fitter sign: residual_delta ≈ -M δ, so d(residual)/d(axis) = -M column.
+        np.testing.assert_allclose(ctx.design_matrix[:, slot], -fd, rtol=1e-5, atol=1e-8)
 
 
 def test_with_expansion_rebuilds_map():
@@ -263,7 +261,7 @@ def test_guard_support_equals_prior_support_no_recompute(monkeypatch):
     # untouched, so the box is still computed there.
     ntm = NonLinearTimingModel(
         engines="jug",
-        inference=TimingInference.groups(delta_flat=["F0", "PB"]),
+        inference=TimingInference.groups(delta_flat=["Offset", "PB"]),
         binary_chart="auto",
         priors={"TASC": delta_uniform(-1e-3, 1e-3)},
         name="t",

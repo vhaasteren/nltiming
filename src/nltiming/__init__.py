@@ -1,4 +1,4 @@
-"""Nonlinear timing transforms, timing engines, and likelihood interfaces."""
+"""Nonlinear timing transforms, engine support, and likelihood interfaces."""
 
 from . import sampling
 from .run_io import (

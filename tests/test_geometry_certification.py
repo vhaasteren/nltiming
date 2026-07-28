@@ -16,7 +16,6 @@ jax = pytest.importorskip("jax")
 jax.config.update("jax_enable_x64", True)
 import jax.numpy as jnp  # noqa: E402
 
-pytest.importorskip("jug")
 pytest.importorskip("discovery")
 numpyro = pytest.importorskip("numpyro")
 import numpyro.distributions as dist  # noqa: E402
@@ -73,11 +72,11 @@ class _BigPulsar(_Pulsar):
     remainder spike averages out of the global RMS."""
 
     def __init__(self, n=400):
-        from nltiming.engines.base import LinearModel
-        from nltiming.engines.jug import LinearizedJugEngine
+        from _engine_stubs import JaxLinearTestEngine
+        from nltiming.engine_support import LinearModel
 
         self.name = "J0000+0000"
-        self.fitpars = ("F0", "F1", "DM")
+        self.fitpars = ("Offset", "F1", "DM")
         t = np.linspace(0.0, 1.0, n)
         design = np.column_stack([np.ones(n), t - 0.5, np.sin(3.0 * t)])
         self._toas = t * 3.15e7 + 5.3e4
@@ -89,9 +88,9 @@ class _BigPulsar(_Pulsar):
         model = LinearModel.from_design(
             fitpars=self.fitpars,
             design=design,
-            theta_exact={"F0": "100.0", "F1": "-1e-15", "DM": "10.0"},
+            theta_exact={"Offset": "0.0", "F1": "-1e-15", "DM": "10.0"},
         )
-        self._backend = LinearizedJugEngine.from_linear_model(model)
+        self._backend = JaxLinearTestEngine.from_linear_model(model)
 
 
 def _oracle(
@@ -359,7 +358,7 @@ def test_threshold_defaults_are_recorded_and_user_overrides_win():
 
 def _sample_report(**over):
     axis = TransportCenterAxis(
-        name="F0",
+        name="Offset",
         chart="prior_pit",
         expansion_z=0.0,
         center_z=6.0,

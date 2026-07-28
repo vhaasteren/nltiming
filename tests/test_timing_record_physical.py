@@ -5,8 +5,8 @@ import pytest
 
 from nltiming import WhiteningConfig
 from nltiming import TimingInference
-from nltiming.engines.base import LinearModel
-from nltiming.engines.jug import LinearizedJugEngine
+from _engine_stubs import JaxLinearTestEngine
+from nltiming.engine_support import LinearModel
 from nltiming.nonlinear_timing_model import NonLinearTimingModel
 from nltiming.sampling.numpyro import sample_timing, record_physical_postprocess
 
@@ -14,7 +14,7 @@ from nltiming.sampling.numpyro import sample_timing, record_physical_postprocess
 class _Host:
     def __init__(self):
         self.name = "J1111+1111"
-        self.fitpars = ("F0", "F1")
+        self.fitpars = ("Offset", "F1")
         self._toas = np.linspace(0.0, 1.0, 5)
         self._residuals = np.zeros(5)
         self._toaerrs = np.full(5, 1.0e-6)
@@ -25,9 +25,9 @@ class _Host:
         model = LinearModel.from_design(
             fitpars=self.fitpars,
             design=np.column_stack([np.ones(5), np.linspace(-0.5, 0.5, 5)]),
-            theta_exact={"F0": "100.0", "F1": "1.0"},
+            theta_exact={"Offset": "0.0", "F1": "1.0"},
         )
-        self._backend = LinearizedJugEngine.from_linear_model(model)
+        self._backend = JaxLinearTestEngine.from_linear_model(model)
 
     @property
     def toas(self):
@@ -96,7 +96,7 @@ def test_record_physical_postprocess_timing_scope_returns_prefixed_theta_values(
 ):
     ntm = NonLinearTimingModel(
         engines="jug",
-        inference=TimingInference.groups(delta_flat=["F0"]),
+        inference=TimingInference.groups(delta_flat=["Offset"]),
         name="timing",
     )
     _patch_numpyro(monkeypatch, sample_value=np.array([0.25]))
@@ -117,7 +117,7 @@ def test_record_physical_postprocess_timing_scope_returns_prefixed_theta_values(
 def test_record_physical_postprocess_scope_all_raises(pulsar):
     ntm = NonLinearTimingModel(
         engines="jug",
-        inference=TimingInference.groups(delta_flat=["F0"]),
+        inference=TimingInference.groups(delta_flat=["Offset"]),
         name="timing",
     )
     with pytest.raises(NotImplementedError, match="scope='all'"):
@@ -129,7 +129,7 @@ def test_record_physical_postprocess_touches_no_numpyro_state(pulsar, monkeypatc
     numpyro.sample/factor/deterministic, so it works outside any trace."""
     ntm = NonLinearTimingModel(
         engines="jug",
-        inference=TimingInference.groups(delta_flat=["F0"]),
+        inference=TimingInference.groups(delta_flat=["Offset"]),
         name="timing",
     )
     calls = _patch_numpyro(monkeypatch, sample_value=np.array([0.1]))
@@ -152,7 +152,7 @@ def test_record_physical_postprocess_explicit_coord_handles_standardized_scalar_
     ntm = NonLinearTimingModel(
         engines="jug",
         whitening=WhiteningConfig(),
-        inference=TimingInference.groups(delta_flat=["F0"]),
+        inference=TimingInference.groups(delta_flat=["Offset"]),
         name="timing",
     )
     x_value = 0.25
@@ -178,7 +178,7 @@ def test_record_physical_postprocess_implicit_coord_handles_standardized_contrib
     ntm = NonLinearTimingModel(
         engines="jug",
         whitening=WhiteningConfig(),
-        inference=TimingInference.groups(delta_flat=["F0"]),
+        inference=TimingInference.groups(delta_flat=["Offset"]),
         name="timing",
     )
     _patch_numpyro(monkeypatch, sample_value=np.array([0.2]))
@@ -201,7 +201,7 @@ def test_record_physical_postprocess_implicit_coord_handles_standardized_contrib
 def test_record_physical_postprocess_invalid_coord_raises(pulsar):
     ntm = NonLinearTimingModel(
         engines="jug",
-        inference=TimingInference.groups(delta_flat=["F0"]),
+        inference=TimingInference.groups(delta_flat=["Offset"]),
         name="timing",
     )
     with pytest.raises(ValueError, match="coord must be one of"):

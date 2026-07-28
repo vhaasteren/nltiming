@@ -6,8 +6,8 @@ from numpyro import handlers
 
 from nltiming import WhiteningConfig
 from nltiming import TimingInference
-from nltiming.engines.base import LinearModel
-from nltiming.engines.jug import LinearizedJugEngine
+from _engine_stubs import JaxLinearTestEngine
+from nltiming.engine_support import LinearModel
 from nltiming.nonlinear_timing_model import NonLinearTimingModel
 from nltiming.sampling import numpyro as nlt_numpyro
 from nltiming.sampling import ptmcmc as nlt_ptmcmc
@@ -16,7 +16,7 @@ from nltiming.sampling import ptmcmc as nlt_ptmcmc
 class _Pulsar:
     def __init__(self):
         self.name = "J1111+1111"
-        self.fitpars = ("F0", "F1")
+        self.fitpars = ("Offset", "F1")
         self._toas = np.linspace(0.0, 1.0, 5)
         self._residuals = np.zeros(5)
         self._toaerrs = np.full(5, 1.0e-6)
@@ -27,9 +27,9 @@ class _Pulsar:
         model = LinearModel.from_design(
             fitpars=self.fitpars,
             design=np.column_stack([np.ones(5), np.linspace(-0.5, 0.5, 5)]),
-            theta_exact={"F0": "100.0", "F1": "1.0"},
+            theta_exact={"Offset": "0.0", "F1": "1.0"},
         )
-        self._backend = LinearizedJugEngine.from_linear_model(model)
+        self._backend = JaxLinearTestEngine.from_linear_model(model)
 
     @property
     def toas(self):
@@ -78,7 +78,7 @@ def _binding(whitening=WhiteningConfig(), **kwargs):
     ntm = NonLinearTimingModel(
         engines="jug",
         whitening=whitening,
-        inference=TimingInference.groups(delta_flat=["F0"]),
+        inference=TimingInference.groups(delta_flat=["Offset"]),
         name="timing",
         **kwargs,
     )
@@ -547,7 +547,7 @@ def test_chain_layout_locates_columns_in_real_enterprise_pta(pulsar, whitening):
     ntm = NonLinearTimingModel(
         engines="jug",
         whitening=whitening,
-        inference=TimingInference.groups(delta_flat=["F0"]),
+        inference=TimingInference.groups(delta_flat=["Offset"]),
         name="timing",
     )
     ctx = ntm.for_pulsar(pulsar)

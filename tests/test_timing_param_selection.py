@@ -5,8 +5,8 @@ import pytest
 
 from nltiming import priors as prior_specs
 from nltiming import TimingInference
-from nltiming.engines.base import LinearModel
-from nltiming.engines.jug import LinearizedJugEngine
+from _engine_stubs import JaxLinearTestEngine
+from nltiming.engine_support import LinearModel
 from nltiming.nonlinear_timing_model import NonLinearTimingModel
 from nltiming.selection import (
     fitpar_suffixes,
@@ -20,7 +20,7 @@ class _SuffixHost:
 
     def __init__(self):
         self.name = "J2222+2222"
-        self.fitpars = ("F1", "PB_a", "TASC_a", "PB_b", "TASC_b")
+        self.fitpars = ("Offset", "F1", "PB_a", "TASC_a", "PB_b", "TASC_b")
         self._fitparameters = {
             "PB_a": {"pta_a": "PB"},
             "TASC_a": {"pta_a": "TASC"},
@@ -36,13 +36,14 @@ class _SuffixHost:
         self._backend_flags = np.array(["demo"] * n, dtype="U8")
         rng = np.random.default_rng(42)
         design = np.column_stack(
-            [np.linspace(-0.5, 0.5, n)]
-            + [rng.normal(size=n) for _ in range(len(self.fitpars) - 1)]
+            [np.ones(n), np.linspace(-0.5, 0.5, n)]
+            + [rng.normal(size=n) for _ in range(len(self.fitpars) - 2)]
         )
         model = LinearModel.from_design(
             fitpars=self.fitpars,
             design=design,
             theta_exact={
+                "Offset": "0.0",
                 "F1": "1.0",
                 "PB_a": "10.0",
                 "TASC_a": "55000.0",
@@ -50,7 +51,7 @@ class _SuffixHost:
                 "TASC_b": "56000.0",
             },
         )
-        self._backend = LinearizedJugEngine.from_linear_model(model)
+        self._backend = JaxLinearTestEngine.from_linear_model(model)
 
     @property
     def toas(self):
@@ -122,7 +123,7 @@ def test_select_fitpars_preserves_order_and_raises_on_miss(pulsar):
 def test_model_inference_groups_selects_plan(pulsar):
     ntm = NonLinearTimingModel(engines="jug", inference=TimingInference.groups(delta_flat=["F1"]), name="timing")
     ctx = ntm.for_pulsar(pulsar)
-    assert ctx.sampled == ("PB_a", "TASC_a", "PB_b", "TASC_b")
+    assert ctx.sampled == ("Offset", "PB_a", "TASC_a", "PB_b", "TASC_b")
     assert ctx.marginalized == ("F1",)
 
 
@@ -200,7 +201,7 @@ def test_with_engines_carries_inference_and_priors(pulsar):
     )
     other = ntm.with_engines("jug")
     ctx = other.for_pulsar(pulsar)
-    assert ctx.sampled == ("PB_a", "TASC_a", "PB_b", "TASC_b")
+    assert ctx.sampled == ("Offset", "PB_a", "TASC_a", "PB_b", "TASC_b")
     assert ctx.priors.sources["TASC_a"] == "override"
 
 

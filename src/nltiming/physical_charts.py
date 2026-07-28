@@ -765,23 +765,43 @@ def _accessory_ref_string(
 # ---------------------------------------------------------------------------
 
 
+def _candidates_use_kepler_engine_names(candidates) -> bool:
+    """True when dispositions must be declared on ECC/OM (not EPS1/EPS2).
+
+    Groups that are already in the Laplace frame (ELL1; ``already_laplace``)
+    use EPS1/EPS2/TASC as the engine fitpars, so those selectors are legal.
+    Kepler-frame groups (active chart, or demoted with ECC/OM present) require
+    ECC/OM disposition keys.
+    """
+    for cand in candidates:
+        if cand.chart is not None:
+            return True
+        if cand.skip_reason == "already_laplace":
+            continue
+        if any(cand.engine_names[:2]):  # ECC or OM fitpar present
+            return True
+    return False
+
+
 def normalize_inference_selectors(inference, candidates):
     """Rewrite TimingInference selectors before plan resolution (§I.2).
 
     - 'TASC' (base or exact suffixed) -> the group's T0 fitpar, for groups with
       a structural chart. Base 'TASC' rewrites for every such group; if none
       exists the key is left untouched.
-    - 'EPS1'/'EPS2' (any suffix) -> ValueError (dispositions are declared on
-      engine names; ECC and OM must share one disposition for the chart).
+    - 'EPS1'/'EPS2' (any suffix) -> ValueError when a Kepler-frame group is
+      present (dispositions are declared on ECC/OM). Already-Laplace (ELL1)
+      groups keep EPS1/EPS2 as engine names, so those selectors are allowed.
     Returns a TimingInference with rewritten keys; presets pass through.
     """
     if inference.preset == "default_delta" or not inference.marginalize:
         return inference
     by_suffix = {c.suffix: c for c in candidates if c.chart is not None}
+    require_kepler_names = _candidates_use_kepler_engine_names(candidates)
     rewritten = {}
     for key, marg in inference.marginalize.items():
         base, suffix = _split_chart_key(key, by_suffix)
-        if base in ("EPS1", "EPS2"):
+        if base in ("EPS1", "EPS2") and require_kepler_names:
             raise ValueError(
                 f"inference selector {key!r}: dispositions are declared on "
                 "engine names. Use ECC/OM (they must share one disposition "

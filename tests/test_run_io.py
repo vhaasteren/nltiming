@@ -19,8 +19,8 @@ from nltiming.run_io import (
     decode_physical,
     save_discovery_checkpoint,
 )
-from nltiming.engines.base import LinearModel
-from nltiming.engines.jug import LinearizedJugEngine
+from _engine_stubs import JaxLinearTestEngine
+from nltiming.engine_support import LinearModel
 from nltiming.nonlinear_timing_model import NonLinearTimingModel
 from nltiming.space import ParameterSpace
 
@@ -28,7 +28,7 @@ from nltiming.space import ParameterSpace
 class _Pulsar:
     def __init__(self, *, state_id: str = "artifact-token"):
         self.name = "J1111+1111"
-        self.fitpars = ("F0", "F1")
+        self.fitpars = ("Offset", "F1")
         self._toas = np.linspace(0.0, 1.0, 5)
         self._residuals = np.zeros(5)
         self._toaerrs = np.full(5, 1.0e-6)
@@ -39,9 +39,9 @@ class _Pulsar:
         model = LinearModel.from_design(
             fitpars=self.fitpars,
             design=np.column_stack([np.ones(5), np.linspace(-0.5, 0.5, 5)]),
-            theta_exact={"F0": "100.0", "F1": "1.0"},
+            theta_exact={"Offset": "0.0", "F1": "1.0"},
         )
-        self._backend = LinearizedJugEngine.from_linear_model(model)
+        self._backend = JaxLinearTestEngine.from_linear_model(model)
 
     @property
     def toas(self):
@@ -91,7 +91,7 @@ def ntm():
     return NonLinearTimingModel(
         engines="jug",
         whitening=WhiteningConfig(),
-        inference=TimingInference.groups(delta_flat=["F0"]),
+        inference=TimingInference.groups(delta_flat=["Offset"]),
         name="timing",
     )
 
@@ -349,10 +349,10 @@ def test_truths_return_reference_values(tmp_path, manifest):
     assert truths == {"F1": pytest.approx(1.0)}
 
 
-def test_run_meta_schema_is_v3_and_code_block_names_owning_package(tmp_path, manifest):
+def test_run_meta_schema_is_v4_and_code_block_names_owning_package(tmp_path, manifest):
     manifest.write(tmp_path)
     run_meta = json.loads((tmp_path / "nlt_run_meta.json").read_text())
-    assert run_meta["schema"] == "nlt-run-meta-v3"
+    assert run_meta["schema"] == "nlt-run-meta-v4"
     assert run_meta["code"]["package"] == "nltiming"
     assert run_meta["code"]["version"]
 

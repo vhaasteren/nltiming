@@ -8,8 +8,8 @@ from __future__ import annotations
 
 import numpy as np
 
-from nltiming.engines.base import LinearModel
-from nltiming.engines.jug import LinearizedJugEngine
+from _engine_stubs import JaxLinearTestEngine
+from nltiming.engine_support import LinearModel
 from nltiming.protocols import GaugeProvenance
 
 
@@ -42,11 +42,11 @@ def linearized_jug_from_design(
     fitpars: tuple[str, ...],
     design: np.ndarray,
     theta_exact: dict[str, str],
-) -> tuple[tuple[str, ...], np.ndarray, LinearizedJugEngine]:
+) -> tuple[tuple[str, ...], np.ndarray, JaxLinearTestEngine]:
     fitpars, design, theta_exact = with_leading_offset(fitpars, design, theta_exact)
     model = LinearModel.from_design(
         fitpars=fitpars, design=design, theta_exact=theta_exact
     )
-    return fitpars, design, LinearizedJugEngine.from_linear_model(
+    return fitpars, design, JaxLinearTestEngine.from_linear_model(
         model, gauge_provenance=gauge_free_provenance()
     )

@@ -3,8 +3,8 @@
 import numpy as np
 
 from nltiming import TimingInference
-from nltiming.engines.base import LinearModel
-from nltiming.engines.jug import LinearizedJugEngine
+from _engine_stubs import JaxLinearTestEngine
+from nltiming.engine_support import LinearModel
 from nltiming.nonlinear_timing_model import NonLinearTimingModel
 from nltiming.sampling.numpyro import sample_timing, record_physical_postprocess
 
@@ -12,7 +12,7 @@ from nltiming.sampling.numpyro import sample_timing, record_physical_postprocess
 class _Host:
     def __init__(self, name: str, token: str):
         self.name = name
-        self.fitpars = ("F0", "F1")
+        self.fitpars = ("Offset", "F1")
         self._toas = np.linspace(0.0, 1.0, 4)
         self._residuals = np.zeros(4)
         self._toaerrs = np.full(4, 1.0e-6)
@@ -23,9 +23,9 @@ class _Host:
         model = LinearModel.from_design(
             fitpars=self.fitpars,
             design=np.column_stack([np.ones(4), np.linspace(-0.5, 0.5, 4)]),
-            theta_exact={"F0": "100.0", "F1": "1.0"},
+            theta_exact={"Offset": "0.0", "F1": "1.0"},
         )
-        self._backend = LinearizedJugEngine.from_linear_model(model)
+        self._backend = JaxLinearTestEngine.from_linear_model(model)
 
     @property
     def toas(self):
@@ -70,7 +70,7 @@ def test_multi_pulsar_prefixes_and_cache_independence(monkeypatch):
     host_b = _Host("J0002+0002", "tok-b")
     ntm = NonLinearTimingModel(
         engines="jug",
-        inference=TimingInference.groups(delta_flat=["F0"]),
+        inference=TimingInference.groups(delta_flat=["Offset"]),
         name="timing",
     )
 

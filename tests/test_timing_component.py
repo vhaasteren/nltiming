@@ -8,9 +8,8 @@ import jax.random as jr
 from numpyro import handlers
 
 from nltiming import TimingInference, WhiteningConfig
-from nltiming.engines.base import LinearModel
-from nltiming.engines.jug import LinearizedJugEngine
-from nltiming.engines.pint import LinearizedPintEngine
+from _engine_stubs import JaxLinearTestEngine, LinearTestEngine
+from nltiming.engine_support import LinearModel
 from nltiming.nonlinear_timing_model import NonLinearTimingModel
 from nltiming.whitening import normalized_basis
 from nltiming.sampling.numpyro import _sample_timing_coord, sample_timing
@@ -48,8 +47,8 @@ class _Pulsar:
             design=design,
             theta_exact={"Offset": "0.0", "F0": "10.0", "F1": "1.0", "DM": "5.0"},
         )
-        self._jug_backend = LinearizedJugEngine.from_linear_model(model)
-        self._pint_backend = LinearizedPintEngine.from_linear_model(model)
+        self._jug_backend = JaxLinearTestEngine.from_linear_model(model)
+        self._pint_backend = LinearTestEngine.from_linear_model(model)
 
     @property
     def toas(self):
@@ -347,7 +346,7 @@ def test_cheat_prior_box_clipped_to_physical_bounds():
                     "DM": "5.0",
                 },
             )
-            self._jug_backend = LinearizedJugEngine.from_linear_model(model)
+            self._jug_backend = JaxLinearTestEngine.from_linear_model(model)
 
     bounded = _BoundedHost()
     ntm = NonLinearTimingModel(

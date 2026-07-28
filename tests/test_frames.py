@@ -81,11 +81,10 @@ def test_engine_delta_map_matches_legacy_scatter():
 # legacy scatter + residual_delta exactly, at random sampling points.
 # ---------------------------------------------------------------------------
 
-pytest.importorskip("jug")
 
 from nltiming import TimingInference as _TI  # noqa: E402
-from nltiming.engines.base import LinearModel  # noqa: E402
-from nltiming.engines.jug import LinearizedJugEngine  # noqa: E402
+from _engine_stubs import JaxLinearTestEngine
+from nltiming.engine_support import LinearModel  # noqa: E402
 from nltiming.nonlinear_timing_model import NonLinearTimingModel  # noqa: E402
 
 
@@ -94,7 +93,7 @@ class _LinearPulsar:
 
     def __init__(self):
         self.name = "J0000+0000"
-        self.fitpars = ("F0", "F1", "DM")
+        self.fitpars = ("Offset", "F1", "DM")
         n = 12
         t = np.linspace(0.0, 1.0, n)
         design = np.column_stack([np.ones(n), t - 0.5, np.sin(3.0 * t)])
@@ -107,9 +106,9 @@ class _LinearPulsar:
         model = LinearModel.from_design(
             fitpars=self.fitpars,
             design=design,
-            theta_exact={"F0": "100.0", "F1": "-1e-15", "DM": "10.0"},
+            theta_exact={"Offset": "0.0", "F1": "-1e-15", "DM": "10.0"},
         )
-        self._backend = LinearizedJugEngine.from_linear_model(model)
+        self._backend = JaxLinearTestEngine.from_linear_model(model)
 
     @property
     def toas(self):
@@ -176,7 +175,7 @@ def test_likelihood_bit_identity_after_seam_migration():
     engine = ctx.engine
     emap = ctx.engine_delta_map
     k = len(ctx.plan.sampled)
-    assert ctx.plan.sampled == ("F0",)
+    assert ctx.plan.sampled == ("Offset",)
     assert ctx.plan.marginalized_z == ("F1",)
     assert ctx.plan.marginalized_delta == ("DM",)
 

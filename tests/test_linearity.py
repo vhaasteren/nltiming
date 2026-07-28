@@ -101,7 +101,7 @@ def test_registry_digest_is_stable():
 
 def test_engine_linearity_declaration_via_linear_engine():
     """A real LinearTimingEngine declares every fitpar identically linear."""
-    from nltiming.engines.base import LinearModel, LinearTimingEngine
+    from nltiming.engine_support import LinearModel, LinearTimingEngine
 
     fitpars = ("F0", "F1", "DM")
     from nltiming.protocols import GaugeProvenance

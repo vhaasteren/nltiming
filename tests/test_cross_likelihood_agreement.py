@@ -22,9 +22,8 @@ from numpyro import handlers
 
 from nltiming import WhiteningConfig
 from nltiming import TimingInference
-from nltiming.engines.base import LinearModel
-from nltiming.engines.jug import LinearizedJugEngine
-from nltiming.engines.pint import LinearizedPintEngine
+from _engine_stubs import JaxLinearTestEngine, LinearTestEngine
+from nltiming.engine_support import LinearModel
 from nltiming.nonlinear_timing_model import NonLinearTimingModel
 from nltiming.sampling import numpyro as nlt_numpyro
 
@@ -70,8 +69,8 @@ class _Pulsar:
             design=design,
             theta_exact={"Offset": "0.0", "F1": "1.0", "DM": "5.0"},
         )
-        self._jug_backend = LinearizedJugEngine.from_linear_model(model)
-        self._pint_backend = LinearizedPintEngine.from_linear_model(model)
+        self._jug_backend = JaxLinearTestEngine.from_linear_model(model)
+        self._pint_backend = LinearTestEngine.from_linear_model(model)
 
     @property
     def toas(self):

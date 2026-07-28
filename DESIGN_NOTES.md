@@ -8,19 +8,23 @@ interactive `z`-space fit.
 
 ## Ownership boundary
 
-`nltiming` owns the nonlinear-timing math, the timing engines, and both
-likelihood interfaces. It is a satellite of the timing ecosystem, not a
-reimplementation of it.
+`nltiming` owns the nonlinear-timing math, engine-selection vocabulary,
+backend-neutral engine support, and both likelihood interfaces. Concrete
+backend adapters and composite assembly live in MetaPulsar. It is a satellite
+of the timing ecosystem, not a reimplementation of it.
 
 | Layer | Owner |
 |-------|-------|
 | NLT math (ParameterSpace, bijectors, whitening, priors, inference plan) | **nltiming** |
-| Engine interface + engines (pint, libstempo, jug, vela) | **nltiming** |
-| Multi-PTA composite engine (session assembly over row slices) | **nltiming** |
+| Engine protocols, selection vocabulary (`engine_config`), validators / `LinearModel` (`engine_support`) | **nltiming** |
+| Backend adapters (pint, libstempo, jug, vela) + multi-PTA composite | **MetaPulsar** (`metapulsar.engines`) |
 | Discovery + Enterprise likelihood interfaces, probabilistic model helpers and optional sampler recipes, run products | **nltiming** |
 | JAX / nonlinear timing-engine primitives | **JUG** |
-| Multi-PTA pulsar, session construction, data combination | pulsar (e.g. MetaPulsar) |
+| Multi-PTA pulsar, session construction, data combination | **MetaPulsar** |
 | GP bases, `Phi` inference, spectra, correlated-noise likelihoods | **Discovery / Enterprise** |
+
+`nltiming` never imports the `metapulsar` package. At runtime it calls a supplied
+`TimingPulsar.timing_engine(...)` which returns a MetaPulsar-owned engine.
 
 **Charter (do not cross):** `nltiming` provides the timing block, the prior
 transform, and interactive timing evaluation/fitting. It does **not** own

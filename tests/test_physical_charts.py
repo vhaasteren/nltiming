@@ -448,6 +448,24 @@ def test_selector_normalization():
             cands,
         )
 
+    # ELL1 (already_laplace): EPS1/EPS2 are the engine names — legal selectors.
+    p_ell1 = _FakePulsar(fitpars=("EPS1", "EPS2", "TASC", "PB"))
+    refs_ell1 = {
+        "EPS1": "1e-4",
+        "EPS2": "8e-4",
+        "TASC": "55000.0",
+        "PB": "8.6",
+    }
+    cands_ell1 = resolve_chart_candidates(
+        p_ell1, _FakeEngineNoCap(refs_ell1), KeplerLaplacePolicy()
+    )
+    assert all(c.skip_reason == "already_laplace" for c in cands_ell1)
+    out_ell1 = normalize_inference_selectors(
+        TimingInference(marginalize={"EPS1": Marginalize.delta_flat()}),
+        cands_ell1,
+    )
+    assert "EPS1" in out_ell1.marginalize
+
 
 def test_expand_override_key_union():
     p = _FakePulsar()

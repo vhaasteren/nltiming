@@ -49,9 +49,16 @@ def test_timing_imports_and_constructs_without_jug():
     subprocess.run([sys.executable, "-c", code], check=True)
 
 
-def test_jug_config_still_resolves_tempo2_options():
-    pytest.importorskip("jug")
-    model = NonLinearTimingModel(engines="jug")
-    options = model.tempo2_jug_options
-    assert options is not None
-    assert "iers_policy" in options
+def test_jug_config_remains_opaque_without_importing_jug():
+    import sys
+
+    sys.modules.pop("jug", None)
+    # Block jug import for the duration of this test.
+    sys.modules["jug"] = None  # type: ignore[assignment]
+    try:
+        model = NonLinearTimingModel(engines="jug")
+        options = model.tempo2_jug_options
+        assert options == {}
+        assert "jug" not in sys.modules or sys.modules.get("jug") is None
+    finally:
+        sys.modules.pop("jug", None)

@@ -848,10 +848,12 @@ remains the responsibility of the Discovery or Enterprise likelihood interface.
 
 ## Scope
 
-`nltiming` owns the nonlinear-timing math, the timing engines (PINT,
-libstempo, JUG, Vela), and the Discovery and Enterprise likelihood interfaces.
-Pulsars (single-pulsar or multi-PTA composites such as MetaPulsar) supply the
-data via the `TimingPulsar` protocol; the JUG package owns the JAX timing-engine
+`nltiming` owns the nonlinear-timing math, engine-selection vocabulary,
+backend-neutral engine support, and the Discovery and Enterprise likelihood
+interfaces. Concrete PINT, libstempo, JUG, and Vela adapters plus composite
+assembly live in MetaPulsar (`metapulsar.engines`). Pulsars (single-pulsar or
+multi-PTA composites such as MetaPulsar) supply the data via the
+`TimingPulsar` protocol; the JUG package owns the JAX timing-engine
 primitives.
 
 Deliberately **out of scope**: Fourier/DM/chromatic/ECORR bases, `Phi`
@@ -872,7 +874,7 @@ timing fit (`fit_z`, `jacobian_z`, `TimingZFitResult`) is described in
 pip install nltiming
 
 # typical stack without tempo2 / libstempo (CI and most development)
-pip install "nltiming[discovery,numpyro,enterprise,ptmcmc,jug]"
+pip install "nltiming[discovery,numpyro,enterprise,ptmcmc]"
 
 # enterprise_extensions without building libstempo (nanograv/dev hard-depends
 # on libstempo≥2.4.0, which needs a system tempo2 at build time):
@@ -909,9 +911,8 @@ NANOGrav **`dev`** branches (git), so CI and local installs pick up
 `install_requires`; use the `--no-deps` path on machines without tempo2.
 
 The default `engines="jug"` path needs the JAX timing engine **`jug-timing`**
-(import package `jug`). Until it is on PyPI, the `jug` extra installs from
-[`vhaasteren/jug@tempo2-dev`](https://github.com/vhaasteren/jug/tree/tempo2-dev)
-and requires **Python ≥ 3.12**.
+(import package `jug`), installed via MetaPulsar's `jug` extra (not an
+nltiming extra). That stack currently requires **Python ≥ 3.12**.
 
 ## Layout
 
@@ -922,8 +923,9 @@ and requires **Python ≥ 3.12**.
 - `protocols.py` — `PulsarData` / `TimingPulsar` and timing engine interfaces
 - `evaluator.py` — mapping-based evaluation, metadata, scans, Jacobians, and
   immutable local weighted fits
-- `engines/` — PINT, libstempo, and JUG engines plus the multi-PTA
-  composite engine
+- `engine_config.py` — engine-selection vocabulary (`normalize_engines`)
+- `engine_support.py` — `LinearModel`, validators, `LinearTimingEngine`
+  (backend adapters live in MetaPulsar's `metapulsar.engines`)
 - `likelihoods/` — Discovery and Enterprise likelihood interfaces
 - `sampling/` — `numpyro.joint_model` / `model` / `nuts`, PTMCMC helpers
   (model glue and recipes, not sampler ownership)
@@ -941,7 +943,7 @@ and requires **Python ≥ 3.12**.
 
 ```bash
 # matches CI (no system tempo2 / libstempo build)
-pip install -e ".[dev,jug,discovery,enterprise,numpyro]"
+pip install -e ".[dev,discovery,enterprise,numpyro]"
 pip install --no-deps \
   "enterprise_extensions @ git+https://github.com/nanograv/enterprise_extensions.git@dev"
 pip install healpy emcee "ptmcmcsampler>=2.1.0" "scikit-learn>=0.24" \

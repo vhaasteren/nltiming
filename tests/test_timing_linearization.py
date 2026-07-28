@@ -8,11 +8,10 @@ import pytest
 jax = pytest.importorskip("jax")
 jax.config.update("jax_enable_x64", True)
 
-pytest.importorskip("jug")
 
 from nltiming import TimingInference  # noqa: E402
-from nltiming.engines.base import LinearModel  # noqa: E402
-from nltiming.engines.jug import LinearizedJugEngine  # noqa: E402
+from _engine_stubs import JaxLinearTestEngine
+from nltiming.engine_support import LinearModel  # noqa: E402
 from nltiming.nonlinear_timing_model import NonLinearTimingModel  # noqa: E402
 
 
@@ -43,7 +42,7 @@ class _Pulsar:
                 "DM": "10.0",
             },
         )
-        self._backend = LinearizedJugEngine.from_linear_model(model)
+        self._backend = JaxLinearTestEngine.from_linear_model(model)
 
     @property
     def toas(self): return self._toas
@@ -96,7 +95,7 @@ def test_expansion_waveform_and_autodiff_basis_match_finite_difference():
         return -np.asarray(engine.residual_delta(full), dtype=float)
 
     z_e = np.asarray(lin.z_expansion, dtype=float)
-    np.testing.assert_allclose(lin.sampled_delay_expansion, d_np(z_e), atol=1e-12)
+    np.testing.assert_allclose(lin.sampled_waveform_expansion, d_np(z_e), atol=1e-12)
     h = 1e-4
     fd = np.stack(
         [(d_np(z_e + h * np.eye(3)[j]) - d_np(z_e - h * np.eye(3)[j])) / (2 * h)
@@ -179,11 +178,11 @@ def test_effective_residual_reconstructs_local_surrogate_with_correct_sign():
 
     z_e = np.asarray(lin.z_expansion, dtype=float)
     assert np.linalg.norm(z_e) > 0  # genuinely off-zero
-    expected = y - lin.sampled_delay_expansion + lin.sampled_basis @ z_e
+    expected = y - lin.sampled_waveform_expansion + lin.sampled_basis @ z_e
     np.testing.assert_allclose(lin.transport_effective_residual(y), expected, atol=1e-12)
     # The W_s @ z_e term is present (a zero-only test would miss it).
     assert not np.allclose(
-        lin.transport_effective_residual(y), y - lin.sampled_delay_expansion)
+        lin.transport_effective_residual(y), y - lin.sampled_waveform_expansion)
 
 
 def test_with_expansion_is_immutable_and_before_conditioning_only():

@@ -34,14 +34,10 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-# Default engines="jug" imports jug.timing (package name jug-timing).
-# Not on PyPI yet — pin the tempo2-dev branch until a release is published.
-# jug-timing currently requires Python >= 3.12.
-jug = [
-    "jug-timing @ git+https://github.com/vhaasteren/jug.git@tempo2-dev",
-]
 # Not on PyPI (name collides with an unrelated ETCD package 0.0.x).
 # Temporary fork: JAX cho_solve static-arg fix for current JAX (upstream PR TBD).
+# JUG installation lives on MetaPulsar's jug extra; nltiming keeps JAX/NumPyro
+# groups for likelihood evaluation only.
 discovery = [
     "discovery @ git+https://github.com/vhaasteren/discovery.git@temp/nltiming",
 ]

@@ -5,9 +5,8 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from nltiming.engines.base import LinearModel
-from nltiming.engines.composite import PtaContribution, build_composite_engine
-from nltiming.engines.jug import LinearizedJugEngine
+from _engine_stubs import JaxLinearTestEngine, TestContribution, CompositeView
+from nltiming.engine_support import LinearModel
 from nltiming.nonlinear_timing_model import (
     GaugeColumnMissingError,
     assert_gauge_column_present,
@@ -38,7 +37,7 @@ def test_passes_on_per_pta_offset_layout():
     M[:3, 1] = 1.0  # Offset_epta
     M[3:, 2] = 1.0  # Offset_ppta
     fitpars = ("F0", "Offset_epta", "Offset_ppta")
-    a = LinearizedJugEngine.from_linear_model(
+    a = JaxLinearTestEngine.from_linear_model(
         LinearModel.from_design(
             fitpars=("F0", "Offset_epta"),
             design=M[:3, :2],
@@ -46,7 +45,7 @@ def test_passes_on_per_pta_offset_layout():
         ),
         gauge_provenance=_gf(),
     )
-    b = LinearizedJugEngine.from_linear_model(
+    b = JaxLinearTestEngine.from_linear_model(
         LinearModel.from_design(
             fitpars=("F0", "Offset_ppta"),
             design=np.column_stack([M[3:, 0], M[3:, 2]]),
@@ -54,14 +53,10 @@ def test_passes_on_per_pta_offset_layout():
         ),
         gauge_provenance=_gf(),
     )
-    engine = build_composite_engine(
-        fitpars=fitpars,
-        nrows=n,
-        contributions=[
-            PtaContribution(name="epta", row_indices=np.arange(3), engine=a),
-            PtaContribution(name="ppta", row_indices=np.arange(3, 6), engine=b),
-        ],
-    )
+    engine = CompositeView([
+            TestContribution(name="epta", row_indices=np.arange(3), engine=a),
+            TestContribution(name="ppta", row_indices=np.arange(3, 6), engine=b),
+        ])
     pulsar = _Pulsar(fitpars, M)
     assert_gauge_column_present(pulsar, engine, M)
 
@@ -69,7 +64,7 @@ def test_passes_on_per_pta_offset_layout():
 def test_fails_when_named_column_dropped():
     M = np.column_stack([np.ones(4), np.linspace(0, 1, 4)])
     fitpars = ("F0", "DM")  # no Offset
-    eng = LinearizedJugEngine.from_linear_model(
+    eng = JaxLinearTestEngine.from_linear_model(
         LinearModel.from_design(
             fitpars=fitpars, design=M, theta_exact={"F0": "1.0", "DM": "0.0"}
         ),
@@ -82,7 +77,7 @@ def test_fails_when_named_column_dropped():
 def test_fails_when_named_column_zeroed():
     M = np.column_stack([np.linspace(1, 2, 4), np.zeros(4)])
     fitpars = ("F0", "Offset")
-    eng = LinearizedJugEngine.from_linear_model(
+    eng = JaxLinearTestEngine.from_linear_model(
         LinearModel.from_design(
             fitpars=fitpars, design=M, theta_exact={"F0": "1.0", "Offset": "0.0"}
         ),
@@ -96,7 +91,7 @@ def test_fails_when_only_unnamed_near_constant_spans():
     # Near-constant F0 spans 1, but Offset is absent.
     M = np.column_stack([np.ones(4) + 1e-12 * np.arange(4), np.linspace(0, 1, 4)])
     fitpars = ("F0", "DM")
-    eng = LinearizedJugEngine.from_linear_model(
+    eng = JaxLinearTestEngine.from_linear_model(
         LinearModel.from_design(
             fitpars=fitpars, design=M, theta_exact={"F0": "1.0", "DM": "0.0"}
         ),
@@ -110,7 +105,7 @@ def test_fails_when_named_zeroed_while_others_span():
     # Offset zeroed; JUMP is constant and would span under a full-basis check.
     M = np.column_stack([np.linspace(1, 2, 4), np.zeros(4), np.ones(4)])
     fitpars = ("F0", "Offset", "JUMP1")
-    eng = LinearizedJugEngine.from_linear_model(
+    eng = JaxLinearTestEngine.from_linear_model(
         LinearModel.from_design(
             fitpars=fitpars,
             design=M,
@@ -128,7 +123,7 @@ def test_wrong_pta_offset_name_does_not_satisfy():
     M[:, 0] = 1.0
     M[:, 1] = 1.0  # Offset_other
     fitpars = ("F0", "Offset_other")
-    a = LinearizedJugEngine.from_linear_model(
+    a = JaxLinearTestEngine.from_linear_model(
         LinearModel.from_design(
             fitpars=fitpars,
             design=M,
@@ -136,12 +131,8 @@ def test_wrong_pta_offset_name_does_not_satisfy():
         ),
         gauge_provenance=_gf(),
     )
-    engine = build_composite_engine(
-        fitpars=fitpars,
-        nrows=n,
-        contributions=[
-            PtaContribution(name="epta", row_indices=np.arange(n), engine=a),
-        ],
-    )
+    engine = CompositeView([
+            TestContribution(name="epta", row_indices=np.arange(n), engine=a),
+        ])
     with pytest.raises(GaugeColumnMissingError, match="no named gauge column"):
         assert_gauge_column_present(_Pulsar(fitpars, M), engine, M)
