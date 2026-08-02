@@ -417,6 +417,48 @@ def test_accessory_ref_fallback_chain():
     assert c3.chart.pb_ref == pytest.approx(8.6866194196)
 
 
+def test_group_fitpars_alias_native_base_unsuffixed():
+    # BUG 001 shape: a par file spelling eccentricity `E` records native `E`
+    # under canonical `ECC`. The Kepler triple must stay in one "" group.
+    fitparameters = {
+        "F0": {"ng9": "F0"},
+        "ECC": {"ng9": "E"},
+        "OM": {"ng9": "OM"},
+        "T0": {"ng9": "T0"},
+        "PB": {"ng9": "PB"},
+        "A1": {"ng9": "A1"},
+    }
+    p = _FakePulsar(fitparameters=fitparameters)
+    groups = pc._group_fitpars(p)
+    assert set(groups) == {""}
+    assert groups[""] == {
+        "ECC": "ECC",
+        "OM": "OM",
+        "T0": "T0",
+        "PB": "PB",
+        "A1": "A1",
+    }
+
+
+def test_chart_candidate_enabled_for_alias_native_ecc():
+    fitparameters = {
+        "F0": {"ng9": "F0"},
+        "ECC": {"ng9": "E"},
+        "OM": {"ng9": "OM"},
+        "T0": {"ng9": "T0"},
+        "PB": {"ng9": "PB"},
+        "A1": {"ng9": "A1"},
+    }
+    p = _FakePulsar(fitparameters=fitparameters)
+    (cand,) = resolve_chart_candidates(
+        p, _FakeEngineNoCap(), KeplerLaplacePolicy(mode="auto")
+    )
+    assert cand.suffix == ""
+    assert cand.skip_reason is None
+    assert cand.chart is not None
+    assert cand.engine_names == ("ECC", "OM", "T0")
+
+
 # ---------------------------------------------------------------------------
 # Selector normalization / override expansion
 # ---------------------------------------------------------------------------

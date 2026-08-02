@@ -22,7 +22,11 @@ from typing import ClassVar, Literal, Mapping, Protocol, runtime_checkable
 import numpy as np
 
 from .pint_compat import resolve_parameter_alias
-from .selection import canonical_fitpars, fitpar_suffixes
+from .selection import (
+    canonical_fitpars,
+    fitpar_suffix,
+    validated_parameter_mapping_view,
+)
 
 PI = float(np.pi)  # plain Python floats: xp-generic code below mixes
 DEG2RAD = PI / 180.0  # them with numpy or traced jax arrays
@@ -491,19 +495,21 @@ class ChartCandidate:
 
 def _group_fitpars(pulsar) -> dict[str, dict[str, str]]:
     """suffix -> {base_canonical_name: fitpar_string}, using canonical_fitpars
-    + fitpar_suffixes (no new suffix parser). A group exists only if it carries
+    + fitpar_suffix (no new suffix parser). A group exists only if it carries
     at least one of the six chart names (ENGINE_TRIPLE | SAMPLE_TRIPLE); PB and
     A1 are recorded as accessories of such groups and never create a group by
     themselves."""
     core = set(ENGINE_TRIPLE) | set(SAMPLE_TRIPLE)
     wanted = core | {"PB", "A1"}
     groups: dict[str, dict[str, str]] = {}
-    for fitpar in canonical_fitpars(pulsar):
-        for suffix in fitpar_suffixes(pulsar, fitpar):
-            base = fitpar[: len(fitpar) - len(suffix)] if suffix else fitpar
-            base = resolve_parameter_alias(base)
-            if base in wanted:
-                groups.setdefault(suffix, {})[base] = fitpar
+    fitpars = canonical_fitpars(pulsar)
+    mapping_view = validated_parameter_mapping_view(pulsar, fitpars)
+    for fitpar in fitpars:
+        suffix = fitpar_suffix(pulsar, fitpar, mapping_view=mapping_view)
+        base = fitpar[: len(fitpar) - len(suffix)] if suffix else fitpar
+        base = resolve_parameter_alias(base)
+        if base in wanted:
+            groups.setdefault(suffix, {})[base] = fitpar
     return {s: g for s, g in groups.items() if set(g) & core}
 
 

@@ -336,28 +336,38 @@ def spec_for_target(
     """Resolve a spec's ``scale=`` reference suffix-consistently with ``target``.
 
     ``target_suffix`` anchors suffix resolution for *synthesized* target names
-    (e.g. ``EPS1_epta``), which ``fitpar_suffixes`` cannot discover because they
-    are absent from ``pulsar._fitparameters``; when omitted, the target's own
-    suffixes are discovered as before (the default for real fitpar targets).
+    (e.g. ``EPS1_epta``), which ``fitpar_suffix`` cannot discover because they
+    are absent from the pulsar's timing-parameter mapping; when omitted, the
+    target's own suffix is discovered as before (the default for real fitpar
+    targets).
     """
-    from .selection import fitpar_suffixes, match_fitpars
+    from .selection import (
+        fitpar_suffix,
+        match_fitpars,
+        validated_parameter_mapping_view,
+    )
 
     if spec.scale is None:
         return spec
-    scale_hits = match_fitpars(pulsar, spec.scale, fitpars)
+    # Validate against the pulsar's actual fitpars (not the match universe),
+    # which may be a subset or include synthesized sampling names.
+    mapping_view = validated_parameter_mapping_view(pulsar)
+    scale_hits = match_fitpars(pulsar, spec.scale, fitpars, mapping_view=mapping_view)
     if not scale_hits:
         # Preserve the standard missing-scale error from materialization.
         return spec
     if len(scale_hits) == 1:
         resolved_scale = scale_hits[0]
     else:
-        suffixes = (
-            {target_suffix}
+        suffix = (
+            target_suffix
             if target_suffix is not None
-            else fitpar_suffixes(pulsar, target)
+            else fitpar_suffix(pulsar, target, mapping_view=mapping_view)
         )
         matched = [
-            hit for hit in scale_hits if suffixes & fitpar_suffixes(pulsar, hit)
+            hit
+            for hit in scale_hits
+            if fitpar_suffix(pulsar, hit, mapping_view=mapping_view) == suffix
         ]
         if len(matched) != 1:
             raise ValueError(

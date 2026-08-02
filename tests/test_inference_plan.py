@@ -19,11 +19,13 @@ class _Pulsar:
     def __init__(self, fitpars, fitparameters=None):
         self.name = "FAKE"
         self.fitpars = tuple(fitpars)
-        if fitparameters is not None:
-            self._fitparameters = dict(fitparameters)
+        self._mapping = dict(fitparameters or {})
 
     def pint_model(self):
         return None
+
+    def timing_parameter_mapping(self):
+        return {name: dict(owners) for name, owners in self._mapping.items()}
 
 
 def _host():
@@ -33,8 +35,8 @@ def _host():
         fitparameters={
             "F1": {"shared": "F1"},
             "DM": {"shared": "DM"},
-            "JUMP1_a": {"pta_a": "JUMP1"},
-            "JUMP1_b": {"pta_b": "JUMP1"},
+            "JUMP1_a": {"a": "JUMP1"},
+            "JUMP1_b": {"b": "JUMP1"},
         },
     )
 
@@ -89,11 +91,15 @@ def test_plan_is_exhaustive_disjoint_and_fingerprinted():
     plan = _plan(_host(), TimingInference.groups(delta_flat=["JUMP1"], z_prior=["DM"]))
     dispositions = [a.disposition for a in plan.axes]
     assert len(plan.axes) == len(plan.fitpars) == 4
-    covered = set(plan.sampled) | set(plan.marginalized_delta) | set(plan.marginalized_z)
+    covered = (
+        set(plan.sampled) | set(plan.marginalized_delta) | set(plan.marginalized_z)
+    )
     assert covered == set(plan.fitpars)
     assert len(covered) == len(plan.fitpars)  # disjoint
-    assert all(d in {"sample", "marginalize_delta_flat", "marginalize_z_prior"}
-               for d in dispositions)
+    assert all(
+        d in {"sample", "marginalize_delta_flat", "marginalize_z_prior"}
+        for d in dispositions
+    )
 
     other = _plan(_host(), TimingInference.sample_all())
     assert plan.fingerprint() != other.fingerprint()

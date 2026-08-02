@@ -67,6 +67,7 @@ from .protocols import (
     EphemerisExtras,
     JaxTimingEngine,
     PulsarData,
+    TimingParameterMappingProvider,
     TimingPulsar,
     TimingEngine,
 )
@@ -137,6 +138,7 @@ __all__ = [
     "EphemerisExtras",
     "TimingEngine",
     "JaxTimingEngine",
+    "TimingParameterMappingProvider",
     "TimingPulsar",
     "PulsarData",
     "TimingCapabilities",

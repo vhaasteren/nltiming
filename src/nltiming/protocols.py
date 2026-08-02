@@ -216,5 +216,12 @@ class TimingPulsar(PulsarData, Protocol):
     def state_id(self) -> str | None: ...
 
 
+@runtime_checkable
+class TimingParameterMappingProvider(Protocol):
+    """Optional composite-pulsar capability for canonical→per-PTA name maps."""
+
+    def timing_parameter_mapping(self) -> Mapping[str, Mapping[str, str]]: ...
+
+
 # Descriptive alias retained for integrations that use the original name.
 EnterprisePulsarLike = PulsarData

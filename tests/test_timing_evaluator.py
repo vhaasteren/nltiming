@@ -307,3 +307,59 @@ def test_unknown_parameter_and_wrong_vector_shape_are_clear():
     space = ParameterSpace.build(theta_ref_mapping=timing.reference_exact)
     with pytest.raises(KeyError, match="matches no ParameterSpace"):
         timing.fit_z(space, initial={"NOPE": 1.0})
+
+
+def test_evaluator_parameter_mapping_uses_public_provider():
+    class _Host(EvaluatorPulsar):
+        def timing_parameter_mapping(self):
+            return {"F0": {"public": "F0"}, "F1": {"public": "F1"}}
+
+    host = _Host()
+    host._fitparameters = {"F0": {"private": "F0"}, "F1": {"private": "F1"}}
+    timing = TimingEvaluator(host)
+    assert timing.parameters["F0"].aliases == {"public": "F0"}
+    assert timing.parameters["F0"].sessions == ("public",)
+
+
+def test_evaluator_no_mapping_capability_is_empty():
+    class _PlainHost:
+        name = "J0000+0000"
+        fitpars = ["F0", "F1"]
+
+        def __init__(self):
+            self.Mmat = np.asarray([[1.0, 0.0], [1.0, 1.0], [1.0, 2.0], [1.0, 3.0]])
+            self.toas = np.arange(4.0)
+            self.toaerrs = np.ones(4)
+            self.freqs = np.full(4, 1400.0)
+            self.flags = {"pta": np.asarray(["a"] * 4)}
+            self.backend_flags = np.asarray(["a"] * 4)
+            self.residuals = self.Mmat @ np.asarray([0.2, -0.05])
+            self._backend = LinearJaxBackend(self.Mmat)
+
+        def pint_model(self):
+            return None
+
+        def timing_engine(self, engines="jug", **kwargs):
+            return self._backend
+
+    timing = TimingEvaluator(_PlainHost())
+    assert timing.parameters["F0"].aliases == {}
+    assert timing.parameters["F0"].sessions == ()
+
+
+def test_evaluator_rejects_partial_or_malformed_mapping():
+    from nltiming.selection import ParameterMappingError
+
+    class _Partial(EvaluatorPulsar):
+        def timing_parameter_mapping(self):
+            return {"F0": {"pta_a": "F0"}}  # F1 missing
+
+    with pytest.raises(ParameterMappingError, match="absent"):
+        TimingEvaluator(_Partial())
+
+    class _Malformed(EvaluatorPulsar):
+        def timing_parameter_mapping(self):
+            return {"F0": {"pta_a": "F0"}, "F1": None}
+
+    with pytest.raises(ParameterMappingError):
+        TimingEvaluator(_Malformed())

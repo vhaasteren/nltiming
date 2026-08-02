@@ -9,23 +9,26 @@ from _engine_stubs import JaxLinearTestEngine
 from nltiming.engine_support import LinearModel
 from nltiming.nonlinear_timing_model import NonLinearTimingModel
 from nltiming.selection import (
-    fitpar_suffixes,
+    ParameterMappingError,
+    fitpar_suffix,
     match_fitpars,
     select_fitpars,
 )
 
 
 class _SuffixHost:
-    """Composite-style pulsar with PTA-suffixed fitpars and _fitparameters mapping."""
+    """Composite-style pulsar with PTA-suffixed fitpars and a total public mapping."""
 
     def __init__(self):
         self.name = "J2222+2222"
         self.fitpars = ("Offset", "F1", "PB_a", "TASC_a", "PB_b", "TASC_b")
-        self._fitparameters = {
-            "PB_a": {"pta_a": "PB"},
-            "TASC_a": {"pta_a": "TASC"},
-            "PB_b": {"pta_b": "PB"},
-            "TASC_b": {"pta_b": "TASC"},
+        self._mapping = {
+            "Offset": {"shared": "Offset"},
+            "F1": {"shared": "F1"},
+            "PB_a": {"a": "PB"},
+            "TASC_a": {"a": "TASC"},
+            "PB_b": {"b": "PB"},
+            "TASC_b": {"b": "TASC"},
         }
         n = 7
         self._toas = np.linspace(0.0, 1.0, n)
@@ -90,6 +93,9 @@ class _SuffixHost:
     def timing_engine(self, engines="jug", **kwargs):
         return self._backend
 
+    def timing_parameter_mapping(self):
+        return {name: dict(owners) for name, owners in self._mapping.items()}
+
 
 @pytest.fixture
 def pulsar():
@@ -104,9 +110,150 @@ def test_match_fitpars_base_name_matches_all_suffixed(pulsar):
     assert match_fitpars(pulsar, "DMX_0001", fitpars) == ()
 
 
-def test_fitpar_suffixes(pulsar):
-    assert fitpar_suffixes(pulsar, "PB_a") == {"_a"}
-    assert fitpar_suffixes(pulsar, "F1") == {""}
+def test_fitpar_suffix(pulsar):
+    assert fitpar_suffix(pulsar, "PB_a") == "_a"
+    assert fitpar_suffix(pulsar, "F1") == ""
+
+
+def _mapping_host(mapping):
+    class _Host:
+        def timing_parameter_mapping(self):
+            return mapping
+
+    return _Host()
+
+
+def test_fitpar_suffix_alias_native_base_is_unsuffixed():
+    # Native Tempo2 spelling `E` recorded under canonical `ECC` (BUG 001):
+    # the alias base must not be mistaken for a stripable prefix.
+    psr = _mapping_host({"ECC": {"ng9": "E"}})
+    assert fitpar_suffix(psr, "ECC") == ""
+    # Same defect class, ELL1H orthometric spelling.
+    psr = _mapping_host({"STIGMA": {"mpta": "STIG"}})
+    assert fitpar_suffix(psr, "STIGMA") == ""
+
+
+def test_fitpar_suffix_suffixed_name_with_alias_native():
+    # PTA-specific composite whose par file spells the base as an alias.
+    psr = _mapping_host({"ECC_ng9": {"ng9": "E"}})
+    assert fitpar_suffix(psr, "ECC_ng9") == "_ng9"
+
+
+def test_fitpar_suffix_merged_mixed_spellings():
+    psr = _mapping_host({"ECC": {"ng9": "E", "epta": "ECC"}})
+    assert fitpar_suffix(psr, "ECC") == ""
+
+
+def test_fitpar_suffix_indexed_and_offset_natives():
+    psr = _mapping_host({"JUMP1_epta": {"epta": "JUMP1"}})
+    assert fitpar_suffix(psr, "JUMP1_epta") == "_epta"
+    # `Offset` is unknown to PINT alias resolution on both sides.
+    psr = _mapping_host({"Offset_ng9": {"ng9": "Offset"}})
+    assert fitpar_suffix(psr, "Offset_ng9") == "_ng9"
+
+
+def test_fitpar_suffix_identity_wins_over_coincidental_tail():
+    # A PTA literally named "0001" must not turn the indexed parameter
+    # DMX_0001 into a suffixed name: alias identity is checked first.
+    psr = _mapping_host({"DMX_0001": {"0001": "DMX_0001"}})
+    assert fitpar_suffix(psr, "DMX_0001") == ""
+
+
+def test_fitpar_suffix_inconsistent_mapping_raises():
+    psr = _mapping_host({"ECC": {"ng9": "PB"}})
+    with pytest.raises(ParameterMappingError):
+        fitpar_suffix(psr, "ECC")
+
+
+def test_fitpar_suffix_no_mapping_capability_is_unsuffixed():
+    class _PlainHost:
+        pass
+
+    assert fitpar_suffix(_PlainHost(), "F1") == ""
+
+
+def test_fitpar_suffix_supplied_mapping_is_total():
+    with pytest.raises(ParameterMappingError, match="absent"):
+        fitpar_suffix(_mapping_host({}), "F1")
+
+
+def test_fitpar_suffix_rejects_mixed_or_multiple_local_identity():
+    psr = _mapping_host({"ECC_ng9": {"ng9": "ECC", "other": "ECC_ng9"}})
+    with pytest.raises(ParameterMappingError, match="mixes"):
+        fitpar_suffix(psr, "ECC_ng9")
+
+    psr = _mapping_host({"ECC_ng9": {"ng9": "ECC", "x": "ECC"}})
+    with pytest.raises(ParameterMappingError, match="multiple"):
+        fitpar_suffix(psr, "ECC_ng9")
+
+
+def test_public_parameter_mapping_wins_over_private_field():
+    psr = _mapping_host({"ECC": {"ng9": "E"}})
+    psr._fitparameters = {"ECC": {"wrong": "PB"}}
+    assert fitpar_suffix(psr, "ECC") == ""
+
+
+@pytest.mark.parametrize(
+    "bad",
+    [
+        None,
+        [],
+        {"ECC": None},
+        {"ECC": {}},
+        {"ECC": {"": "E"}},
+        {"ECC": {"ng9": ""}},
+    ],
+)
+def test_malformed_public_mapping_raises(bad):
+    psr = _mapping_host(bad)
+    with pytest.raises(ParameterMappingError):
+        fitpar_suffix(psr, "ECC")
+
+
+def _fitpar_mapping_host(fitpars, mapping):
+    class _Host:
+        def __init__(self):
+            self.fitpars = tuple(fitpars)
+
+        def timing_parameter_mapping(self):
+            return mapping
+
+    return _Host()
+
+
+def test_match_fitpars_rejects_partial_mapping():
+    # Supplied {} must not silently miss PB_a and change inference disposition.
+    psr = _fitpar_mapping_host(("PB_a",), {})
+    with pytest.raises(ParameterMappingError, match="absent"):
+        match_fitpars(psr, "PB", psr.fitpars)
+
+
+def test_match_fitpars_rejects_malformed_owner_entry():
+    psr = _fitpar_mapping_host(("PB_a",), {"PB_a": None})
+    with pytest.raises(ParameterMappingError):
+        match_fitpars(psr, "PB", psr.fitpars)
+
+
+def test_select_fitpars_rejects_partial_and_malformed_mapping():
+    with pytest.raises(ParameterMappingError, match="absent"):
+        select_fitpars(
+            _fitpar_mapping_host(("PB_a", "F1"), {"F1": {"s": "F1"}}), ["PB"]
+        )
+    with pytest.raises(ParameterMappingError):
+        select_fitpars(_fitpar_mapping_host(("PB_a",), {"PB_a": None}), ["PB"])
+
+
+def test_select_fitpars_fetches_mapping_once(pulsar):
+    calls = {"n": 0}
+    base = pulsar.timing_parameter_mapping
+
+    def _counting():
+        calls["n"] += 1
+        return base()
+
+    pulsar.timing_parameter_mapping = _counting
+    select_fitpars(pulsar, ["PB", "TASC"])
+    assert calls["n"] == 1
 
 
 def test_select_fitpars_preserves_order_and_raises_on_miss(pulsar):
@@ -120,8 +267,19 @@ def test_select_fitpars_preserves_order_and_raises_on_miss(pulsar):
         select_fitpars(pulsar, ["ECC"])
 
 
+def test_timing_parameter_mapping_provider_is_package_export():
+    from nltiming import TimingParameterMappingProvider
+    from nltiming.protocols import TimingParameterMappingProvider as Proto
+
+    assert TimingParameterMappingProvider is Proto
+
+
 def test_model_inference_groups_selects_plan(pulsar):
-    ntm = NonLinearTimingModel(engines="jug", inference=TimingInference.groups(delta_flat=["F1"]), name="timing")
+    ntm = NonLinearTimingModel(
+        engines="jug",
+        inference=TimingInference.groups(delta_flat=["F1"]),
+        name="timing",
+    )
     ctx = ntm.for_pulsar(pulsar)
     assert ctx.sampled == ("Offset", "PB_a", "TASC_a", "PB_b", "TASC_b")
     assert ctx.marginalized == ("F1",)
@@ -220,7 +378,8 @@ def test_omitted_tempo2_native_resolves_to_fixed_state_stripped():
 
 def test_explicit_tempo2_native_is_an_explicit_choice():
     ntm = NonLinearTimingModel(
-        engines="jug", tempo2_native="fixed_state", name="timing")
+        engines="jug", tempo2_native="fixed_state", name="timing"
+    )
     assert ntm.resolved_tempo2_native == "fixed_state"
     assert ntm._timing_engine_kwargs()["tempo2_native"] == "fixed_state"
 
@@ -228,7 +387,8 @@ def test_explicit_tempo2_native_is_an_explicit_choice():
 def test_resolved_tempo2_native_is_fingerprinted():
     default = NonLinearTimingModel(engines="jug", name="timing")
     explicit = NonLinearTimingModel(
-        engines="jug", tempo2_native="fixed_state", name="timing")
+        engines="jug", tempo2_native="fixed_state", name="timing"
+    )
     # The resolved mode enters the config fingerprint, so a non-default mode
     # produces a distinct fingerprint from the resolved default.
     assert default._tempo2_native_fingerprint() == "fixed_state_stripped"

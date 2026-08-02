@@ -14,7 +14,7 @@ from typing import Any, Literal, cast
 
 import numpy as np
 
-from .selection import match_fitpars
+from .selection import match_fitpars, validated_parameter_mapping_view
 from .protocols import JacobianTimingEngine, JaxTimingEngine
 from .space import ParameterSpace
 from .units import lookup_pint_param, normalize_param_name, units_map
@@ -292,13 +292,10 @@ class TimingEvaluator:
         return dict(self._reference_exact)
 
     def _parameter_mapping(self) -> Mapping[str, Mapping[str, str]]:
-        provider = getattr(self.pulsar, "timing_parameter_mapping", None)
-        if provider is not None:
-            return cast(Mapping[str, Mapping[str, str]], provider())
-        return cast(
-            Mapping[str, Mapping[str, str]],
-            getattr(self.pulsar, "_fitparameters", {}) or {},
-        )
+        view = validated_parameter_mapping_view(self.pulsar, tuple(self.fitpars))
+        if view.mapping is None:
+            return {}
+        return cast(Mapping[str, Mapping[str, str]], view.mapping)
 
     def _build_parameters(self) -> tuple[TimingParameter, ...]:
         model = self.pulsar.pint_model()
@@ -307,7 +304,8 @@ class TimingEvaluator:
         mapping = self._parameter_mapping()
         parameters = []
         for i, name in enumerate(self.fitpars):
-            aliases = dict(mapping.get(name, {}))
+            # Totality is enforced by validated_parameter_mapping_view above.
+            aliases = dict(mapping[name]) if mapping else {}
             param = lookup_pint_param(model, name)
             uncertainty = getattr(param, "uncertainty_value", None)
             parameters.append(

@@ -215,3 +215,97 @@ def test_schur_delta_wls_raises_on_degenerate_fisher():
             partition=partition,
             variance=np.ones(3, dtype=float),
         )
+
+
+def test_spec_for_target_suffix_disambiguation_with_alias_natives():
+    """scale= resolution must use mapping-key suffixes, not native-token surgery."""
+    from nltiming.bijectors import AxisPrior
+    from nltiming.priors import PriorOverrideSpec, spec_for_target
+
+    class _Host:
+        fitpars = ("STIGMA_mpta", "PB_mpta", "STIGMA_epta", "PB_epta")
+
+        def timing_parameter_mapping(self):
+            return {
+                "STIGMA_mpta": {"mpta": "STIG"},
+                "PB_mpta": {"mpta": "PB"},
+                "STIGMA_epta": {"epta": "STIGMA"},
+                "PB_epta": {"epta": "PB"},
+            }
+
+    pulsar = _Host()
+    spec = PriorOverrideSpec(
+        prior=AxisPrior(family="uniform", lower=-0.5, upper=0.5),
+        frame="delta",
+        scale="PB",
+    )
+    resolved = spec_for_target(pulsar, spec, "STIGMA_mpta", pulsar.fitpars)
+    assert resolved.scale == "PB_mpta"
+
+    class _EdotHost:
+        fitpars = ("EDOT_ng9", "PB_ng9", "EDOT_epta", "PB_epta")
+
+        def timing_parameter_mapping(self):
+            return {
+                "EDOT_ng9": {"ng9": "ECCDOT"},
+                "PB_ng9": {"ng9": "PB"},
+                "EDOT_epta": {"epta": "EDOT"},
+                "PB_epta": {"epta": "PB"},
+            }
+
+    edot_pulsar = _EdotHost()
+    edot_resolved = spec_for_target(edot_pulsar, spec, "EDOT_ng9", edot_pulsar.fitpars)
+    assert edot_resolved.scale == "PB_ng9"
+
+
+def test_spec_for_target_fetches_mapping_once():
+    from nltiming.bijectors import AxisPrior
+    from nltiming.priors import PriorOverrideSpec, spec_for_target
+
+    calls = {"n": 0}
+    mapping = {
+        "STIGMA_mpta": {"mpta": "STIG"},
+        "PB_mpta": {"mpta": "PB"},
+        "STIGMA_epta": {"epta": "STIGMA"},
+        "PB_epta": {"epta": "PB"},
+    }
+
+    class _Host:
+        fitpars = tuple(mapping)
+
+        def timing_parameter_mapping(self):
+            calls["n"] += 1
+            return {name: dict(owners) for name, owners in mapping.items()}
+
+    spec = PriorOverrideSpec(
+        prior=AxisPrior(family="uniform", lower=-0.5, upper=0.5),
+        frame="delta",
+        scale="PB",
+    )
+    resolved = spec_for_target(_Host(), spec, "STIGMA_mpta", tuple(mapping))
+    assert resolved.scale == "PB_mpta"
+    assert calls["n"] == 1
+
+
+def test_spec_for_target_rejects_partial_mapping():
+    from nltiming.bijectors import AxisPrior
+    from nltiming.priors import PriorOverrideSpec, spec_for_target
+    from nltiming.selection import ParameterMappingError
+
+    class _Host:
+        fitpars = ("STIGMA_mpta", "PB_mpta", "PB_epta")
+
+        def timing_parameter_mapping(self):
+            # Missing STIGMA_mpta — total contract must fail loudly.
+            return {
+                "PB_mpta": {"mpta": "PB"},
+                "PB_epta": {"epta": "PB"},
+            }
+
+    spec = PriorOverrideSpec(
+        prior=AxisPrior(family="uniform", lower=-0.5, upper=0.5),
+        frame="delta",
+        scale="PB",
+    )
+    with pytest.raises(ParameterMappingError, match="absent"):
+        spec_for_target(_Host(), spec, "STIGMA_mpta", _Host.fitpars)
