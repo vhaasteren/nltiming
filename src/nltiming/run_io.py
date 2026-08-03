@@ -149,6 +149,58 @@ def derived_kepler_columns(samples, manifest_binary_chart):
     return out
 
 
+def derived_fw10_columns(samples, manifest_fw10_chart):
+    """A1/ECC/OM/T0 columns derived from ``fw10_absorbed`` posterior samples.
+
+    Sibling of :func:`derived_kepler_columns` for the six-axis DDH chart.
+    Decoding uses the same reference-local ω branch the likelihood used
+    (``fw10_decode(..., omega_ref_rad=...)``), reconstructed from the manifest
+    record. H3/STIGMA are identity axes and already carry engine names, so only
+    the four renamed axes yield derived columns.
+    """
+    from .fw10_absorbed import DEG2RAD, RAD2DEG, fw10_decode
+
+    out: dict[str, np.ndarray] = {}
+    for group in (manifest_fw10_chart or {}).get("groups", ()):
+        if not group.get("enabled"):
+            continue
+        sample_names = group.get("sample_names")
+        if not sample_names or not all(name in samples for name in sample_names):
+            # Partial sampling: never fabricate columns from reference values.
+            continue
+        x_p, e1p, e2p, tasc, h3, stig = (
+            np.atleast_1d(np.asarray(samples[name], float)) for name in sample_names
+        )
+        pb_ref = float(group["pb_ref"])
+        # OM_normalized, never the raw OM: the decode unwraps to the branch
+        # nearest this reference, so a raw value outside [0, 360) would land on
+        # a branch 2*pi away and shift T0 by a full PB.
+        omega_ref_rad = float(group["theta_ref_engine"]["OM_normalized"]) * DEG2RAD
+        n = x_p.size
+        a1 = np.empty(n, float)
+        ecc = np.empty(n, float)
+        om = np.empty(n, float)
+        t0 = np.empty(n, float)
+        for i in range(n):
+            a1_i, ecc_i, om_rad, t0_i, _, _ = fw10_decode(
+                float(x_p[i]),
+                float(e1p[i]),
+                float(e2p[i]),
+                float(tasc[i]),
+                float(h3[i]),
+                float(stig[i]),
+                pb_ref,
+                omega_ref_rad=omega_ref_rad,
+            )
+            a1[i], ecc[i], om[i], t0[i] = a1_i, ecc_i, om_rad * RAD2DEG, t0_i
+        a1_name, ecc_name, om_name, t0_name = group["engine_names"][:4]
+        out[a1_name] = a1
+        out[ecc_name] = ecc
+        out[om_name] = om
+        out[t0_name] = t0
+    return out
+
+
 def decode_physical(
     space: ParameterSpace,
     x: np.ndarray,
@@ -199,6 +251,9 @@ class RunManifest:
     metric_source: dict[str, Any] | None = None
     transport: dict[str, Any] | None = None
     binary_chart: dict[str, Any] | None = None
+    fw10_absorbed_chart: dict[str, Any] | None = None
+    binary_marginal_basis_frame: dict[str, Any] | None = None
+    binary_conversion_metadata: dict[str, Any] | None = None
 
     @property
     def latent_decodable(self) -> bool:
@@ -247,12 +302,30 @@ class RunManifest:
             if self.binary_chart is None
             else {**self.binary_chart, "digest": _section_digest(self.binary_chart)}
         )
+        fw10_absorbed_chart = (
+            None
+            if self.fw10_absorbed_chart is None
+            else {
+                **self.fw10_absorbed_chart,
+                "digest": _section_digest(self.fw10_absorbed_chart),
+            }
+        )
+        binary_marginal_basis_frame = (
+            None
+            if self.binary_marginal_basis_frame is None
+            else {
+                **self.binary_marginal_basis_frame,
+                "digest": _section_digest(self.binary_marginal_basis_frame),
+            }
+        )
         return {
             "parameter_space": parameter_space,
             "context": {"digest": self.context_digest},
             "metric_source": metric_source,
             "transport": transport,
             "binary_chart": binary_chart,
+            "fw10_absorbed_chart": fw10_absorbed_chart,
+            "binary_marginal_basis_frame": binary_marginal_basis_frame,
             "chains": self._chains_section(),
         }
 
@@ -293,6 +366,9 @@ class RunManifest:
             "parameter_space": sections["parameter_space"],
             "context_digest": self.context_digest,
             "binary_chart": self.binary_chart,
+            "fw10_absorbed_chart": self.fw10_absorbed_chart,
+            "binary_marginal_basis_frame": self.binary_marginal_basis_frame,
+            "binary_conversion_metadata": self.binary_conversion_metadata,
             "sections": sections,
             "run_products": run_products,
             "code": _code_block(self.git_commit),
@@ -410,6 +486,9 @@ def build_run_manifest(
         metric_source=metric_source,
         transport=transport,
         binary_chart=ctx.binary_chart_manifest(),
+        fw10_absorbed_chart=ctx.fw10_absorbed_chart_manifest(),
+        binary_marginal_basis_frame=ctx.binary_marginal_basis_frame_manifest(),
+        binary_conversion_metadata=ctx.conversion_metadata_manifest(),
     )
 
 
@@ -803,6 +882,9 @@ class RunResults:
         x = self.latent(burn=burn, thin=thin)
         phys = self.space.to_physical(x, units=units)
         phys.update(derived_kepler_columns(phys, self.run_meta.get("binary_chart")))
+        phys.update(
+            derived_fw10_columns(phys, self.run_meta.get("fw10_absorbed_chart"))
+        )
         return phys
 
     def truths(self, *, units: str = "display") -> dict[str, float]:

@@ -22,7 +22,7 @@ from nltiming.nonlinear_timing_model import NonLinearTimingModel  # noqa: E402
 
 
 class _Pulsar:
-    """A linear JAX-differentiable pulsar duck (F0, F1, DM)."""
+    """A linear JAX-differentiable pulsar duck (Offset, F1, DM)."""
 
     def __init__(self):
         self.name = "J1234+5678"

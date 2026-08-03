@@ -140,6 +140,114 @@ def delta_normal(
     return normal(mean, std, frame="delta", scale=scale)
 
 
+# Solar mass in time units (T☉, seconds) — PINT/tempo2 convention.
+T_SUN_S = 4.925490947641267e-6
+
+
+def stigma_orientation_logpdf(varsigma):
+    """Isotropic-orientation STIGMA log-density: ``p(ς) = 4ς/(1+ς²)²`` (ς > 0).
+
+    Composable building block for Case-D STIGMA priors (uniform in cos i).
+    Combine with :func:`stigma_mass_ceiling_lower` for a hard lower bound from a
+    companion-mass ceiling.
+    """
+    s = np.asarray(varsigma, dtype=float)
+    if np.any(s <= 0.0):
+        raise ValueError("stigma_orientation_logpdf requires ς > 0")
+    return np.log(4.0 * s) - 2.0 * np.log1p(s * s)
+
+
+def stigma_mass_ceiling_lower(
+    h3: float, m_max: float, *, t_sun: float = T_SUN_S
+) -> float:
+    """Lower bound ``ς ≥ (H3 / (T☉·M_max))^(1/3)`` from a companion-mass ceiling."""
+    if float(h3) <= 0.0 or float(m_max) <= 0.0 or float(t_sun) <= 0.0:
+        raise ValueError("h3, m_max, and t_sun must be positive")
+    return float((float(h3) / (float(t_sun) * float(m_max))) ** (1.0 / 3.0))
+
+
+def stigma_mass_function_support(
+    h3: float,
+    pb_days: float,
+    a1_lt_s: float,
+    *,
+    m_p_range: tuple[float, float] = (1.2, 2.0),
+    t_sun: float = T_SUN_S,
+) -> tuple[float, float]:
+    """ς support from the mass-function closure over an m_p prior range (§10.8.1).
+
+    Solves the pair
+        h3 = T_sun * m_c * ς**3
+        (m_c sin i)**3 / (m_p + m_c)**2 = f = 4 pi**2 a1**3 / (T_sun pb**2)
+    with sin i = 2ς/(1+ς**2), returning the (lo, hi) ς interval swept as m_p
+    runs over ``m_p_range``. This is the third composable Case-D helper, next to
+    :func:`stigma_orientation_logpdf` (orientation) and
+    :func:`stigma_mass_ceiling_lower` (companion-mass ceiling).
+
+    At the J2145 numbers this reproduces the roughly [0.30, 0.46] support
+    quoted in the design note.
+    """
+    h3 = float(h3)
+    pb_s = float(pb_days) * 86400.0
+    a1 = float(a1_lt_s)
+    if h3 <= 0.0 or pb_s <= 0.0 or a1 <= 0.0:
+        raise ValueError("h3, pb_days, and a1_lt_s must be positive")
+    lo_mp, hi_mp = (float(m) for m in m_p_range)
+    if not 0.0 < lo_mp <= hi_mp:
+        raise ValueError("m_p_range must be positive and ordered")
+    mass_function = 4.0 * np.pi**2 * a1**3 / (float(t_sun) * pb_s**2)
+
+    def _residual(varsigma: float, m_p: float) -> float:
+        m_c = h3 / (float(t_sun) * varsigma**3)
+        sini = 2.0 * varsigma / (1.0 + varsigma**2)
+        return (m_c * sini) ** 3 / (m_p + m_c) ** 2 - mass_function
+
+    def _solve(m_p: float) -> float:
+        # _residual is monotonically decreasing in varsigma (m_c ~ 1/ς**3
+        # dominates), so bisection on (0, 1] is exact and needs no derivative.
+        lo, hi = 1e-6, 1.0
+        f_lo, f_hi = _residual(lo, m_p), _residual(hi, m_p)
+        if f_lo * f_hi > 0.0:
+            raise ValueError(
+                f"no ς in (0, 1] closes the mass function for m_p={m_p}; "
+                "check h3/pb/a1"
+            )
+        for _ in range(200):
+            mid = 0.5 * (lo + hi)
+            if _residual(mid, m_p) * f_lo > 0.0:
+                lo = mid
+            else:
+                hi = mid
+        return 0.5 * (lo + hi)
+
+    a, b = _solve(lo_mp), _solve(hi_mp)
+    return (min(a, b), max(a, b))
+
+
+def stigma_prior_from_support(
+    lower: float, upper: float, *, family: str = "uniform"
+) -> PriorOverrideSpec:
+    """Turn a composed ς support into an installable ``priors={"STIGMA": ...}``.
+
+    The composable helpers above give a *density* (orientation) and *bounds*
+    (mass ceiling, mass function), but ``AxisPrior`` supports only bounded and
+    normal families — there is no custom-logpdf family to install
+    ``4ς/(1+ς²)²`` directly. This turns the composed interval into a prior the
+    framework can actually carry: ``"uniform"`` over the interval, or
+    ``"normal"`` centred on it with sigma = quarter-width (so +/-2 sigma spans
+    the support). Use :func:`stigma_orientation_logpdf` to reweight in
+    post-processing when the orientation density matters.
+    """
+    lo, hi = float(lower), float(upper)
+    if not 0.0 < lo < hi <= 1.0:
+        raise ValueError("stigma support must satisfy 0 < lower < upper <= 1")
+    if family == "uniform":
+        return uniform(lo, hi)
+    if family == "normal":
+        return normal(0.5 * (lo + hi), 0.25 * (hi - lo))
+    raise ValueError("family must be 'uniform' or 'normal'")
+
+
 def axis_prior_from_object(prior_obj) -> AxisPrior | None:
     """Best-effort extraction of simple prior families from PINT prior objects."""
     if prior_obj is None:

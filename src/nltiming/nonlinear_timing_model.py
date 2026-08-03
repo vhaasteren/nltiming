@@ -31,7 +31,9 @@ from .frames import EngineDeltaMap
 from .linearization import TimingLinearization, build_linearization
 from .physical_charts import (
     KeplerLaplacePolicy,
+    MarginalBasisFrame,
     activate_charts,
+    marginal_frame_skip_reason,
     coerce_binary_chart_policy,
     expand_override_key,
     frame_change_matrix,
@@ -40,6 +42,7 @@ from .physical_charts import (
     resolve_chart_candidates,
     sampling_reference_strings,
 )
+from .pint_compat import resolve_parameter_alias
 from .protocols import GaugeProvenance, JacobianTimingEngine, JaxTimingEngine
 from .inference import (
     InferencePreset,
@@ -94,6 +97,132 @@ def _validate_nonlinear_params(value: str | None) -> str | None:
             "residual linearization"
         ) from exc
     return validate_nonlinear_params(value)
+
+
+def _probe_conversion_metadata(pulsar):
+    """Optional-capability duck-type probe of ``pulsar.conversion_metadata`` (§8.5a)."""
+    getter = getattr(pulsar, "conversion_metadata", None)
+    if getter is None:
+        return None
+    return getter() if callable(getter) else getter
+
+
+def _reject_delta_flat_required_sampling(plan, metadata) -> None:
+    """Enforce the Case-D ``required_sampling`` contract (§5.5, §10.8.1).
+
+    A converted Case-D par carries a STIGMA that is a **prior center, not a
+    measurement**: no fixed value is determined by the source. The contract is
+    therefore that every ``required_sampling`` name is *varied* — ``sample``
+    with a proper prior, or ``marginalize_z_prior``.
+
+    Two ways to violate it, and both must raise:
+
+    1. the axis is present but ``marginalize_delta_flat`` (improper flat prior
+       over a near-null Gram direction, integrating over unphysical territory);
+    2. the axis is **absent from the plan entirely** — not a fitpar, or frozen
+       — which silently pins the parameter at the emitted prior center. That is
+       exactly the "fixed ς treated as measured" path the design forbids, and
+       it is the quieter of the two failures.
+    """
+    if metadata is None:
+        return
+    required = tuple(getattr(metadata, "required_sampling", None) or ())
+    if not required:
+        return
+    required_canon = {resolve_parameter_alias(name): name for name in required}
+    seen: set[str] = set()
+    for axis in plan.axes:
+        candidates = {
+            resolve_parameter_alias(axis.name),
+            resolve_parameter_alias(axis.engine_name or axis.name),
+        }
+        hit = candidates & set(required_canon)
+        if not hit:
+            continue
+        seen |= hit
+        if axis.disposition == "marginalize_delta_flat":
+            raise ValueError(
+                "conversion_metadata.required_sampling forbids "
+                f"marginalize_delta_flat on {axis.name!r}; sample it with a "
+                "proper prior or use marginalize_z_prior (§10.8.1)"
+            )
+    missing = sorted(required_canon[c] for c in set(required_canon) - seen)
+    if missing:
+        raise ValueError(
+            f"conversion_metadata.required_sampling names {missing}, but "
+            f"{'they are' if len(missing) > 1 else 'it is'} absent from the "
+            "inference plan, so the converted value stays pinned at the "
+            "emitted prior center. A Case-D STIGMA is a prior center, never a "
+            "measurement: free the parameter in the par and give it a proper "
+            "prior (sample), or use marginalize_z_prior (§5.5, §10.8.1)."
+        )
+
+
+def _marginal_basis_frame_records(
+    *,
+    candidates,
+    plan,
+    policy,
+    frames: tuple[MarginalBasisFrame, ...],
+    engine_design_matrix: np.ndarray,
+    design_matrix: np.ndarray,
+) -> tuple[dict, ...]:
+    """Build ``binary_marginal_basis_frame`` manifest groups (§10.5)."""
+    active = {f.chart.suffix: f for f in frames}
+    by_name = {a.name: a for a in plan.axes}
+    records: list[dict] = []
+    for cand in candidates:
+        if cand.chart is None:
+            continue
+        ch = cand.chart
+        try:
+            disp = {en: by_name[en].disposition for en in ch.engine_names}
+        except KeyError:
+            continue
+        if "sample" in disp.values():
+            continue  # never entered the frame branch
+        frame_reason = marginal_frame_skip_reason(policy, disp, cand, ch)
+        xe2_us = None if ch.a1_ref is None else float(1e6 * ch.a1_ref * ch.e_ref**2)
+        if frame_reason is None:
+            frame = active[ch.suffix]
+            slots = list(ch.slots)
+            eng_cols = np.asarray(engine_design_matrix[:, slots], dtype=float)
+            frm_cols = np.asarray(design_matrix[:, slots], dtype=float)
+            eng_norms = np.linalg.norm(eng_cols, axis=0)
+            frm_norms = np.linalg.norm(frm_cols, axis=0)
+            eng_norms = np.where(eng_norms > 0.0, eng_norms, 1.0)
+            frm_norms = np.where(frm_norms > 0.0, frm_norms, 1.0)
+            log_eng = np.log(eng_norms)
+            log_frm = np.log(frm_norms)
+            log_vol = float(np.sum(log_frm) - np.sum(log_eng) - frame.log_abs_det_b)
+            records.append(
+                {
+                    "engine_names": list(ch.engine_names),
+                    "e_ref": float(ch.e_ref),
+                    "xe2_us": xe2_us,
+                    "log_abs_det_b": float(frame.log_abs_det_b),
+                    "log_col_norms_engine": [float(x) for x in log_eng],
+                    "log_col_norms_framed": [float(x) for x in log_frm],
+                    "log_volume_offset": log_vol,
+                    "enabled": True,
+                    "reason": None,
+                }
+            )
+        else:
+            records.append(
+                {
+                    "engine_names": list(ch.engine_names),
+                    "e_ref": float(ch.e_ref),
+                    "xe2_us": xe2_us,
+                    "log_abs_det_b": None,
+                    "log_col_norms_engine": None,
+                    "log_col_norms_framed": None,
+                    "log_volume_offset": None,
+                    "enabled": False,
+                    "reason": frame_reason,
+                }
+            )
+    return tuple(records)
 
 
 def _timing_design_matrix(pulsar, engine, *, method: str) -> np.ndarray:
@@ -185,9 +314,7 @@ def assert_gauge_column_present(pulsar, engine, basis: np.ndarray) -> None:
         rows = np.asarray(contribution.row_indices, dtype=int)
         cname = str(contribution.name)
         local_gauge = [
-            j
-            for j, name in enumerate(fitpars)
-            if _is_gauge_column_name(name, cname)
+            j for j, name in enumerate(fitpars) if _is_gauge_column_name(name, cname)
         ]
         if not local_gauge:
             leaf = contribution.engine
@@ -260,7 +387,9 @@ def assert_gauge_column_present(pulsar, engine, basis: np.ndarray) -> None:
         )
 
 
-def _normalize_gauge_provenance(pulsar, engine) -> tuple[tuple[str, GaugeProvenance], ...]:
+def _normalize_gauge_provenance(
+    pulsar, engine
+) -> tuple[tuple[str, GaugeProvenance], ...]:
     """Build the context-level per-contribution gauge map."""
     contributions = getattr(engine, "contributions", None) or getattr(
         engine, "_contributions", None
@@ -351,8 +480,8 @@ class TimingContext:
     coord: str
     latent_name: str
     delay_keys: tuple[str, ...]
-    design_matrix: np.ndarray               # sampling-frame M_s (= M_e off charts)
-    engine_design_matrix: np.ndarray        # engine-frame M_e
+    design_matrix: np.ndarray  # sampling-frame M_s (= M_e off charts)
+    engine_design_matrix: np.ndarray  # engine-frame M_e
     linearization: "TimingLinearization"
     proper_space: ParameterSpace
     marginal_z_space: ParameterSpace
@@ -360,9 +489,13 @@ class TimingContext:
     gauge_provenance: tuple[tuple[str, GaugeProvenance], ...] = ()
     metric: LocalPosteriorMetric | None = None
     transport: StaticTransportRecord | None = None
-    physical_charts: tuple = ()             # tuple[KeplerLaplaceChart, ...]
-    binary_chart_records: tuple = ()        # tuple[dict, ...] (manifest-ready)
-    engine_delta_map: "EngineDeltaMap | None" = None   # sampled mode; always set
+    physical_charts: tuple = ()  # tuple[PhysicalChart, ...]
+    binary_chart_records: tuple = ()  # tuple[dict, ...] (kepler_laplace)
+    fw10_chart_records: tuple = ()  # tuple[dict, ...] (fw10_absorbed)
+    marginal_basis_frames: tuple = ()  # tuple[MarginalBasisFrame, ...]
+    marginal_basis_frame_records: tuple = ()  # tuple[dict, ...] (manifest-ready)
+    conversion_metadata: Any | None = None
+    engine_delta_map: "EngineDeltaMap | None" = None  # sampled mode; always set
 
     def with_expansion(
         self,
@@ -391,7 +524,9 @@ class TimingContext:
                     f"with_expansion delta must cover exactly the proper axes "
                     f"{list(proper)}; missing={missing}, unexpected={extra}"
                 )
-            delta_array = np.asarray([float(delta[name]) for name in proper], dtype=float)
+            delta_array = np.asarray(
+                [float(delta[name]) for name in proper], dtype=float
+            )
         else:
             delta_array = np.asarray(delta, dtype=float)
             if delta_array.shape != (len(proper),):
@@ -400,29 +535,43 @@ class TimingContext:
                     "in proper-name order"
                 )
         linearization = build_linearization(
-            engine=self.engine, plan=self.plan, proper_space=self.proper_space,
-            delta_expansion=delta_array, source=source,
-            charts=self.physical_charts)
+            engine=self.engine,
+            plan=self.plan,
+            proper_space=self.proper_space,
+            delta_expansion=delta_array,
+            source=source,
+            charts=self.physical_charts,
+        )
         engine_map = EngineDeltaMap.for_sampled(
-            self.plan, self.physical_charts, linearization)
-        design_matrix = self.design_matrix       # reference-consistent M_s
+            self.plan, self.physical_charts, linearization
+        )
+        design_matrix = self.design_matrix  # reference-consistent M_s
         flat_slots = tuple(
-            a.fitpar_index for a in self.plan.axes
+            a.fitpar_index
+            for a in self.plan.axes
             if a.disposition == "marginalize_delta_flat"
-            and a.physical_chart is not None)
+            and a.physical_chart is not None
+        )
         if flat_slots and isinstance(self.engine, JaxTimingEngine):
             delta_full = np.zeros(len(self.plan.fitpars), dtype=float)
-            proper_idx = [a.fitpar_index for a in self.plan.axes
-                          if a.disposition in ("sample", "marginalize_z_prior")]
+            proper_idx = [
+                a.fitpar_index
+                for a in self.plan.axes
+                if a.disposition in ("sample", "marginalize_z_prior")
+            ]
             delta_full[proper_idx] = delta_array
             cols = _exact_flat_columns(
-                self.engine, self.plan, self.physical_charts,
-                delta_full, flat_slots)
+                self.engine, self.plan, self.physical_charts, delta_full, flat_slots
+            )
             design_matrix = np.array(design_matrix, copy=True)
             for s, col in cols.items():
                 design_matrix[:, s] = col
-        return replace(self, linearization=linearization,
-                       engine_delta_map=engine_map, design_matrix=design_matrix)
+        return replace(
+            self,
+            linearization=linearization,
+            engine_delta_map=engine_map,
+            design_matrix=design_matrix,
+        )
 
     @property
     def conditioned(self) -> bool:
@@ -717,10 +866,7 @@ class TimingContext:
 
         # Enterprise scalar timing axes reuse delay-key names for their sampler
         # coordinate (z under the identity static layer).
-        if (
-            coord in ("z", "x")
-            and all(key in params for key in self.delay_keys)
-        ):
+        if coord in ("z", "x") and all(key in params for key in self.delay_keys):
             values = np.asarray([params[key] for key in self.delay_keys], dtype=float)
             if not coord_explicit:
                 return values
@@ -738,6 +884,41 @@ class TimingContext:
         return {
             "policy": self.model.binary_chart.as_dict(),
             "groups": [dict(r) for r in self.binary_chart_records],
+        }
+
+    def fw10_absorbed_chart_manifest(self) -> dict:
+        """Manifest-ready ``fw10_absorbed_chart`` section (§10.8.2)."""
+        return {
+            "groups": [dict(r) for r in self.fw10_chart_records],
+        }
+
+    def binary_marginal_basis_frame_manifest(self) -> dict:
+        """Manifest-ready MarginalBasisFrame section (§10.5)."""
+        return {
+            "policy": {
+                "marginal_basis_frame": self.model.binary_chart.marginal_basis_frame
+            },
+            "groups": [dict(r) for r in self.marginal_basis_frame_records],
+        }
+
+    def conversion_metadata_manifest(self) -> dict | None:
+        """Serialize pulsar conversion_metadata for the run manifest (§8.5a)."""
+        meta = self.conversion_metadata
+        if meta is None:
+            return None
+        if hasattr(meta, "__dict__") or hasattr(meta, "__dataclass_fields__"):
+            from dataclasses import asdict, is_dataclass
+
+            if is_dataclass(meta):
+                return asdict(meta)
+        if isinstance(meta, Mapping):
+            return dict(meta)
+        return {
+            "target_family": getattr(meta, "target_family", None),
+            "gauge": getattr(meta, "gauge", None),
+            "required_sampling": list(getattr(meta, "required_sampling", ()) or ()),
+            "stigma_central": getattr(meta, "stigma_central", None),
+            "stigma_provenance": getattr(meta, "stigma_provenance", None),
         }
 
     def run_manifest(
@@ -1128,9 +1309,12 @@ class NonLinearTimingModel:
             fitpars=partition.fitpars,
             sampled=partition.proper,
         )
+        from .physical_charts import KeplerLaplaceChart
+
         charted_eps = {
             res.chart.sample_names[pos]: (res.chart, pos)
             for res in chart_resolutions
+            if isinstance(res.chart, KeplerLaplaceChart)
             for pos in (0, 1)
         }
         claimed: dict[str, str] = {}
@@ -1149,13 +1333,15 @@ class NonLinearTimingModel:
                 if target in charted_eps:
                     chart, pos = charted_eps[target]
                     resolved[target] = materialize_eps_override(
-                        self._prior_overrides, chart, pos, pulsar=pulsar,
-                        plan=partition, engine_refs=ref_exact,
+                        self._prior_overrides,
+                        chart,
+                        pos,
+                        pulsar=pulsar,
+                        plan=partition,
+                        engine_refs=ref_exact,
                     )
                     continue
-                target_spec = spec_for_target(
-                    pulsar, spec, target, partition.fitpars
-                )
+                target_spec = spec_for_target(pulsar, spec, target, partition.fitpars)
                 resolved[target] = resolve_prior_override(
                     target, target_spec, prior_ctx
                 )
@@ -1334,8 +1520,9 @@ class NonLinearTimingModel:
             charted_box.update(res.default_box_delta_bounds())
         variance = np.asarray(pulsar.toaerrs, dtype=float) ** 2
         idx_proper = tuple(
-            sorted(partition.indices("sample")
-                   + partition.indices("marginalize_z_prior"))
+            sorted(
+                partition.indices("sample") + partition.indices("marginalize_z_prior")
+            )
         )
         # The WLS marginal is computed lazily, only if a NON-charted cheat axis
         # actually needs it: charted EPS axes never recompute (§5.3).
@@ -1371,9 +1558,7 @@ class NonLinearTimingModel:
             if name in charted_box:
                 lower, upper = charted_box[name]
                 priors.append(
-                    AxisPrior(
-                        family="uniform", lower=float(lower), upper=float(upper)
-                    )
+                    AxisPrior(family="uniform", lower=float(lower), upper=float(upper))
                 )
                 continue
             # Prefer the par-file frequentist uncertainty; fall back to the
@@ -1508,25 +1693,40 @@ class NonLinearTimingModel:
         )
         assert_gauge_column_present(pulsar, engine, engine_design_matrix)
         gauge_provenance = _normalize_gauge_provenance(pulsar, engine)
-        partition, chart_resolutions, chart_records = activate_charts(
-            partition,
-            candidates,
-            self.binary_chart,
-            prior_overrides=self._prior_overrides,
-            pint_model=pulsar.pint_model(),
-            pulsar=pulsar,
-            engine_design_matrix=engine_design_matrix,
-            nonlinear_scale=self.coordinate_policy.nonlinear_scale,
-            engine_refs=engine.reference_theta_exact(),
-            prior_policy=self.prior_policy,
+        partition, chart_resolutions, frames, chart_records, fw10_records = (
+            activate_charts(
+                partition,
+                candidates,
+                self.binary_chart,
+                prior_overrides=self._prior_overrides,
+                pint_model=pulsar.pint_model(),
+                pulsar=pulsar,
+                engine_design_matrix=engine_design_matrix,
+                nonlinear_scale=self.coordinate_policy.nonlinear_scale,
+                engine_refs=engine.reference_theta_exact(),
+                prior_policy=self.prior_policy,
+            )
         )
         charts = tuple(r.chart for r in chart_resolutions)
+        conversion_metadata = _probe_conversion_metadata(pulsar)
+        _reject_delta_flat_required_sampling(partition, conversion_metadata)
 
+        # Frames contribute themselves, not their charts: the frame's own
+        # write_frame_block omits the chart's PB coupling (§10.1).
+        transforms = charts + frames
         design_matrix = (
             engine_design_matrix
-            if not charts
+            if not transforms
             else engine_design_matrix
-            @ frame_change_matrix(len(partition.fitpars), charts)
+            @ frame_change_matrix(len(partition.fitpars), transforms)
+        )
+        frame_records = _marginal_basis_frame_records(
+            candidates=candidates,
+            plan=partition,
+            policy=self.binary_chart,
+            frames=frames,
+            engine_design_matrix=engine_design_matrix,
+            design_matrix=design_matrix,
         )
 
         prior_block = self._build_prior_block(
@@ -1578,8 +1778,10 @@ class NonLinearTimingModel:
             if a.disposition == "marginalize_delta_flat"
             and a.physical_chart is not None
         )
-        if flat_slots and np.any(delta_expansion) and isinstance(
-            engine, JaxTimingEngine
+        if (
+            flat_slots
+            and np.any(delta_expansion)
+            and isinstance(engine, JaxTimingEngine)
         ):
             # Non-default expansion specs (prior_center / explicit_delta):
             # replace the charted delta-flat columns by the exact composed
@@ -1618,6 +1820,10 @@ class NonLinearTimingModel:
             gauge_provenance=gauge_provenance,
             physical_charts=charts,
             binary_chart_records=chart_records,
+            fw10_chart_records=fw10_records,
+            marginal_basis_frames=frames,
+            marginal_basis_frame_records=frame_records,
+            conversion_metadata=conversion_metadata,
             linearization=linearization,
             engine_delta_map=engine_map,
         )
@@ -1661,9 +1867,7 @@ class NonLinearTimingModel:
         if condition:
             # The identity static layer (whitening=None) is an identity map, so
             # skip the reference-noise Fisher entirely (unused, possibly singular).
-            metric = (
-                None if self.static_layer == "identity" else base.default_metric()
-            )
+            metric = None if self.static_layer == "identity" else base.default_metric()
             resolved = base.with_transport(metric)
         else:
             resolved = base

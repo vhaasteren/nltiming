@@ -17,11 +17,21 @@ from __future__ import annotations
 import warnings
 from dataclasses import dataclass
 from decimal import Decimal, localcontext
-from typing import ClassVar, Literal, Mapping, Protocol, runtime_checkable
+from typing import (
+    TYPE_CHECKING,
+    ClassVar,
+    Literal,
+    Mapping,
+    Protocol,
+    runtime_checkable,
+)
 
 import numpy as np
 
 from .pint_compat import resolve_parameter_alias
+
+if TYPE_CHECKING:  # pragma: no cover - activation imports it lazily
+    from .fw10_absorbed import FW10AbsorbedChart
 from .selection import (
     canonical_fitpars,
     fitpar_suffix,
@@ -52,6 +62,15 @@ _SKIP_REASONS = (
     "seam_reachable_with_secular_terms",
     "origin_uncertified_backend",
     "unsupported_binary_model",
+    # fw10_absorbed (§10.8.2)
+    "dependency_sampled",
+    "secular_terms_present",
+    "unsupported_disposition_mix",
+    "near_circular_reference",
+    "domain_violation_at_ref",
+    "prior_on_engine_axis",
+    "claimed_by_fw10_absorbed",
+    "stigma_support_out_of_domain",
 )
 
 # Fallback list of seam-relevant secular terms, used ONLY when the engine
@@ -91,11 +110,15 @@ DEFAULT_PRIOR_PACKAGE = "nlt-eps-wls-boxes-v1"
 BinaryChartPrior = Literal["sampling_frame"]  # "pushforward" reserved (I.4)
 
 
+MarginalBasisFrameMode = Literal["auto", "off"]
+
+
 @dataclass(frozen=True)
 class KeplerLaplacePolicy:
     mode: BinaryChartMode = "auto"
     e_max: float = 0.1
     prior: BinaryChartPrior = "sampling_frame"
+    marginal_basis_frame: MarginalBasisFrameMode = "auto"
 
     def __post_init__(self) -> None:
         if self.mode not in ("off", "auto", "on"):
@@ -110,6 +133,11 @@ class KeplerLaplacePolicy:
                 "release (it requires a joint prior bijector; see design doc "
                 "I.4); v1 supports prior='sampling_frame' only"
             )
+        if self.marginal_basis_frame not in ("auto", "off"):
+            raise ValueError(
+                "marginal_basis_frame must be 'auto' or 'off', "
+                f"got {self.marginal_basis_frame!r}"
+            )
 
     def as_dict(self) -> dict[str, object]:
         return {
@@ -117,6 +145,7 @@ class KeplerLaplacePolicy:
             "e_max": float(self.e_max),
             "prior": self.prior,
             "default_prior_package": DEFAULT_PRIOR_PACKAGE,
+            "marginal_basis_frame": self.marginal_basis_frame,
         }
 
 
@@ -474,6 +503,49 @@ class KeplerLaplaceChart:
         }
 
 
+@dataclass(frozen=True)
+class MarginalBasisFrame:
+    """Reference-local reconditioning of a fully delta-flat Kepler triple.
+
+    Reuses KeplerLaplaceChart geometry (slots, engine_names, eps refs, B block)
+    but confers none of its semantics: axes keep engine names and dispositions;
+    nothing is decoded; no prior support exists.
+    """
+
+    chart: KeplerLaplaceChart
+    log_abs_det_b: float  # slogdet of the 3x3 B block at the reference
+
+    @property
+    def suffix(self) -> str:
+        return self.chart.suffix
+
+    @property
+    def slots(self) -> tuple[int, int, int]:
+        return self.chart.slots
+
+    def write_frame_block(self, B: np.ndarray, delta_full: np.ndarray) -> None:
+        """Write ONLY the 3x3 triple block — never the PB coupling.
+
+        The chart's ``write_frame_block`` also sets ``B[T0_slot, pb_slot]``,
+        because under the chart T0 is replaced by TASC and so d/dPB at fixed
+        TASC acquires a T0 component. The frame renames nothing: T0 stays T0,
+        PB stays PB, and d/dPB is unchanged. Inheriting that coupling would
+        (a) modify the PB design column, violating §10.1's "applied *only* to
+        the analytically marginalized delta-flat columns", and (b) make the
+        recorded ``log_volume_offset`` wrong whenever PB is itself delta-flat
+        (measured 7.5e-4 against a 1e-6 invariance tolerance), because the
+        offset sums norms over the triple slots only.
+
+        ``delta_full`` is read at the triple slots only; production always
+        evaluates at the reference (``frame_change_matrix(delta=None)``), and
+        delta-flat axes are pinned there by construction.
+        """
+        s1, s2, s3 = self.chart.slots
+        B[np.ix_([s1, s2, s3], [s1, s2, s3])] = self.chart.jacobian_at(
+            delta_full[s1], delta_full[s2], 0.0
+        )
+
+
 # ---------------------------------------------------------------------------
 # Candidacy (§2.1)
 # ---------------------------------------------------------------------------
@@ -482,7 +554,8 @@ class KeplerLaplaceChart:
 @dataclass(frozen=True)
 class ChartCandidate:
     """A suffix group inspected for charting; ``chart`` is None when the group
-    is structurally ineligible (record-only)."""
+    is structurally ineligible for kepler_laplace (record-only). ``fw10_chart``
+    is populated independently whenever the DDH+STIGMA sextet is free."""
 
     suffix: str
     engine_names: tuple[str | None, str | None, str | None]  # found fitpars
@@ -491,16 +564,17 @@ class ChartCandidate:
     e_ref: float | None
     capability: "object | None" = None
     secular_terms: tuple[str, ...] = ()
+    fw10_chart: "FW10AbsorbedChart | None" = None
 
 
 def _group_fitpars(pulsar) -> dict[str, dict[str, str]]:
     """suffix -> {base_canonical_name: fitpar_string}, using canonical_fitpars
     + fitpar_suffix (no new suffix parser). A group exists only if it carries
-    at least one of the six chart names (ENGINE_TRIPLE | SAMPLE_TRIPLE); PB and
-    A1 are recorded as accessories of such groups and never create a group by
-    themselves."""
+    at least one of the six chart names (ENGINE_TRIPLE | SAMPLE_TRIPLE); PB,
+    A1, H3, and STIGMA are recorded as accessories of such groups and never
+    create a group by themselves."""
     core = set(ENGINE_TRIPLE) | set(SAMPLE_TRIPLE)
-    wanted = core | {"PB", "A1"}
+    wanted = core | {"PB", "A1", "H3", "STIGMA"}
     groups: dict[str, dict[str, str]] = {}
     fitpars = canonical_fitpars(pulsar)
     mapping_view = validated_parameter_mapping_view(pulsar, fitpars)
@@ -513,6 +587,82 @@ def _group_fitpars(pulsar) -> dict[str, dict[str, str]]:
     return {s: g for s, g in groups.items() if set(g) & core}
 
 
+def _try_build_fw10_chart(pulsar, refs, suffix, found, *, allow_unsuffixed):
+    """Build ``FW10AbsorbedChart`` when A1/ECC/OM/T0/H3/STIGMA are all free.
+
+    Returns None when the sextet is incomplete, a reference is missing, or the
+    intrinsic eccentricity is not positive (encode is singular at e_i = 0).
+    """
+    from .fw10_absorbed import FW10AbsorbedChart
+
+    bases = ("A1", "ECC", "OM", "T0", "H3", "STIGMA")
+    names = tuple(found.get(b) for b in bases)
+    if not all(names):
+        return None
+    a1_fp, ecc_fp, om_fp, t0_fp, h3_fp, stig_fp = names
+    fitpars = canonical_fitpars(pulsar)
+    index = {name: i for i, name in enumerate(fitpars)}
+    try:
+        a1 = float(refs[a1_fp])
+        ecc = float(refs[ecc_fp])
+        om_deg = float(_normalize_om_deg(str(refs[om_fp])))
+        t0 = float(refs[t0_fp])
+        h3 = float(refs[h3_fp])
+        stig = float(refs[stig_fp])
+    except (KeyError, ValueError, TypeError):
+        return None
+    if not np.isfinite(ecc) or ecc <= 0.0:
+        return None
+    if not (
+        np.isfinite(a1) and np.isfinite(t0) and np.isfinite(h3) and np.isfinite(stig)
+    ):
+        return None
+    pb_fp = found.get("PB")
+    try:
+        pb_ref_str = (
+            str(refs[pb_fp])
+            if pb_fp
+            else _accessory_ref_string(
+                pulsar,
+                refs,
+                suffix,
+                "PB",
+                required=True,
+                allow_unsuffixed=allow_unsuffixed,
+            )
+        )
+    except ValueError:
+        return None
+    try:
+        return FW10AbsorbedChart.from_engine_refs(
+            suffix=suffix,
+            engine_names=names,
+            slots=tuple(index[n] for n in names),
+            a1=a1,
+            ecc=ecc,
+            om_deg=om_deg,
+            t0=t0,
+            h3=h3,
+            stig=stig,
+            pb_days=float(pb_ref_str),
+            a1_ref_str=str(refs[a1_fp]),
+            ecc_ref_str=str(refs[ecc_fp]),
+            om_ref_str=str(refs[om_fp]),
+            t0_ref_str=str(refs[t0_fp]),
+            h3_ref_str=str(refs[h3_fp]),
+            stigma_ref_str=str(refs[stig_fp]),
+            pb_ref_str=pb_ref_str,
+        )
+    except (AssertionError, ValueError, ZeroDivisionError):
+        return None
+
+
+def _group_secular_terms(pulsar, suffix, capability) -> tuple[str, ...]:
+    if capability is not None:
+        return tuple(sorted(capability.secular_terms))
+    return tuple(sorted(_present_secular_terms(pulsar, suffix)))
+
+
 def resolve_chart_candidates(pulsar, engine, policy) -> tuple[ChartCandidate, ...]:
     """Structural candidacy (Part I.2.1 rows 8-11) + warnings W1-W3.
 
@@ -520,7 +670,9 @@ def resolve_chart_candidates(pulsar, engine, policy) -> tuple[ChartCandidate, ..
     is silent. Returns one ChartCandidate per suffix group that carries at least
     one of ECC/OM/T0/EPS1/EPS2/TASC as a free fitpar; PB/A1-only groups are
     omitted entirely. Resolves the engine's capability descriptor (§2.4) per
-    suffix group.
+    suffix group. When a group also frees the DDH+STIGMA sextet, attaches an
+    ``fw10_chart`` candidate alongside the Kepler chart (or alone when Kepler
+    is structurally skipped for e_max).
     """
     if policy.mode == "off":
         return ()
@@ -617,6 +769,10 @@ def resolve_chart_candidates(pulsar, engine, policy) -> tuple[ChartCandidate, ..
             e_ref = float(refs[ecc_fp])
         except (KeyError, ValueError):
             e_ref = float("nan")
+        secular = _group_secular_terms(pulsar, suffix, capability)
+        fw10 = _try_build_fw10_chart(
+            pulsar, refs, suffix, found, allow_unsuffixed=allow_unsuffixed
+        )
         if not np.isfinite(e_ref) or e_ref <= 0.0:
             if policy.mode == "on":
                 warnings.warn(
@@ -635,13 +791,15 @@ def resolve_chart_candidates(pulsar, engine, policy) -> tuple[ChartCandidate, ..
                     "e_ref_not_positive",
                     e_ref,
                     capability=capability,
+                    secular_terms=secular,
+                    fw10_chart=fw10,
                 )
             )
             continue
         if policy.mode == "auto" and e_ref >= policy.e_max:
             # Silent by design: the manifest records the skip. A warning here
             # would fire once per pulsar on PTA ensembles with moderate-e
-            # binaries — pure noise.
+            # binaries — pure noise. fw10 may still activate (no e_max gate).
             out.append(
                 ChartCandidate(
                     suffix,
@@ -650,6 +808,8 @@ def resolve_chart_candidates(pulsar, engine, policy) -> tuple[ChartCandidate, ..
                     "e_ref_above_e_max",
                     e_ref,
                     capability=capability,
+                    secular_terms=secular,
+                    fw10_chart=fw10,
                 )
             )
             continue
@@ -699,11 +859,6 @@ def resolve_chart_candidates(pulsar, engine, policy) -> tuple[ChartCandidate, ..
             om_ref_raw_str=om_raw_str,
             om_ref_norm_str=om_norm_str,
         )
-        secular = (
-            tuple(sorted(capability.secular_terms))
-            if capability is not None
-            else tuple(sorted(_present_secular_terms(pulsar, suffix)))
-        )
         out.append(
             ChartCandidate(
                 suffix,
@@ -713,6 +868,7 @@ def resolve_chart_candidates(pulsar, engine, policy) -> tuple[ChartCandidate, ..
                 e_ref,
                 capability=capability,
                 secular_terms=secular,
+                fw10_chart=fw10,
             )
         )
     return tuple(out)
@@ -854,6 +1010,188 @@ def _split_chart_key(key: str, by_suffix) -> tuple[str, str | None]:
     return canonical, None
 
 
+def marginal_frame_skip_reason(policy, disp, cand, chart) -> str | None:
+    """Return a skip reason for the MarginalBasisFrame branch, or None to activate."""
+    if policy.marginal_basis_frame != "auto":
+        return "policy_off"
+    if not all(d == "marginalize_delta_flat" for d in disp.values()):
+        return "mixed_marginal_dispositions"
+    if cand.secular_terms:
+        return "secular_terms_present"
+    if float(chart.e_ref) == 0.0:
+        return "zero_eccentricity_reference"
+    return None
+
+
+def _log_abs_det_b_at_reference(chart: KeplerLaplaceChart) -> float:
+    """slogdet of the 3×3 frame-change block B at the engine reference."""
+    block = chart.jacobian_at()
+    sign, logabsdet = np.linalg.slogdet(np.asarray(block, dtype=float))
+    if sign == 0.0:
+        raise ValueError(
+            f"binary_chart {chart.suffix!r}: singular marginal-basis frame "
+            "at the reference (det B = 0)"
+        )
+    return float(logabsdet)
+
+
+def _fw10_secular_present(secular_terms) -> bool:
+    from .fw10_absorbed import FW10_SECULAR_PARAMS
+
+    locked = {resolve_parameter_alias(b) for b in FW10_SECULAR_PARAMS}
+    return any(resolve_parameter_alias(t) in locked for t in secular_terms)
+
+
+def _fw10_eps_excursion(prior_overrides, suffix: str) -> float:
+    """Half-width proxy for EPS1_ABS/EPS2_ABS prior overrides; else 1e-10."""
+    from .fw10_absorbed import _DEFAULT_EPS_EXCURSION
+
+    half = float(_DEFAULT_EPS_EXCURSION)
+    for key, spec in (prior_overrides or {}).items():
+        base = _fw10_key_base(resolve_parameter_alias(key), suffix)
+        if base not in ("EPS1_ABS", "EPS2_ABS"):
+            continue
+        prior = getattr(spec, "prior", None)
+        if prior is None:
+            continue
+        lo = getattr(prior, "lower", None)
+        hi = getattr(prior, "upper", None)
+        if lo is not None and hi is not None:
+            half = max(half, abs(float(lo)), abs(float(hi)))
+        std = getattr(prior, "std", None)
+        if std is not None:
+            half = max(half, 3.0 * abs(float(std)))
+    return half
+
+
+def _fw10_stigma_support(prior_overrides, chart, suffix):
+    """(lo, hi) support of a *declared* STIGMA prior, or None if none declared.
+
+    Only inspects user-declared overrides: the framework certifies support at
+    activation time rather than clamping in the density, and refusing to
+    activate is always correctness-preserving (native DDH coordinates are
+    retained). A bounded family gives its interval; a normal gives +/-5 sigma.
+    Delta-frame specs are offsets from the engine reference, so they are shifted
+    onto absolute stigma before the domain test; a scaled spec is skipped (the
+    scale factor is only resolved later, at for_pulsar time).
+    """
+    stigma_name = chart.engine_names[5]
+    wanted = {
+        stigma_name,
+        resolve_parameter_alias(stigma_name),
+        "STIGMA",
+        "STIGMA" + suffix if suffix else "STIGMA",
+    }
+    for key, spec in (prior_overrides or {}).items():
+        if key not in wanted and resolve_parameter_alias(key) not in wanted:
+            continue
+        prior = getattr(spec, "prior", None)
+        if prior is None:
+            continue
+        if getattr(spec, "scale", None) is not None:
+            continue
+        shift = (
+            float(chart.stigma_ref)
+            if getattr(spec, "frame", "absolute") == "delta"
+            else 0.0
+        )
+        lo = getattr(prior, "lower", None)
+        hi = getattr(prior, "upper", None)
+        if lo is not None and hi is not None:
+            return shift + float(lo), shift + float(hi)
+        mean = getattr(prior, "mean", None)
+        std = getattr(prior, "std", None)
+        if mean is not None and std is not None:
+            half = 5.0 * abs(float(std))
+            return shift + float(mean) - half, shift + float(mean) + half
+    return None
+
+
+def _fw10_prior_conflict(chart, prior_override_keys) -> bool:
+    """True iff a prior override targets a renamed engine axis (A1/ECC/OM/T0).
+
+    H3/STIGMA keep their engine names under the chart, so priors on them are OK.
+    """
+    conflicts: set[str] = set()
+    for engine_name in chart.engine_names[:4]:  # A1, ECC, OM, T0
+        conflicts.add(engine_name)
+        conflicts.add(resolve_parameter_alias(engine_name))
+        base = resolve_parameter_alias(
+            engine_name[: len(engine_name) - len(chart.suffix)]
+            if chart.suffix and engine_name.endswith(chart.suffix)
+            else engine_name
+        )
+        conflicts.add(base)
+    for base in ("A1", "ECC", "OM", "T0"):
+        conflicts.add(base)
+        if chart.suffix:
+            conflicts.add(base + chart.suffix)
+    return bool(set(prior_override_keys) & conflicts)
+
+
+def _fitpar_base(name: str, suffix: str) -> str:
+    """Canonical base of a (possibly suffixed) fitpar / axis name."""
+    raw = name[: len(name) - len(suffix)] if suffix and name.endswith(suffix) else name
+    return resolve_parameter_alias(raw)
+
+
+def _fw10_activation_reason(
+    plan, cand, policy, *, prior_overrides, axes_by_name
+) -> str | None:
+    """Return a skip reason for fw10, or None to activate."""
+    from .fw10_absorbed import fw10_in_domain
+
+    del policy  # mode_off already yields no candidates
+    ch = cand.fw10_chart
+    if ch is None:
+        return None
+
+    # PB sampled → inactive (frozen dependency; not a dependency_slot coupling).
+    for ax in plan.axes:
+        en = ax.engine_name or ax.name
+        if _fitpar_base(en, cand.suffix) == "PB" and ax.disposition == "sample":
+            # Same-suffix PB, or unsuffixed PB for the empty-suffix group.
+            if (cand.suffix and en.endswith(cand.suffix)) or (
+                not cand.suffix and _fitpar_base(en, "") == "PB"
+            ):
+                return "dependency_sampled"
+
+    if _fw10_secular_present(cand.secular_terms):
+        return "secular_terms_present"
+
+    disp = {}
+    for en in ch.engine_names:
+        if en not in axes_by_name:
+            return "unsupported_disposition_mix"
+        disp[en] = plan.axes[axes_by_name[en]].disposition
+    if not all(d == "sample" for d in disp.values()):
+        return "unsupported_disposition_mix"
+
+    if _fw10_prior_conflict(ch, frozenset(prior_overrides or {})):
+        return "prior_on_engine_axis"
+
+    if ch.e_ref <= 0.0:
+        return "e_ref_not_positive"
+    excursion = _fw10_eps_excursion(prior_overrides, cand.suffix)
+    if ch.e_ref <= 10.0 * excursion:
+        return "near_circular_reference"
+
+    if not fw10_in_domain(
+        ch.x_p_ref, ch.eps1p_ref, ch.eps2p_ref, ch.h3_ref, ch.stigma_ref, ch.pb_ref
+    ):
+        return "domain_violation_at_ref"
+
+    # A declared STIGMA prior whose support leaves (0, 1] is a definite error:
+    # the decode is undefined there (and for stig < 0 every division stays
+    # finite, so it would hand back a plausible but meaningless orbit).
+    support = _fw10_stigma_support(prior_overrides, ch, cand.suffix)
+    if support is not None:
+        lo, hi = support
+        if not (lo > 0.0 and hi <= 1.0):
+            return "stigma_support_out_of_domain"
+    return None
+
+
 def activate_charts(
     plan,
     candidates,
@@ -869,18 +1207,109 @@ def activate_charts(
 ):
     """Activation + slot-preserving rename (Part I.2.1 rows 1-7d).
 
-    Returns ``(plan, resolved, records)`` where ``resolved`` is a tuple of
-    ResolvedPhysicalChart. Calls check_chart_compatibility on the activated set
-    before returning.
+    Returns ``(plan, resolved, frames, records, fw10_records)`` where
+    ``resolved`` is a tuple of ResolvedPhysicalChart, ``frames`` is a tuple of
+    MarginalBasisFrame (fully delta-flat triples only), ``records`` are
+    kepler_laplace manifest groups, and ``fw10_records`` are fw10_absorbed
+    manifest groups. Calls check_chart_compatibility on the activated chart
+    set before returning.
     """
     from dataclasses import replace as dc_replace
 
     axes = list(plan.axes)
     by_name = {a.name: i for i, a in enumerate(axes)}
-    resolved, records = [], []
+    resolved, frames, records, fw10_records = [], [], [], []
     for cand in candidates:
+        # --- fw10_absorbed (§10.8.2): try before kepler for this group ------
+        if cand.fw10_chart is not None:
+            fw10_reason = _fw10_activation_reason(
+                plan,
+                cand,
+                policy,
+                prior_overrides=prior_overrides,
+                axes_by_name=by_name,
+            )
+            if fw10_reason is None:
+                ch = cand.fw10_chart
+                new_disp = {
+                    sn: axes[by_name[en]].disposition
+                    for en, sn in zip(ch.engine_names, ch.sample_names)
+                }
+                for engine_name, sample_name in zip(ch.engine_names, ch.sample_names):
+                    i = by_name[engine_name]
+                    axes[i] = dc_replace(
+                        axes[i],
+                        name=sample_name,
+                        disposition=new_disp[sample_name],
+                        engine_name=engine_name,
+                        physical_chart="fw10_absorbed",
+                        linearity_sources=(),
+                    )
+                    by_name[sample_name] = i
+                # Drop old engine names that were renamed away (identity axes
+                # H3/STIGMA keep their names, so by_name stays valid for them).
+                for engine_name, sample_name in zip(ch.engine_names, ch.sample_names):
+                    if engine_name != sample_name and engine_name in by_name:
+                        del by_name[engine_name]
+                resolved.append(
+                    ResolvedPhysicalChart(
+                        chart=ch,
+                        eps_supports=(),
+                        reachability_rect=None,
+                    )
+                )
+                fw10_records.append(
+                    ch.record(
+                        enabled=True,
+                        reason=None,
+                        dispositions=new_disp,
+                    )
+                )
+                # A group is charted by exactly one family, but the manifest
+                # must still say why kepler_laplace did not take it.
+                if cand.chart is not None:
+                    records.append(
+                        cand.chart.record(
+                            enabled=False,
+                            reason="claimed_by_fw10_absorbed",
+                            dispositions=None,
+                            xe2_us=None,
+                        )
+                    )
+                elif cand.skip_reason is not None:
+                    records.append(_skip_record(cand))
+                continue  # skip kepler for this group
+            # An inactive fw10 leaves the group as it would be without the
+            # chart (§10.8.2: "native coordinates retained"), so a refusal that
+            # is specific to the DDH orthometric domain — `domain_violation_at_ref`
+            # (ς range, 4H3/ς² vs x_p), `unsupported_disposition_mix`,
+            # `dependency_sampled`, `secular_terms_present`, `prior_on_engine_axis`
+            # — must NOT suppress kepler_laplace or the frame. Only the two
+            # reasons that describe the group's *shared Laplace geometry* do:
+            # both charts take atan2(ε1, ε2) at the same reference, and a
+            # reference that close to circular leaves the sampled-block Schur
+            # Fisher singular (κ ~ 1/e²), which is a hard failure rather than an
+            # ill-conditioned answer.
+            fw10_records.append(
+                cand.fw10_chart.record(enabled=False, reason=fw10_reason)
+            )
+            if fw10_reason in {"near_circular_reference", "e_ref_not_positive"}:
+                if cand.chart is not None:
+                    records.append(
+                        cand.chart.record(
+                            enabled=False,
+                            reason=fw10_reason,
+                            dispositions=None,
+                            xe2_us=None,
+                        )
+                    )
+                elif cand.skip_reason is not None:
+                    records.append(_skip_record(cand))
+                continue
+
         if cand.chart is None:
-            records.append(_skip_record(cand))
+            if cand.skip_reason is not None:
+                records.append(_skip_record(cand))
             continue
         ch = cand.chart
         disp = {en: axes[by_name[en]].disposition for en in ch.engine_names}
@@ -891,6 +1320,17 @@ def activate_charts(
         eps_supports = None
         reach_rect = None
         if "sample" not in disp.values():
+            # Chart cannot activate without a sampled axis. Optionally attach a
+            # MarginalBasisFrame that reconditions the delta-flat design-matrix
+            # block without renaming axes or changing dispositions (§10.3).
+            frame_reason = marginal_frame_skip_reason(policy, disp, cand, ch)
+            if frame_reason is None:
+                frames.append(
+                    MarginalBasisFrame(
+                        chart=ch,
+                        log_abs_det_b=_log_abs_det_b_at_reference(ch),
+                    )
+                )
             reason = "no_sampled_axis"
         elif d_ecc != d_om:
             reason = "split_ecc_om_dispositions"
@@ -970,6 +1410,9 @@ def activate_charts(
                 physical_chart="kepler_laplace",
                 linearity_sources=(),
             )
+            by_name[sample_name] = i
+            if engine_name != sample_name and engine_name in by_name:
+                del by_name[engine_name]
         resolved.append(
             ResolvedPhysicalChart(
                 chart=ch,
@@ -989,7 +1432,13 @@ def activate_charts(
             )
         )
     check_chart_compatibility(tuple(r.chart for r in resolved))
-    return plan.with_axes(axes), tuple(resolved), tuple(records)
+    return (
+        plan.with_axes(axes),
+        tuple(resolved),
+        tuple(frames),
+        tuple(records),
+        tuple(fw10_records),
+    )
 
 
 def _kepler_prior_conflict(chart, prior_override_keys) -> bool:
@@ -1075,20 +1524,25 @@ class ResolvedPhysicalChart:
     handoff object between activation and prior construction. The guards and
     `_fill_wls_cheat_priors` consume THESE stored intervals; nothing downstream
     recomputes them.
+
+    ``eps_supports`` / ``reachability_rect`` apply to ``kepler_laplace`` only;
+    ``fw10_absorbed`` activations leave them empty / None.
     """
 
-    chart: KeplerLaplaceChart
-    eps_supports: tuple[EpsAxisSupport, EpsAxisSupport]
-    reachability_rect: tuple[tuple[float, float], tuple[float, float]]
+    chart: "KeplerLaplaceChart | FW10AbsorbedChart"
+    eps_supports: tuple = ()
+    reachability_rect: object | None = None
 
     def default_box_delta_bounds(self) -> dict[str, tuple[float, float]]:
         """Delta-frame (lower, upper) per sampling-axis name for every
         "default_box" support — exactly what `_fill_wls_cheat_priors` installs
         verbatim as the axis's uniform cheat box (§5). No arithmetic."""
+        if not self.eps_supports:
+            return {}
         return {
             self.chart.sample_names[pos]: (sup.lo_delta, sup.hi_delta)
             for pos, sup in enumerate(self.eps_supports)
-            if sup.kind == "default_box"
+            if getattr(sup, "kind", None) == "default_box"
         }
 
 
@@ -1436,6 +1890,11 @@ def sampling_reference_strings(charts) -> dict[str, str]:
     """Exact-decimal reference strings for the synthesized sampling axes."""
     out: dict[str, str] = {}
     for ch in charts:
+        own = getattr(ch, "sampling_reference_strings", None)
+        if callable(own):
+            out.update(own())
+            continue
+        # KeplerLaplaceChart (no method): EPS1/EPS2/TASC refs.
         out[ch.sample_names[0]] = repr(ch.eps1_ref)
         out[ch.sample_names[1]] = repr(ch.eps2_ref)
         out[ch.sample_names[2]] = ch.tasc_ref_str
@@ -1502,8 +1961,9 @@ def expand_override_key(pulsar, name, plan, charts) -> tuple[str, ...]:
          identical to today for every uncharted axis; finds nothing for
          charted-away engine names;
       2. 'TASC'/'EPS1'/'EPS2' (base or exact suffixed) -> the synthesized
-         sampling axes of active charts — the first-class sampling-frame prior
-         declarations.
+         sampling axes of active kepler_laplace charts;
+      3. 'A1_ABS'/'EPS1_ABS'/'EPS2_ABS'/'TASC_ABS' -> fw10_absorbed sampling
+         axes.
     De-duplicated, ordered by fitpar slot.
     """
     from .selection import match_fitpars
@@ -1511,7 +1971,18 @@ def expand_override_key(pulsar, name, plan, charts) -> tuple[str, ...]:
     canonical = resolve_parameter_alias(name)
     targets = set(match_fitpars(pulsar, name, plan.axis_names))  # rule 1
 
-    for ch in charts:  # rule 2
+    for ch in charts:  # rules 2-3
+        if getattr(ch, "name", None) == "fw10_absorbed":
+            base = _fw10_key_base(canonical, ch.suffix)
+            if base == "A1_ABS":
+                targets.add(ch.sample_names[0])
+            elif base == "EPS1_ABS":
+                targets.add(ch.sample_names[1])
+            elif base == "EPS2_ABS":
+                targets.add(ch.sample_names[2])
+            elif base == "TASC_ABS":
+                targets.add(ch.sample_names[3])
+            continue
         base = _chart_key_base(canonical, ch.suffix)
         if base == "TASC":
             targets.add(ch.sample_names[2])
@@ -1529,6 +2000,14 @@ def _chart_key_base(canonical: str, suffix: str) -> str | None:
     with this ``suffix`` — either the bare base (applies to every group) or the
     exact suffixed form ``base + suffix``. Else None."""
     for base in ("TASC", "EPS1", "EPS2"):
+        if canonical == base or (suffix and canonical == base + suffix):
+            return base
+    return None
+
+
+def _fw10_key_base(canonical: str, suffix: str) -> str | None:
+    """'A1_ABS'|'EPS1_ABS'|'EPS2_ABS'|'TASC_ABS' for a fw10 group suffix."""
+    for base in ("A1_ABS", "EPS1_ABS", "EPS2_ABS", "TASC_ABS"):
         if canonical == base or (suffix and canonical == base + suffix):
             return base
     return None

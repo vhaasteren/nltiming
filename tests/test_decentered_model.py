@@ -73,7 +73,7 @@ _COMPONENTS = 3
 def _ctx_and_likelihood(*, inference=None):
     """Build (ntm, ctx, marginalized likelihood) without the model.
 
-    Sampled timing block is ``(F0, F1)`` with ``DM`` marginalized (delta-flat);
+    Sampled timing block is ``(Offset, F1)`` with ``DM`` marginalized (delta-flat);
     a single variable red-noise GP supplies the live ``C(eta)`` dependence.
     """
     if inference is None:
@@ -269,7 +269,7 @@ def test_decentered_accounting_and_binding(monkeypatch):
     # Empty plan.sampled (everything marginalized) raises.
     ntm2 = NonLinearTimingModel(
         engines="jug",
-        inference=TimingInference.groups(delta_flat=["F0", "F1", "DM"]),
+        inference=TimingInference.groups(delta_flat=["Offset", "F1", "DM"]),
         name="timing",
     )
     ctx2 = ntm2.for_pulsar(_DiscoveryPulsar())

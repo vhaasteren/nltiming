@@ -711,12 +711,19 @@ def test_whitening_vector_parameter_is_joint_and_size_one_stays_a_vector(pulsar)
     assert sample.shape == (1,)
 
 
-def test_whitening_vector_sample_and_ppf_describe_the_same_distribution(pulsar):
-    """PPF draws and direct sampler draws must describe the same distribution
-    (they compose through the same coord_from_cube map), and the declared
-    log density must be finite and consistent for both."""
-    from scipy import stats
+def test_whitening_vector_sample_and_ppf_describe_the_same_distribution(
+    pulsar, monkeypatch
+):
+    """Sampler and PPF share the same ``coord_from_cube`` map.
 
+    The contract is equality of maps, not a Monte-Carlo distributional match.
+    A KS between ``sample()`` (unseeded ``np.random.uniform``) and independently
+    drawn PPF uniforms is inherently flaky (~1-in-5 here: Type-I error plus a
+    systematic truncation mismatch when the test used ``[1e-6, 1-1e-6]`` while
+    the sampler draws ``[1e-12, 1-1e-12]``). Capture the uniforms the sampler
+    actually draws and assert ``sample() == get_ppf(u)`` bit-for-bit; that is
+    exactly the composition the docstring claims.
+    """
     ntm = NonLinearTimingModel(
         engines="jug",
         whitening=WhiteningConfig(),
@@ -728,15 +735,20 @@ def test_whitening_vector_sample_and_ppf_describe_the_same_distribution(pulsar):
     assert param.size == 2
 
     rng = np.random.default_rng(0)
-    n = 500
-    direct_samples = np.array([param.sample() for _ in range(n)])
-    ppf_samples = np.array(
-        [param.get_ppf(rng.uniform(1e-6, 1 - 1e-6, size=2)) for _ in range(n)]
-    )
+    drawn_u: list[np.ndarray] = []
 
-    for axis in range(2):
-        _, pvalue = stats.ks_2samp(direct_samples[:, axis], ppf_samples[:, axis])
-        assert pvalue > 0.01
+    def _uniform(low=0.0, high=1.0, size=None):
+        u = rng.uniform(low, high, size=size)
+        drawn_u.append(np.asarray(u, dtype=float).copy())
+        return u
 
-    assert np.isfinite(param.get_logpdf(direct_samples[0]))
-    assert np.isfinite(param.get_logpdf(ppf_samples[0]))
+    monkeypatch.setattr(np.random, "uniform", _uniform)
+
+    n = 32
+    direct = np.asarray([param.sample() for _ in range(n)], dtype=float)
+    assert len(drawn_u) == n
+    via_ppf = np.asarray([param.get_ppf(u) for u in drawn_u], dtype=float)
+    np.testing.assert_array_equal(direct, via_ppf)
+
+    assert np.isfinite(param.get_logpdf(direct[0]))
+    assert np.isfinite(param.get_logpdf(via_ppf[0]))

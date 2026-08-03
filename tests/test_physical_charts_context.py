@@ -125,16 +125,31 @@ def test_cache_key_includes_policy():
 
 
 def test_all_marginalized_bit_identity():
+    from nltiming.physical_charts import KeplerLaplacePolicy
+
     inf = TimingInference.groups(delta_flat=["ECC", "OM", "T0"])
     _, off = _ctx(inference=inf, binary_chart="off")
+    # Frame off: chart skips, design identical to binary_chart="off".
+    _, auto_no_frame = _ctx(
+        inference=inf,
+        binary_chart=KeplerLaplacePolicy(mode="auto", marginal_basis_frame="off"),
+    )
+    assert auto_no_frame.physical_charts == ()
+    assert auto_no_frame.marginal_basis_frames == ()
+    assert auto_no_frame.binary_chart_records[0]["reason"] == "no_sampled_axis"
+    assert auto_no_frame.plan.axis_names == off.plan.axis_names
+    np.testing.assert_array_equal(auto_no_frame.design_matrix, off.design_matrix)
+
+    # Frame auto: chart still skipped (no_sampled_axis); MarginalBasisFrame
+    # reconditions the design-matrix block without renaming axes.
     _, auto = _ctx(inference=inf, binary_chart="auto")
-    # Chart skips (no sampled charted axis) -> plan and design identical.
     assert auto.physical_charts == ()
     assert auto.binary_chart_records[0]["reason"] == "no_sampled_axis"
     assert auto.binary_chart_records[0]["enabled"] is False
     assert auto.plan.axis_names == off.plan.axis_names
-    np.testing.assert_array_equal(auto.design_matrix, off.design_matrix)
-    # Residual at random sampled points identical bit-for-bit.
+    assert len(auto.marginal_basis_frames) == 1
+    assert not np.array_equal(auto.design_matrix, off.design_matrix)
+    # Residual at random sampled points identical bit-for-bit (delta-flat pinned).
     rng = np.random.default_rng(0)
     k = len(off.plan.sampled)
     for _ in range(5):
@@ -190,7 +205,9 @@ def test_delta_flat_charted_columns_reference():
         e[slot] = h
         fd = (r_of_full(e) - r_of_full(-e)) / (2 * h)
         # Fitter sign: residual_delta ≈ -M δ, so d(residual)/d(axis) = -M column.
-        np.testing.assert_allclose(ctx.design_matrix[:, slot], -fd, rtol=1e-5, atol=1e-8)
+        np.testing.assert_allclose(
+            ctx.design_matrix[:, slot], -fd, rtol=1e-5, atol=1e-8
+        )
 
 
 def test_with_expansion_rebuilds_map():

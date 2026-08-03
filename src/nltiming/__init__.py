@@ -7,6 +7,7 @@ from .run_io import (
     RunResults,
     build_run_manifest,
     derived_param_name,
+    derived_fw10_columns,
     derived_kepler_columns,
     decode_physical,
     load_run,
@@ -71,9 +72,16 @@ from .protocols import (
     TimingPulsar,
     TimingEngine,
 )
+from .fw10_absorbed import (
+    FW10AbsorbedChart,
+    fw10_decode,
+    fw10_encode,
+    fw10_jacobian,
+)
 from .physical_charts import (
     KeplerLaplaceChart,
     KeplerLaplacePolicy,
+    MarginalBasisFrame,
     kepler_from_laplace,
     kepler_from_laplace_vec,
     laplace_from_kepler,
@@ -85,7 +93,14 @@ from .decentering import (
     decode_decentered_chain,
 )
 
+# Capability gate for MetaPulsar Case-D conversion metadata (§8.5a): declares
+# that `for_pulsar` probes `pulsar.conversion_metadata()` and enforces the
+# required_sampling contract. Defined after the imports so it does not push
+# every module-level import past the module docstring (E402).
+SUPPORTS_CONVERSION_METADATA = True
+
 __all__ = [
+    "SUPPORTS_CONVERSION_METADATA",
     "NonLinearTimingModel",
     "TimingContext",
     "InferencePreset",
@@ -129,6 +144,7 @@ __all__ = [
     "RunResults",
     "build_run_manifest",
     "derived_param_name",
+    "derived_fw10_columns",
     "derived_kepler_columns",
     "decode_physical",
     "load_run",
@@ -152,6 +168,11 @@ __all__ = [
     "BinaryChartCapability",
     "KeplerLaplacePolicy",
     "KeplerLaplaceChart",
+    "FW10AbsorbedChart",
+    "fw10_encode",
+    "fw10_decode",
+    "fw10_jacobian",
+    "MarginalBasisFrame",
     "laplace_from_kepler",
     "kepler_from_laplace",
     "kepler_from_laplace_vec",

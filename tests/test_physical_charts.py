@@ -518,7 +518,7 @@ def test_expand_override_key_union():
         if c.chart is not None
     ]
     # Rename the plan's ECC/OM/T0 axes to the sampling names (simulate active).
-    active_plan, resolved, _ = activate_charts(
+    active_plan, resolved, _, _, _ = activate_charts(
         plan,
         [cand],
         KeplerLaplacePolicy(),
@@ -547,7 +547,7 @@ def _activate(pulsar, inference, policy, **kw):
     cands = resolve_chart_candidates(
         pulsar, kw.pop("engine", _FakeEngineNoCap()), policy
     )
-    return activate_charts(
+    plan_out, resolved, frames, records, _fw10 = activate_charts(
         plan,
         cands,
         policy,
@@ -559,6 +559,7 @@ def _activate(pulsar, inference, policy, **kw):
         engine_refs=kw.pop("engine_refs", REFS),
         prior_policy=kw.pop("prior_policy", "wide_default"),
     )
+    return plan_out, resolved, frames, records
 
 
 def test_activation_matrix():
@@ -566,7 +567,7 @@ def test_activation_matrix():
     pol = KeplerLaplacePolicy(mode="auto")
 
     # Row 1: all three sampled -> activate.
-    plan, resolved, records = _activate(p, TimingInference.sample_all(), pol)
+    plan, resolved, _, records = _activate(p, TimingInference.sample_all(), pol)
     assert len(resolved) == 1
     names = plan.axis_names
     assert {"EPS1", "EPS2", "TASC"} <= set(names)
@@ -578,7 +579,7 @@ def test_activation_matrix():
 
     # Row 5: all three z-marginalized -> no_sampled_axis (silent auto).
     inf_all_z = TimingInference.groups(z_prior=["ECC", "OM", "T0"])
-    plan5, res5, rec5 = _activate(p, inf_all_z, pol)
+    plan5, res5, _, rec5 = _activate(p, inf_all_z, pol)
     assert res5 == () and rec5[0]["reason"] == "no_sampled_axis"
     assert "EPS1" not in plan5.axis_names
     # under "on" -> UserWarning.
@@ -588,14 +589,14 @@ def test_activation_matrix():
     # Row 6: split ECC/OM dispositions -> demote (auto warn / on raise).
     inf_split = TimingInference.groups(z_prior=["OM"])  # ECC sample, OM z-marg
     with pytest.warns(UserWarning, match="different inference dispositions"):
-        _, res6, rec6 = _activate(p, inf_split, pol)
+        _, res6, _, rec6 = _activate(p, inf_split, pol)
     assert res6 == () and rec6[0]["reason"] == "split_ecc_om_dispositions"
     with pytest.raises(ValueError, match="different inference dispositions"):
         _activate(p, inf_split, KeplerLaplacePolicy(mode="on"))
 
     # Row 7: user prior on ECC -> demote (prior_on_kepler_axis).
     with pytest.warns(UserWarning, match="targets ECC, OM, or"):
-        _, res7, rec7 = _activate(
+        _, res7, _, rec7 = _activate(
             p,
             TimingInference.sample_all(),
             pol,
@@ -613,14 +614,14 @@ def test_activation_matrix():
     # Row 7b: informative PINT prior on ECC (wide_default) -> demote.
     p_pint = _FakePulsar(pint_model=_FakePINT(ECC=_Param(prior=_Prior(0.0, 0.01))))
     with pytest.warns(UserWarning, match="informative"):
-        _, res7b, rec7b = _activate(p_pint, TimingInference.sample_all(), pol)
+        _, res7b, _, rec7b = _activate(p_pint, TimingInference.sample_all(), pol)
     assert res7b == () and rec7b[0]["reason"] == "pint_prior_on_kepler_axis"
 
 
 def test_pint_prior_policy_gate():
     p_pint = _FakePulsar(pint_model=_FakePINT(ECC=_Param(prior=_Prior(0.0, 0.01))))
     # explicit -> PINT priors not consulted -> activates.
-    _, res, _ = _activate(
+    _, res, _, _ = _activate(
         p_pint,
         TimingInference.sample_all(),
         KeplerLaplacePolicy(),
@@ -629,7 +630,7 @@ def test_pint_prior_policy_gate():
     assert len(res) == 1
     # wide_default -> demotes (bare uninformative prior must NOT demote).
     p_bare = _FakePulsar(pint_model=_FakePINT(ECC=_Param(prior=_BarePrior())))
-    _, res_bare, _ = _activate(
+    _, res_bare, _, _ = _activate(
         p_bare, TimingInference.sample_all(), KeplerLaplacePolicy()
     )
     assert len(res_bare) == 1
@@ -652,7 +653,7 @@ def test_capability_resolution():
 
     # Fallback (no method): capability_source recorded as "fallback".
     (cfb,) = resolve_chart_candidates(p, _FakeEngineNoCap(), KeplerLaplacePolicy())
-    _, _, recfb = _activate(p, TimingInference.sample_all(), KeplerLaplacePolicy())
+    _, _, _, recfb = _activate(p, TimingInference.sample_all(), KeplerLaplacePolicy())
     assert recfb[0]["capability_source"] == "fallback"
 
     # Fallback secular terms: OMDOT present -> seam guard becomes active.
@@ -770,7 +771,7 @@ def test_binary_chart_capability_requires_cert_ref():
 
 def test_guard_support_equals_prior_support():
     p = _FakePulsar()
-    plan, resolved, _ = _activate(
+    plan, resolved, _, _ = _activate(
         p, TimingInference.sample_all(), KeplerLaplacePolicy()
     )
     res = resolved[0]
@@ -818,7 +819,7 @@ def test_user_eps_prior_support_policy():
             prior_overrides={"EPS1": normal(0.0, 1e-4, frame="delta")},
         )
     # In-disk truncated_normal accepted (activates).
-    _, res, _ = _activate(
+    _, res, _, _ = _activate(
         p,
         TimingInference.sample_all(),
         KeplerLaplacePolicy(),
@@ -940,7 +941,7 @@ def test_activation_matrix_remedy_rows():
 
     # Row 2 (ablation remedy): T0 sample, ECC+OM z_prior -> sample TASC,
     # z-marginalize EPS1/EPS2.
-    plan2, res2, _ = _activate(p, TimingInference.groups(z_prior=["ECC", "OM"]), pol)
+    plan2, res2, _, _ = _activate(p, TimingInference.groups(z_prior=["ECC", "OM"]), pol)
     assert len(res2) == 1
     d2 = _disp(plan2)
     assert d2["TASC"] == "sample"
@@ -948,7 +949,9 @@ def test_activation_matrix_remedy_rows():
 
     # Row 3: T0 sample, ECC+OM delta_flat -> delta-flat EPS1/EPS2 (their δ stays
     # zero in the seam; variation lives in M_s columns).
-    plan3, res3, _ = _activate(p, TimingInference.groups(delta_flat=["ECC", "OM"]), pol)
+    plan3, res3, _, _ = _activate(
+        p, TimingInference.groups(delta_flat=["ECC", "OM"]), pol
+    )
     assert len(res3) == 1
     d3 = _disp(plan3)
     assert d3["EPS1"] == "marginalize_delta_flat"
@@ -956,7 +959,7 @@ def test_activation_matrix_remedy_rows():
     assert d3["TASC"] == "sample"
 
     # Row 4: ECC+OM sample, T0 z_prior -> sample EPS1/EPS2, marginalize TASC.
-    plan4, res4, _ = _activate(p, TimingInference.groups(z_prior=["T0"]), pol)
+    plan4, res4, _, _ = _activate(p, TimingInference.groups(z_prior=["T0"]), pol)
     assert len(res4) == 1
     d4 = _disp(plan4)
     assert d4["EPS1"] == "sample" and d4["EPS2"] == "sample"
@@ -982,7 +985,7 @@ def test_activation_seam_and_origin_guards():
     )
     eng_sec = _FakeEngine(capability=cap_secular)
     with pytest.warns(UserWarning, match="omega-branch seam ray"):
-        _, res_s, rec_s = _activate(
+        _, res_s, _, rec_s = _activate(
             p,
             TimingInference.sample_all(),
             KeplerLaplacePolicy(mode="auto"),
@@ -1009,7 +1012,7 @@ def test_activation_seam_and_origin_guards():
         supports_domain=True,
     )
     with pytest.warns(UserWarning, match="eccentricity origin"):
-        _, res_u, rec_u = _activate(
+        _, res_u, _, rec_u = _activate(
             p,
             TimingInference.sample_all(),
             KeplerLaplacePolicy(mode="auto"),
@@ -1027,7 +1030,7 @@ def test_activation_seam_and_origin_guards():
         certification_ref="cert-7",
         supports_domain=True,
     )
-    _, res_c, rec_c = _activate(
+    _, res_c, _, rec_c = _activate(
         p,
         TimingInference.sample_all(),
         KeplerLaplacePolicy(mode="auto"),
@@ -1038,7 +1041,7 @@ def test_activation_seam_and_origin_guards():
     assert rec_c[0]["origin_guard"]["certification_ref"] == "cert-7"
 
     # A support EXCLUDING the origin activates regardless (origin_guard null).
-    _, res_ok, rec_ok = _activate(
+    _, res_ok, _, rec_ok = _activate(
         p,
         TimingInference.sample_all(),
         KeplerLaplacePolicy(mode="auto"),
@@ -1072,7 +1075,7 @@ def test_override_materialization_identity():
 
     # Post-activation plan carries the sampling names; the rename is idempotent,
     # so the same call returns a bit-identical AxisPrior.
-    active_plan, _, _ = activate_charts(
+    active_plan, _, _, _, _ = activate_charts(
         plan,
         [cand],
         KeplerLaplacePolicy(),
@@ -1125,7 +1128,7 @@ def test_suffixed_groups():
     assert cands["_a"].chart is not None
     assert cands["_b"].chart is None and cands["_b"].skip_reason == "e_ref_above_e_max"
     plan = _plan(p, TimingInference.sample_all())
-    active, resolved, records = activate_charts(
+    active, resolved, _, records, _ = activate_charts(
         plan,
         list(cands.values()),
         KeplerLaplacePolicy(),

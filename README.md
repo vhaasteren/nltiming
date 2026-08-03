@@ -181,13 +181,53 @@ polar geometry (the thin curved `ω–T0` tube historical DD-native nonlinear J1
 analyses had to sample).
 
 Dispositions are declared on **engine names** (`TASC` aliases `T0` *for
-dispositions only*; ECC and OM must share one disposition). Fully marginalized
-triples are never transformed. The chart never reinterprets a **deliberately
-specified prior**: a user or PINT prior on `ECC`, `OM`, or `T0` demotes it — a
-T0 density does not transfer to TASC, so restate it as `priors={"TASC": ...}`
-to use the chart. Delay keys / NumPyro node names use the sampling names, and
-`RunResults.posterior()` adds derived `ECC`/`OM`/`T0` columns (decoded on the
-same reference-local branch the likelihood used).
+dispositions only*; ECC and OM must share one disposition). Fully
+`marginalize_delta_flat` triples do **not** activate the physical chart (no
+rename); instead, when `KeplerLaplacePolicy.marginal_basis_frame="auto"` (the
+default), a **`MarginalBasisFrame`** reconditions those design-matrix columns
+with the same Laplace geometry used by the chart — axis names and dispositions
+stay `ECC`/`OM`/`T0`, nothing is decoded, and the improper-marginal likelihood
+changes only by a recorded constant (`log_abs_det_b` / `log_volume_offset` in
+the `binary_marginal_basis_frame` manifest group). Cross-run evidence
+comparisons need matching frame settings (or an explicit offset correction).
+Pass `marginal_basis_frame="off"` to keep the raw engine basis. The chart never
+reinterprets a **deliberately specified prior**: a user or PINT prior on `ECC`,
+`OM`, or `T0` demotes it — a T0 density does not transfer to TASC, so restate
+it as `priors={"TASC": ...}` to use the chart. Delay keys / NumPyro node names
+use the sampling names, and `RunResults.posterior()` adds derived `ECC`/`OM`/`T0`
+columns (decoded on the same reference-local branch the likelihood used).
+
+**STIGMA priors (Case D).** When a converted DDH pulsar advertises
+`conversion_metadata().required_sampling` containing `STIGMA`, context build
+rejects `marginalize_delta_flat` on that axis — and also rejects the quieter
+violation of the axis being **absent from the plan entirely**, which would leave
+ς silently pinned at the emitted prior centre and read as if it were measured.
+
+Three composable helpers live in `nltiming.priors`:
+
+| helper | gives |
+|---|---|
+| `stigma_orientation_logpdf` | density `p(ς) = 4ς/(1+ς²)²` (uniform cos *i*) |
+| `stigma_mass_ceiling_lower` | lower bound `ς ≥ (H3/(T☉·M_max))^(1/3)` |
+| `stigma_mass_function_support` | `(lo, hi)` from the mass-function closure over an `m_p` range |
+
+`AxisPrior` supports only bounded and normal families — there is no
+custom-logpdf family, so `4ς/(1+ς²)²` **cannot be installed directly** as
+`priors={"STIGMA": ...}`. Compose the bounds, hand them to
+`stigma_prior_from_support(lo, hi)` for a spec the framework can carry, and
+reweight by `stigma_orientation_logpdf` in post-processing if the orientation
+density matters. A declared STIGMA prior whose support leaves `(0, 1]` makes
+`fw10_absorbed` inactive (`stigma_support_out_of_domain`) rather than letting
+the decode run outside its domain.
+
+**`fw10_absorbed` chart (DDH + STIGMA sampling-path conditioning).** When
+`A1`, `ECC`, `OM`, `T0`, `H3`, and `STIGMA` are all free and *sampled*, PB is
+frozen, and no secular dots (`PBDOT`/`A1DOT`/`EDOT`/`OMDOT`) are present, the
+sampler sees absorbed-gauge coordinates
+`(A1_ABS, EPS1_ABS, EPS2_ABS, TASC_ABS, H3, STIGMA)` while the engine stays on
+intrinsic DDH. This flattens the curved `(A1, ECC, OM, T0, STIGMA)` valley that
+gradient samplers otherwise struggle with; native DDH coordinates remain
+correct without the chart. Manifest group: `fw10_absorbed_chart`.
 
 **Prior semantics** (`policy.prior = "sampling_frame"`, recorded in the
 manifest): charted-axis priors live on the sampling frame. Note the induced

@@ -86,6 +86,18 @@ protocol (`physical_charts.py`). Charts are *slot-preserving*
 both frames and every index-based path (Schur-WLS, metrics, improper GP) works
 unchanged.
 
+**MarginalBasisFrame (not a chart).** When a Kepler triple is fully
+`marginalize_delta_flat` (no sampled axis), the physical chart stays off
+(`reason=no_sampled_axis`) and names/dispositions never change. Under
+`KeplerLaplacePolicy.marginal_basis_frame="auto"`, a `MarginalBasisFrame`
+reuses the same reference-local `B` block to recondition only the analytically
+marginalized design-matrix columns (`M_s = M_e @ B` on those slots). The
+improper-flat marginal shifts by a constant (`log_abs_det_b`, and after column
+normalization the operative `log_volume_offset`); posteriors within a run are
+unaffected. z-prior or mixed dispositions keep the engine basis and every
+existing chart/z-prior guard. Module constant `SUPPORTS_CONVERSION_METADATA`
+gates MetaPulsar Case-D `conversion_metadata()` probing in `for_pulsar`.
+
 **Evaluation-point policy for the design matrix.** `ctx.design_matrix` is the
 sampling-frame `M_s = M_e·B`; `ctx.engine_design_matrix` is the engine-frame
 `M_e`. `M_e` is fixed at the engine reference and the analytic frame-change
@@ -111,6 +123,16 @@ and `1/e`-scale intermediates near `ε = 0`) and introduces an `O(rate × PB)`
 ω-branch seam discontinuity when secular terms are present; both are handled by
 exact **activation** guards over the resolved EPS reachability rectangle (never
 runtime/in-density guards) and certified at the composed-likelihood level.
+
+**`fw10_absorbed` (sampling-path sibling).** For DDH blocks that free the full
+orthometric sextet including `STIGMA`, `FW10AbsorbedChart` (`fw10_absorbed.py`)
+is tried *before* `kepler_laplace` at activation. It is the exact inverse of the
+Freire & Wex absorbed-gauge transfer (dot-free; PB frozen at `pb_ref`, never a
+`dependency_slot`). Disposition rule for v1: all six engine axes must be
+`sample`; any mix → inactive (`unsupported_disposition_mix`). Secular dots →
+`secular_terms_present`; sampled PB → `dependency_sampled`. Manifest:
+`fw10_absorbed_chart`. Native DDH sampling without the chart remains correct;
+the chart is conditioning for gradient samplers.
 
 **Engine capability (`§2.4`) — the authoritative chain (landed).** The source of
 truth for binary physics facts is the **timing backend**, and the capability is
