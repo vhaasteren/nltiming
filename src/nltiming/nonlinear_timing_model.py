@@ -541,6 +541,8 @@ class TimingContext:
             delta_expansion=delta_array,
             source=source,
             charts=self.physical_charts,
+            derivative_method=self.derivative_method,
+            design_matrix=self.design_matrix,
         )
         engine_map = EngineDeltaMap.for_sampled(
             self.plan, self.physical_charts, linearization
@@ -780,13 +782,13 @@ class TimingContext:
         """Sampled-block timing delay Jacobian in prior-normal ``z``.
 
         Thin projection of :attr:`linearization`: ``basis`` is
-        ``W_s = -∂(residual_delta(δ(z)))/∂z`` at the fixed expansion point (the
-        engine reference by default, a refined point after
-        :meth:`with_expansion`), and ``z_ref`` is that expansion coordinate.
+        ``W_s = ∂d/∂z`` at the fixed expansion point (the engine reference by
+        default, a refined point after :meth:`with_expansion`), and ``z_ref``
+        is that expansion coordinate. ``derivative_method`` selects the route
+        to that tangent — analytic ``M_s ∂δ/∂z``, or autodiff ``jacfwd`` of
+        ``residual_delta_jax`` — the same knob as ``design_matrix``.
         With gauge-free residuals, ``delay = -residual_delta`` and
-        ``r = y - delay``, so ``W_s`` is exactly the delay Jacobian.
-        There is no parallel autodiff path — the sole differentiation of the
-        exact engine residual lives in ``build_linearization`` (§5.2).
+        ``r = y - delay``, so ``W_s`` is the delay Jacobian.
 
         The sign: ``delay = -residual_delta`` and ``r = y - delay``, so
         ``W_s z = -residual_delta`` and ``W_s = -∂(residual_delta)/∂z``. Getting
@@ -1770,6 +1772,8 @@ class NonLinearTimingModel:
             delta_expansion=delta_expansion,
             source=self.expansion.mode,
             charts=charts,
+            derivative_method=self.derivative_method,
+            design_matrix=design_matrix,
         )
         engine_map = EngineDeltaMap.for_sampled(partition, charts, linearization)
         flat_slots = tuple(

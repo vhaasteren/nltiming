@@ -5,8 +5,9 @@ Two modes share one implementation:
 
 - proper mode (``for_proper``): input covers every proper axis (sampled and
   z-marginalized) in proper order; delta-flat slots stay at zero. Used by
-  ``build_linearization`` (autodiff/stencil differentiate through this map, so
-  physical-chart Jacobians enter W_s/W_m automatically).
+  ``build_linearization`` (autodiff differentiates through this map so
+  physical-chart Jacobians enter W; analytic mode uses sampling-frame ``M_s``,
+  which already includes ``B`` at the engine reference).
 - sampled mode (``for_sampled``): input covers the sampled axes only;
   z-marginalized slots are pinned at their fixed sampling-frame expansion
   deltas; delta-flat slots stay at zero. Used by every likelihood delay path.

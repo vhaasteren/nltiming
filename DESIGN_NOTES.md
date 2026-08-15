@@ -107,9 +107,12 @@ is never formed (it is wrong at O(1) exactly where the chart's `1/e` rows move).
 When the expansion moves and charted delta-flat axes exist, those `M_s` columns
 are replaced by the **exact** composed-Jacobian columns (`jax.jvp` of
 `residual_delta_jax(apply_charts(·))`), never the hybrid; a non-JAX engine keeps
-them at the reference (a documented local approximation). `W_s`/`W_m` are always
-exact because `build_linearization` differentiates the residual *through* the
-sampling→engine composition.
+them at the reference (a documented local approximation). `W_s`/`W_m` follow
+`derivative_method` with the same meaning as `design_matrix`: analytic mode is
+`M_s ∂δ/∂z` (reference `M_s`, prior Jacobian at the expansion); autodiff mode
+is `jacfwd` of `residual_delta_jax` through the sampling→engine composition.
+There is no finite-difference fallback; autodiff on a non-JAX engine is
+rejected.
 
 **Prior semantics and the moved singularity.** There is **no chart-Jacobian term
 in any posterior density**: charted-axis priors are declared on the sampling

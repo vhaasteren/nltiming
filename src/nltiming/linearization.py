@@ -9,9 +9,11 @@ adapters exist (Stage 5). Delta-flat columns come from the engine design matrix
 (§5.4) and are not part of this record.
 
 The waveform is ``d(z) = -residual_delta(delta(z))`` — the delay subtracted from
-the reference residual (sign as in ``local_timing_block``). Derivatives use the
-exact engine residual path (``jax.jacfwd`` for a JAX engine, a five-point
-stencil otherwise); never ``pulsar.Mmat``.
+the reference residual (sign as in ``local_timing_block``). The delay *value*
+always comes from the engine residual. The delay *tangent* ``W`` follows
+``derivative_method``: analytic mode is the sampling-frame design matrix times
+the prior-coordinate Jacobian ``∂δ/∂z``; autodiff mode is ``jax.jacfwd`` of the
+composed residual. There is no finite-difference route.
 """
 
 from __future__ import annotations
@@ -25,7 +27,9 @@ import numpy as np
 
 from .frames import EngineDeltaMap
 
-ExpansionSource = Literal["engine_reference", "prior_center", "explicit_delta", "refined"]
+ExpansionSource = Literal[
+    "engine_reference", "prior_center", "explicit_delta", "refined"
+]
 
 
 def _frozen_float(array, *, name: str, shape=None) -> np.ndarray:
@@ -65,29 +69,56 @@ class TimingLinearization:
         k_m = len(self.marginalized_z_names)
         n_toa = int(np.asarray(self.sampled_waveform_expansion).shape[0])
         object.__setattr__(
-            self, "z_expansion",
-            _frozen_float(self.z_expansion, name="z_expansion", shape=(k_s + k_m,)))
+            self,
+            "z_expansion",
+            _frozen_float(self.z_expansion, name="z_expansion", shape=(k_s + k_m,)),
+        )
         object.__setattr__(
-            self, "delta_expansion",
-            _frozen_float(self.delta_expansion, name="delta_expansion", shape=(k_s + k_m,)))
+            self,
+            "delta_expansion",
+            _frozen_float(
+                self.delta_expansion, name="delta_expansion", shape=(k_s + k_m,)
+            ),
+        )
         object.__setattr__(
-            self, "sampled_z_expansion",
-            _frozen_float(self.sampled_z_expansion, name="sampled_z_expansion", shape=(k_s,)))
+            self,
+            "sampled_z_expansion",
+            _frozen_float(
+                self.sampled_z_expansion, name="sampled_z_expansion", shape=(k_s,)
+            ),
+        )
         object.__setattr__(
-            self, "sampled_waveform_expansion",
-            _frozen_float(self.sampled_waveform_expansion,
-                          name="sampled_waveform_expansion", shape=(n_toa,)))
+            self,
+            "sampled_waveform_expansion",
+            _frozen_float(
+                self.sampled_waveform_expansion,
+                name="sampled_waveform_expansion",
+                shape=(n_toa,),
+            ),
+        )
         object.__setattr__(
-            self, "sampled_basis",
-            _frozen_float(self.sampled_basis, name="sampled_basis", shape=(n_toa, k_s)))
+            self,
+            "sampled_basis",
+            _frozen_float(self.sampled_basis, name="sampled_basis", shape=(n_toa, k_s)),
+        )
         object.__setattr__(
-            self, "marginalized_z_basis",
-            _frozen_float(self.marginalized_z_basis,
-                          name="marginalized_z_basis", shape=(n_toa, k_m)))
+            self,
+            "marginalized_z_basis",
+            _frozen_float(
+                self.marginalized_z_basis,
+                name="marginalized_z_basis",
+                shape=(n_toa, k_m),
+            ),
+        )
         object.__setattr__(
-            self, "marginalized_z_intercept",
-            _frozen_float(self.marginalized_z_intercept,
-                          name="marginalized_z_intercept", shape=(n_toa,)))
+            self,
+            "marginalized_z_intercept",
+            _frozen_float(
+                self.marginalized_z_intercept,
+                name="marginalized_z_intercept",
+                shape=(n_toa,),
+            ),
+        )
 
     @property
     def n_toa(self) -> int:
@@ -165,29 +196,43 @@ def _outside_prior_interior(priors, delta_e, names) -> list[str]:
 
 def _waveform_of_z(engine, space, engine_map, xp):
     """d(z) = -residual_delta(engine_map(delta(z))) over ``space``'s axes."""
+
     def d_of_z(z):
         delta_s = space.delta_from_z(z, xp)
-        return -engine.residual_delta_jax(
-            engine_map.full_engine_delta(delta_s, xp))
+        return -engine.residual_delta_jax(engine_map.full_engine_delta(delta_s, xp))
+
     return d_of_z
 
 
-def _stencil_jacobian(f, z_e, *, h: float) -> np.ndarray:
-    """Five-point stencil Jacobian of ``f: R^k -> R^n`` at ``z_e`` (§5.3)."""
-    z_e = np.asarray(z_e, dtype=float)
-    k = z_e.shape[0]
-    cols = []
-    for j in range(k):
-        e = np.zeros(k)
-        e[j] = 1.0
-        col = (
-            f(z_e - 2 * h * e)
-            - 8 * f(z_e - h * e)
-            + 8 * f(z_e + h * e)
-            - f(z_e + 2 * h * e)
-        ) / (12.0 * h)
-        cols.append(np.asarray(col, dtype=float))
-    return np.stack(cols, axis=1)
+def _waveform_value(engine, space, engine_map, z_e) -> np.ndarray:
+    """NumPy evaluation of ``d(z_e)`` through the sampling→engine map."""
+    delta_s = np.asarray(space.delta_from_z(z_e, np), dtype=float)
+    full = engine_map.full_engine_delta(delta_s, np)
+    return -np.asarray(engine.residual_delta(full), dtype=float)
+
+
+def _analytic_proper_jacobian(
+    design_matrix, proper_axes, proper_space, z_e
+) -> np.ndarray:
+    """W = M_s[:, proper] * diag(∂δ/∂z) at ``z_e`` (analytic route)."""
+    M = np.asarray(design_matrix, dtype=float)
+    if M.ndim != 2:
+        raise ValueError(f"design_matrix must be 2D, got shape {M.shape}")
+    slots = [a.fitpar_index for a in proper_axes]
+    if any(s < 0 or s >= M.shape[1] for s in slots):
+        raise ValueError(
+            f"proper-axis fitpar indices {slots} exceed design_matrix "
+            f"column count {M.shape[1]}"
+        )
+    d_delta_d_z = np.asarray(
+        proper_space.prior_bijector.jacobian_diag_delta_from_z(z_e, np),
+        dtype=float,
+    )
+    if d_delta_d_z.shape != (len(slots),):
+        raise ValueError(
+            f"prior Jacobian has shape {d_delta_d_z.shape}, expected {(len(slots),)}"
+        )
+    return M[:, slots] * d_delta_d_z[None, :]
 
 
 def build_linearization(
@@ -198,20 +243,30 @@ def build_linearization(
     delta_expansion: np.ndarray,
     source: ExpansionSource,
     charts: tuple = (),
+    derivative_method: str = "analytic",
+    design_matrix: np.ndarray | None = None,
 ) -> TimingLinearization:
     """Build the fixed linearization at ``delta_expansion`` (proper order, §5.2).
 
-    ``d(z)`` is differentiated over every proper axis (sampled ∪ z-marginalized)
-    at the common expansion point; the columns are split into the sampled block
-    ``W_s`` and the z-marginalized block ``W_m`` (with intercept ``c_m =
-    -W_m z_m,e``). Delta-flat axes are held at zero (their improper columns come
-    from the engine design matrix, §5.4).
+    ``d(z)`` is the exact engine waveform. Its proper-axis tangent ``W`` follows
+    ``derivative_method`` — the same knob as ``engine_design_matrix`` /
+    ``design_matrix``. Analytic mode uses the sampling-frame design matrix and
+    ``∂δ/∂z``; autodiff mode uses ``jax.jacfwd`` through the sampling→engine
+    composition. Columns are split into the sampled block ``W_s`` and the
+    z-marginalized block ``W_m`` (with intercept ``c_m = -W_m z_m,e``).
+    Delta-flat axes are held at zero (their improper columns come from the
+    engine design matrix, §5.4).
     """
     from .protocols import JaxTimingEngine
 
+    if derivative_method not in ("analytic", "autodiff"):
+        raise ValueError(
+            "derivative_method must be 'analytic' or 'autodiff'; "
+            f"got {derivative_method!r}"
+        )
+
     proper_axes = [
-        a for a in plan.axes
-        if a.disposition in ("sample", "marginalize_z_prior")
+        a for a in plan.axes if a.disposition in ("sample", "marginalize_z_prior")
     ]
     proper_names = tuple(a.name for a in proper_axes)
     sampled_cols = [i for i, a in enumerate(proper_axes) if a.disposition == "sample"]
@@ -232,49 +287,57 @@ def build_linearization(
     if k_p == 0:
         n_toa = int(np.asarray(engine.residual_delta(np.zeros(nfit))).shape[0])
         return TimingLinearization(
-            proper_names=(), sampled_names=(), marginalized_z_names=(),
-            z_expansion=np.zeros(0), delta_expansion=np.zeros(0),
+            proper_names=(),
+            sampled_names=(),
+            marginalized_z_names=(),
+            z_expansion=np.zeros(0),
+            delta_expansion=np.zeros(0),
             sampled_z_expansion=np.zeros(0),
             sampled_waveform_expansion=np.zeros(n_toa),
             sampled_basis=np.zeros((n_toa, 0)),
             marginalized_z_basis=np.zeros((n_toa, 0)),
             marginalized_z_intercept=np.zeros(n_toa),
-            source=source)
+            source=source,
+        )
 
     bad = _outside_prior_interior(
-        proper_space.prior_bijector.priors, delta_e, proper_names)
+        proper_space.prior_bijector.priors, delta_e, proper_names
+    )
     if bad:
         raise ExpansionOutsidePriorInteriorError(bad, source)
     z_e = np.asarray(proper_space.z_from_delta(delta_e, np), dtype=float)
     if not np.all(np.isfinite(z_e)):
         raise ExpansionOutsidePriorInteriorError(
-            [proper_names[i] for i in range(k_p) if not np.isfinite(z_e[i])], source)
+            [proper_names[i] for i in range(k_p) if not np.isfinite(z_e[i])], source
+        )
 
-    if isinstance(engine, JaxTimingEngine):
+    d_e = _waveform_value(engine, proper_space, engine_map, z_e)
+    if derivative_method == "analytic":
+        if design_matrix is None:
+            raise ValueError(
+                "derivative_method='analytic' requires the sampling-frame "
+                "design_matrix to form the proper-axis linearization"
+            )
+        W = _analytic_proper_jacobian(design_matrix, proper_axes, proper_space, z_e)
+    else:
+        if not isinstance(engine, JaxTimingEngine):
+            raise ValueError(
+                "derivative_method='autodiff' requires a JAX-capable engine "
+                "exposing residual_delta_jax(); got "
+                f"{type(engine).__name__}. Finite-difference linearization "
+                "is not supported."
+            )
         import jax
         import jax.numpy as jnp
 
         d_of_z = _waveform_of_z(engine, proper_space, engine_map, jnp)
-        d_e = np.asarray(d_of_z(jnp.asarray(z_e)), dtype=float)
         W = np.asarray(jax.jacfwd(d_of_z)(jnp.asarray(z_e)), dtype=float)
-    else:
-        def d_np(z):
-            delta_s = np.asarray(proper_space.delta_from_z(z, np), dtype=float)
-            full = engine_map.full_engine_delta(delta_s, np)
-            return -np.asarray(engine.residual_delta(full), dtype=float)
-
-        d_e = d_np(z_e)
-        W_a = _stencil_jacobian(d_np, z_e, h=1e-4)
-        W_b = _stencil_jacobian(d_np, z_e, h=5e-5)
-        scale = np.maximum(np.abs(W_a), 1e-300)
-        if np.max(np.abs(W_a - W_b) / scale) > 1e-5:
-            raise ValueError(
-                "five-point stencil timing Jacobian did not converge to relative "
-                "tolerance 1e-5 across h=1e-4 and h=5e-5"
-            )
-        W = W_a
 
     n_toa = int(np.asarray(d_e).shape[0])
+    if W.shape != (n_toa, k_p):
+        raise ValueError(
+            f"proper-axis Jacobian has shape {W.shape}, expected {(n_toa, k_p)}"
+        )
     W_s = W[:, sampled_cols] if sampled_cols else np.zeros((n_toa, 0))
     W_m = W[:, zm_cols] if zm_cols else np.zeros((n_toa, 0))
     z_s_e = z_e[sampled_cols] if sampled_cols else np.zeros(0)

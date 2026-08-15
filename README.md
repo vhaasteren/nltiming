@@ -8,7 +8,9 @@ Nonlinear pulsar-timing likelihood components for
 `residual_jacobian` (\(J=-M\)). `design_matrix` / \(M\) is the delay tangent
 (fitter sign). `derivative_method="analytic"|"autodiff"` selects the route to
 \(M\) (`pulsar.Mmat` vs `-residual_jacobian()`), not a different object. The
-old `waveform_jacobian` noun is deleted. Design notes:
+same knob selects the proper-axis `TimingLinearization` source (`M_s ∂δ/∂z`
+vs `jacfwd` of `residual_delta_jax`); there is no finite-difference route.
+The old `waveform_jacobian` noun is deleted. Design notes:
 [`feature_phase_gauge.md`](../jug/feature_phase_gauge.md) (in the JUG checkout).
 
 **Hybrid residual linearization.** `NonLinearTimingModel(nonlinear_params=...)`
