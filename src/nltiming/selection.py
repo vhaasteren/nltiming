@@ -12,7 +12,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import dataclass
 
-from .pint_compat import resolve_parameter_alias
+from .pint_compat import resolve_fit_column_name, resolve_parameter_alias
 
 __all__ = [
     "ParameterMappingError",
@@ -28,6 +28,21 @@ __all__ = [
 
 class ParameterMappingError(ValueError):
     """A pulsar's timing-parameter mapping violates the composite-name contract."""
+
+
+def _identity(name: str) -> str:
+    """Fold a parameter spelling to its comparison identity.
+
+    ``resolve_parameter_alias`` alone cannot decide whether two spellings name
+    the same column: PINT refuses to register ``FDpJUMPq`` <-> ``FDJUMPp_q`` as
+    an alias (mask index vs prefix index collide), so a host keyed by the PINT
+    attribute ``FD1JUMP1`` and a mapping keyed by the par spelling ``FDJUMP1``
+    look unrelated. ``resolve_fit_column_name`` adds exactly that fold and is
+    the alias resolver everywhere else, so it is the identity used for every
+    spelling comparison here. Instance stays specific: ``FD1JUMP1`` folds onto
+    ``FDJUMP1``/``FDJUMP1_1`` but never onto ``FDJUMP2``.
+    """
+    return resolve_fit_column_name(name)
 
 
 @dataclass(frozen=True)
@@ -84,7 +99,13 @@ def validated_parameter_mapping_view(
 
 
 def canonical_fitpars(pulsar) -> tuple[str, ...]:
-    """Pulsar fitpars with aliases normalized, in canonical order."""
+    """Pulsar fitpars with aliases normalized, in canonical order.
+
+    Alias resolution, not :func:`_identity`: these strings stay usable as keys
+    into the host's own fitpars and mapping. Folding ``FD1JUMP1`` to the chart
+    id ``FDJUMP1_1`` here would rename a column the host does not know under
+    that spelling. Identity belongs in the comparisons, not in the names.
+    """
     fitpars = tuple(resolve_parameter_alias(p) for p in pulsar.fitpars)
     if len(set(fitpars)) != len(fitpars):
         raise ValueError("Duplicate fit parameters after alias normalization")
@@ -120,7 +141,7 @@ def _base_param_candidates(
     pulsar carries the suffixed -> per-PTA base mapping via the public timing
     parameter mapping (or legacy ``_fitparameters``).
     """
-    candidates: set[str] = {name, resolve_parameter_alias(name)}
+    candidates: set[str] = {name, resolve_parameter_alias(name), _identity(name)}
     view = parameter_mapping_view(pulsar) if mapping_view is None else mapping_view
     owners = _owners_for_fitpar(view, name)
     if owners is None:
@@ -128,6 +149,7 @@ def _base_param_candidates(
     for base in owners.values():
         candidates.add(base)
         candidates.add(resolve_parameter_alias(base))
+        candidates.add(_identity(base))
     return candidates
 
 
@@ -146,7 +168,7 @@ def _suffix_policy_candidates(
     """
     view = parameter_mapping_view(pulsar) if mapping_view is None else mapping_view
     if view.mapping is None:
-        return {name, resolve_parameter_alias(name)}
+        return {name, resolve_parameter_alias(name), _identity(name)}
     owners = _owners_for_fitpar(view, name)
     if owners is None:
         return set()
@@ -154,6 +176,7 @@ def _suffix_policy_candidates(
     for base in owners.values():
         candidates.add(base)
         candidates.add(resolve_parameter_alias(base))
+        candidates.add(_identity(base))
     return candidates
 
 
@@ -175,6 +198,7 @@ def match_fitpars(
     ``fitpars`` matching universe, which may include synthesized names).
     """
     canonical = resolve_parameter_alias(name)
+    identity = _identity(name)
     view = (
         validated_parameter_mapping_view(pulsar)
         if mapping_view is None
@@ -186,10 +210,10 @@ def match_fitpars(
             hits.append(fitpar)
             continue
         candidates = {
-            resolve_parameter_alias(c)
+            _identity(c)
             for c in _base_param_candidates(pulsar, fitpar, mapping_view=view)
         }
-        if canonical in candidates:
+        if identity in candidates:
             hits.append(fitpar)
     return tuple(hits)
 
@@ -226,8 +250,8 @@ def fitpar_suffix(
             f"from {view.source}: {dict(owners)!r}"
         )
 
-    canonical = resolve_parameter_alias(fitpar)
-    if all(resolve_parameter_alias(native) == canonical for native in owners.values()):
+    identity = _identity(fitpar)
+    if all(_identity(native) == identity for native in owners.values()):
         return ""
 
     if len(owners) != 1:
@@ -243,10 +267,11 @@ def fitpar_suffix(
             f"{view.source} entry: {dict(owners)!r}"
         )
     stem = fitpar[: -len(suffix)]
-    if resolve_parameter_alias(stem) != resolve_parameter_alias(native):
+    if _identity(stem) != _identity(native):
         raise ParameterMappingError(
-            f"fitpar {fitpar!r} stem {stem!r} is not an alias of native "
-            f"{native!r}; {view.source} entry: {dict(owners)!r}"
+            f"fitpar {fitpar!r} stem {stem!r} does not denote native {native!r} "
+            f"({_identity(stem)!r} vs {_identity(native)!r}); "
+            f"{view.source} entry: {dict(owners)!r}"
         )
     return suffix
 

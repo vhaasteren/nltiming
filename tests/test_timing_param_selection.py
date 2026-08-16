@@ -152,6 +152,50 @@ def test_fitpar_suffix_indexed_and_offset_natives():
     assert fitpar_suffix(psr, "Offset_ng9") == "_ng9"
 
 
+def test_fitpar_suffix_folds_dual_fdjump_spellings():
+    # A combined host keys the column by the PINT attribute (`FD1JUMP1`) while
+    # the mapping reports the Tempo2 par spelling (`FDJUMP1`). PINT cannot
+    # alias the two, so only the FDJUMP fold can see they are one coefficient.
+    psr = _mapping_host({"FD1JUMP1_combined": {"combined": "FDJUMP1"}})
+    assert fitpar_suffix(psr, "FD1JUMP1_combined") == "_combined"
+    # Reverse spelling pair: par-keyed host, PINT-keyed native.
+    psr = _mapping_host({"FDJUMP1_combined": {"combined": "FD1JUMP1"}})
+    assert fitpar_suffix(psr, "FDJUMP1_combined") == "_combined"
+    # Merged across PTAs that spell it differently.
+    psr = _mapping_host({"FD1JUMP1": {"epta": "FDJUMP1", "ng": "FD1JUMP1"}})
+    assert fitpar_suffix(psr, "FD1JUMP1") == ""
+    # FDJUMPDM carries the same dual spelling.
+    psr = _mapping_host({"FDJUMPDM1_combined": {"combined": "FDJUMPDM_1"}})
+    assert fitpar_suffix(psr, "FDJUMPDM1_combined") == "_combined"
+
+
+def test_fitpar_suffix_fdjump_instance_stays_specific():
+    # The fold merges spellings of one coefficient, never distinct instances.
+    psr = _mapping_host({"FD1JUMP1_combined": {"combined": "FDJUMP2"}})
+    with pytest.raises(ParameterMappingError):
+        fitpar_suffix(psr, "FD1JUMP1_combined")
+    psr = _mapping_host({"FD1JUMP1_combined": {"combined": "FD2JUMP1"}})
+    with pytest.raises(ParameterMappingError):
+        fitpar_suffix(psr, "FD1JUMP1_combined")
+
+
+def test_match_fitpars_selects_across_fdjump_spellings():
+    fitpars = ("FD1JUMP1_combined", "FD1JUMP2_combined", "F0")
+    psr = _mapping_host(
+        {
+            "FD1JUMP1_combined": {"combined": "FDJUMP1"},
+            "FD1JUMP2_combined": {"combined": "FDJUMP1_2"},
+            "F0": {"combined": "F0"},
+        }
+    )
+    psr.fitpars = fitpars
+    # Either dialect of the selector reaches the same single column.
+    assert match_fitpars(psr, "FDJUMP1", fitpars) == ("FD1JUMP1_combined",)
+    assert match_fitpars(psr, "FD1JUMP1", fitpars) == ("FD1JUMP1_combined",)
+    assert match_fitpars(psr, "FDJUMP1_1", fitpars) == ("FD1JUMP1_combined",)
+    assert match_fitpars(psr, "FDJUMP1_2", fitpars) == ("FD1JUMP2_combined",)
+
+
 def test_fitpar_suffix_identity_wins_over_coincidental_tail():
     # A PTA literally named "0001" must not turn the indexed parameter
     # DMX_0001 into a suffixed name: alias identity is checked first.
