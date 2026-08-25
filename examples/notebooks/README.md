@@ -17,8 +17,9 @@ dependency can be dropped; the `nltiming` API in these notebooks will not
 change.
 
 Run top-to-bottom from `examples/notebooks/` in an environment that has
-MetaPulsar, JUG, Discovery, NumPyro, Enterprise, and PTMCMCSampler (e.g. the
-MetaPulsar devcontainer with this package editable-installed).
+MetaPulsar, JUG, Discovery, NumPyro, Enterprise, PTMCMCSampler, and (for
+notebook 5) pyvela / Vela.jl (e.g. the MetaPulsar devcontainer with this
+package editable-installed).
 
 ## Suggested order
 
@@ -28,8 +29,10 @@ MetaPulsar devcontainer with this package editable-installed).
 | 2 | `02_charts_and_binary.ipynb` | J1022+1001 | Per-axis charts and Kepler↔Laplace (`EPS1/EPS2/TASC` on a DDH engine) |
 | 3 | `03_decentering_and_full_basis.ipynb` | J1022+1001 | Default decentered sampling vs `inference="all"` |
 | 4 | `04_geometry.ipynb` | J1022+1001 | Certify geometry; `identically_linear` |
+| 5 | `05_vela_discovery_sim.ipynb` | J1909-3744-sim | Independent Vela.jl vs nltiming/Discovery overlay on a simulated ELL1 pulsar |
 
 Data lives in [`examples/data/`](../data/): AEI-DR2 combined
-`par-optimized` pars and INCLUDE `.tim` trees. Sampling cells use short
-chains for pedagogy; scale `num_warmup` / `num_samples` / `Niter` for science.
-Outputs are not committed.
+`par-optimized` pars and INCLUDE `.tim` trees, plus the barycentric ELL1
+simulation used by notebook 5. Sampling cells use short chains for pedagogy;
+scale `num_warmup` / `num_samples` / `Niter` for science. Outputs are not
+committed.
