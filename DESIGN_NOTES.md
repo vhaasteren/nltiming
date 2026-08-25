@@ -58,7 +58,7 @@ required for float64 conditioning with the 1e40 weight. There is no
 `sample=` / `analytically_marginalize=` / `transform=` constructor surface.
 
 **Frontend consistency (hard-won)** — the Enterprise likelihood interface must consume the
-`TimingContext` (engine, `plan`, space, design matrix), never re-query
+`TimingSignal` (engine, `plan`, space, design matrix), never re-query
 `pulsar.timing_engine(...)` with partial kwargs: a engine rebuilt without
 `subtract_tzr=False` evaluates a delay wrong by its own order of magnitude.
 Both likelihood interfaces evaluate the delay via `residual_delta_jax` when the engine

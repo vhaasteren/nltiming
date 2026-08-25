@@ -1,4 +1,4 @@
-"""Two-stage TimingContext lifecycle and metric provenance (§5.1, §5.2, §10).
+"""Two-stage TimingSignal lifecycle and metric provenance (§5.1, §5.2, §10).
 
 Covers the unconditioned -> conditioned split, finalize-once immutability,
 metric order/dimension validation, and reference-noise provenance/digests.
@@ -17,7 +17,7 @@ from nltiming.metric import (
     frozen_white_metric,
     toa_errors_metric,
 )
-from nltiming.nonlinear_timing_model import NonLinearTimingModel
+from nltiming.nonlinear_timing_model import TimingSpec
 
 
 class _Pulsar:
@@ -78,7 +78,7 @@ def pulsar():
 
 
 def _model(**kwargs):
-    return NonLinearTimingModel(
+    return TimingSpec(
         engines="jug", whitening=WhiteningConfig(), name="timing", **kwargs
     )
 
@@ -198,7 +198,7 @@ def test_run_manifest_requires_conditioned_context(pulsar):
 
 def test_whitening_config_rejects_stringly_dict(pulsar):
     with pytest.raises(TypeError, match="WhiteningConfig"):
-        NonLinearTimingModel(engines="jug", whitening={"name": "diagonal_white"})
+        TimingSpec(engines="jug", whitening={"name": "diagonal_white"})
     with pytest.raises(ValueError, match="reference_noise"):
         WhiteningConfig(reference_noise="not_a_class")
 
@@ -207,7 +207,7 @@ def test_whitening_none_conditions_with_identity_transport_and_no_metric(pulsar)
     """whitening=None is an identity map: it conditions with an identity
     transport and no reference-noise metric, so its provenance never claims a
     (never-applied) toa_errors whitening (§5.5, provenance honesty)."""
-    none_ctx = NonLinearTimingModel(
+    none_ctx = TimingSpec(
         engines="jug", name="t"
     ).for_pulsar(pulsar)
     assert none_ctx.conditioned is True
@@ -216,7 +216,7 @@ def test_whitening_none_conditions_with_identity_transport_and_no_metric(pulsar)
     assert none_ctx.transport.metric_source["reference_noise"] == "identity"
     np.testing.assert_allclose(none_ctx.space.linear.C, np.eye(len(none_ctx.sampled)))
     # An explicit unconditioned base can still be conditioned with None only.
-    base = NonLinearTimingModel(engines="jug", name="t").for_pulsar(
+    base = TimingSpec(engines="jug", name="t").for_pulsar(
         pulsar, condition=False
     )
     assert base.with_transport().metric is None

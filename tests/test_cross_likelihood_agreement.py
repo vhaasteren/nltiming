@@ -24,7 +24,7 @@ from nltiming import WhiteningConfig
 from nltiming import TimingInference
 from _engine_stubs import JaxLinearTestEngine, LinearTestEngine
 from nltiming.engine_support import LinearModel
-from nltiming.nonlinear_timing_model import NonLinearTimingModel
+from nltiming.nonlinear_timing_model import TimingSpec
 from nltiming.sampling import numpyro as nlt_numpyro
 
 pytest.importorskip("discovery")
@@ -37,7 +37,7 @@ from enterprise.signals import parameter, signal_base, white_signals  # noqa: E4
 class _Pulsar:
     """Small deterministic fixture: a real (linear) JAX-backed timing model
     usable by both the Discovery and Enterprise frontends via the same
-    TimingContext."""
+    TimingSignal."""
 
     def __init__(self):
         self.name = "J0000+0000"
@@ -129,7 +129,7 @@ _OFFSETS = {"identity": 0.05, "whitening": 0.05}
 )
 def test_discovery_and_enterprise_log_density_differences_agree(pulsar, layer):
     noisedict = {f"{pulsar.name}_efac": 1.0, f"{pulsar.name}_log10_t2equad": -8.0}
-    ntm = NonLinearTimingModel(
+    ntm = TimingSpec(
         engines="jug",
         whitening=layer,
         inference=TimingInference.groups(delta_flat=["DM"]),
@@ -209,7 +209,7 @@ def test_discovery_nuts_and_enterprise_ptmcmc_recover_the_same_posterior(
     from enterprise_extensions import sampler as ee_sampler
 
     noisedict = {f"{pulsar.name}_efac": 1.0, f"{pulsar.name}_log10_t2equad": -8.0}
-    ntm = NonLinearTimingModel(
+    ntm = TimingSpec(
         engines="jug",
         whitening=WhiteningConfig(),
         inference=TimingInference.groups(delta_flat=["DM"]),
@@ -276,7 +276,7 @@ def test_affine_normal_z_prior_marginalization_is_expansion_independent(pulsar):
     the block is linearized at the engine reference or at a shifted expansion
     (geometry §14.4). DM here is identically linear with a Gaussian delta prior."""
     noisedict = {f"{pulsar.name}_efac": 1.0, f"{pulsar.name}_log10_t2equad": -8.0}
-    ntm = NonLinearTimingModel(
+    ntm = TimingSpec(
         engines="jug",
         inference=TimingInference.groups(z_prior=["DM"]),
         name="timing",

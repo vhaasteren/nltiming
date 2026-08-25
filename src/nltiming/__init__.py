@@ -25,7 +25,7 @@ from .metric import (
     frozen_white_metric,
     toa_errors_metric,
 )
-from .nonlinear_timing_model import NonLinearTimingModel, TimingContext
+from .nonlinear_timing_model import TimingSpec, TimingSignal
 from .inference import (
     InferencePreset,
     Marginalize,
@@ -101,8 +101,8 @@ SUPPORTS_CONVERSION_METADATA = True
 
 __all__ = [
     "SUPPORTS_CONVERSION_METADATA",
-    "NonLinearTimingModel",
-    "TimingContext",
+    "TimingSpec",
+    "TimingSignal",
     "InferencePreset",
     "Marginalize",
     "TimingInference",

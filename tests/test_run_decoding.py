@@ -15,7 +15,7 @@ from nltiming import WhiteningConfig
 from nltiming import TimingInference
 from _engine_stubs import JaxLinearTestEngine
 from nltiming.engine_support import LinearModel
-from nltiming.nonlinear_timing_model import NonLinearTimingModel
+from nltiming.nonlinear_timing_model import TimingSpec
 from nltiming.run_io import (
     DISCOVERY_FINAL_NAME,
     RUN_META_FILENAME,
@@ -86,7 +86,7 @@ def pulsar():
 
 @pytest.fixture
 def ntm():
-    return NonLinearTimingModel(
+    return TimingSpec(
         engines="jug",
         whitening=WhiteningConfig(),
         inference=TimingInference.groups(delta_flat=["Offset"]),
@@ -140,7 +140,7 @@ def test_wrong_live_context_fails_assert_consistent_with(tmp_path, ntm, pulsar):
     _write_run(tmp_path, ntm, pulsar)
     run = load_run(tmp_path)
     # A different static layer yields a different context fingerprint.
-    other = NonLinearTimingModel(
+    other = TimingSpec(
         engines="jug",
         whitening=None,
         inference=TimingInference.groups(delta_flat=["Offset"]),
@@ -181,7 +181,7 @@ def test_unsupported_schema_fails_with_migration_guidance(tmp_path, ntm, pulsar)
 def test_no_overwrite_of_incompatible_run(tmp_path, ntm, pulsar):
     ctx, manifest = _write_run(tmp_path, ntm, pulsar)
     # A manifest with a different context digest must not clobber the existing run.
-    other = NonLinearTimingModel(
+    other = TimingSpec(
         engines="jug",
         whitening=None,
         inference=TimingInference.groups(delta_flat=["Offset"]),

@@ -2,10 +2,10 @@
 
 This module owns the provenance-carrying inputs to the posterior whitening
 transform (§5.1) and the immutable transport record that a conditioned
-:class:`~nltiming.nonlinear_timing_model.TimingContext` stores (§7.3).
+:class:`~nltiming.nonlinear_timing_model.TimingSignal` stores (§7.3).
 
 - :class:`WhiteningConfig` is the frozen configuration a
-  ``NonLinearTimingModel`` carries (reference-noise class, expansion point,
+  ``TimingSpec`` carries (reference-noise class, expansion point,
   origin policy) — no numerical floor, no likelihood-only mode (§5.4).
 - :class:`LocalPosteriorMetric` is the typed, fingerprinted metric a likelihood
   interface (or the built-in TOA-errors/frozen-white helpers) hands to

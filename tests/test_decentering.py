@@ -242,10 +242,10 @@ def _enterprise_setup():
     from test_decentered_model import _DiscoveryPulsar
 
     from nltiming import TimingInference
-    from nltiming.nonlinear_timing_model import NonLinearTimingModel
+    from nltiming.nonlinear_timing_model import TimingSpec
 
     mp = _DiscoveryPulsar()
-    ntm = NonLinearTimingModel(
+    ntm = TimingSpec(
         engines="jug",
         inference=TimingInference.groups(delta_flat=["DM"]),
         name="timing",
@@ -507,10 +507,10 @@ def _duck_ctx():
     from test_decentered_model import _DiscoveryPulsar
 
     from nltiming import TimingInference
-    from nltiming.nonlinear_timing_model import NonLinearTimingModel
+    from nltiming.nonlinear_timing_model import TimingSpec
 
     mp = _DiscoveryPulsar()
-    ntm = NonLinearTimingModel(
+    ntm = TimingSpec(
         engines="jug",
         inference=TimingInference.groups(delta_flat=["DM"]),
         name="timing",
@@ -683,5 +683,5 @@ def test_te1_cross_frontend_density_parity(_duck_ctx):
 
 
 def ntm_signal(ctx):
-    """The Enterprise signal for the same NonLinearTimingModel as ``ctx``."""
+    """The Enterprise signal for the same TimingSpec as ``ctx``."""
     return ctx.model.enterprise_signal()

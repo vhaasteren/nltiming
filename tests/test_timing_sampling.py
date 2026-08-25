@@ -8,7 +8,7 @@ from nltiming import WhiteningConfig
 from nltiming import TimingInference
 from _engine_stubs import JaxLinearTestEngine
 from nltiming.engine_support import LinearModel
-from nltiming.nonlinear_timing_model import NonLinearTimingModel
+from nltiming.nonlinear_timing_model import TimingSpec
 from nltiming.sampling import numpyro as nlt_numpyro
 from nltiming.sampling import ptmcmc as nlt_ptmcmc
 
@@ -75,7 +75,7 @@ def pulsar():
 
 
 def _binding(whitening=WhiteningConfig(), **kwargs):
-    ntm = NonLinearTimingModel(
+    ntm = TimingSpec(
         engines="jug",
         whitening=whitening,
         inference=TimingInference.groups(delta_flat=["Offset"]),
@@ -544,7 +544,7 @@ def test_chain_layout_locates_columns_in_real_enterprise_pta(pulsar, whitening):
 
     efac = parameter.Uniform(0.1, 5.0)
     white = white_signals.MeasurementNoise(efac=efac)
-    ntm = NonLinearTimingModel(
+    ntm = TimingSpec(
         engines="jug",
         whitening=whitening,
         inference=TimingInference.groups(delta_flat=["Offset"]),

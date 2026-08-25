@@ -1,0 +1,1014 @@
+FORMAT 1
+ toa00001 1400.000 54846.95740826817257491 4.646 8 -i dfb -r 1400jb -group JBO.DFB.1400 -sys JBO.DFB.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 0
+ toa00002 1400.000 54851.93368834646407491 2.758 8 -i dfb -r 1400jb -group JBO.DFB.1400 -sys JBO.DFB.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 26131871
+ toa00003 1400.000 54860.99921315121887491 4.434 8 -i dfb -r 1400jb -group JBO.DFB.1400 -sys JBO.DFB.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 73741083
+ toa00004 1400.000 54866.92915933336137491 2.330 8 -i dfb -r 1400jb -group JBO.DFB.1400 -sys JBO.DFB.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 104881676
+ toa00005 1400.000 54867.87874970199967491 0.897 8 -i dfb -r 1400jb -group JBO.DFB.1400 -sys JBO.DFB.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 109868591
+ toa00006 1400.000 54871.09090761126167491 2.548 8 -i dfb -r 1400jb -group JBO.DFB.1400 -sys JBO.DFB.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 126739080
+ toa00007 1400.000 54876.98356037585537491 1.970 8 -i dfb -r 1400jb -group JBO.DFB.1400 -sys JBO.DFB.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 157683052
+ toa00008 1400.000 54880.94004991303517491 4.071 8 -i dfb -r 1400jb -group JBO.DFB.1400 -sys JBO.DFB.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 178460049
+ toa00009 1400.000 54883.88293192173877491 3.725 8 -i dfb -r 1400jb -group JBO.DFB.1400 -sys JBO.DFB.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 193913645
+# CJ090224_201310.FT 1400.000 54886.8489889951185 2.222  8 -i dfb -r 1400jb  -group JBO.DFB.1400 -sys JBO.DFB.1400 -padd 0.146515
+ toa00010 1400.000 54887.95387176801087491 0.976 8 -i dfb -r 1400jb -group JBO.DFB.1400 -sys JBO.DFB.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 215292715
+ toa00011 1400.000 54890.89466851939087491 7.258 8 -i dfb -r 1400jb -group JBO.DFB.1400 -sys JBO.DFB.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 230734211
+ toa00012 1400.000 54893.95117424705597491 11.310 8 -i dfb -r 1400jb -group JBO.DFB.1400 -sys JBO.DFB.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 246786686
+ toa00013 1400.000 54898.84954120914287491 5.373 8 -i dfb -r 1400jb -group JBO.DFB.1400 -sys JBO.DFB.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 272507326
+# CJ090311_194738.FT 1520.000 54901.8297352976290 32.726  8 -i dfb -r 1400jb  -group JBO.DFB.1400 -sys JBO.DFB.1400 -padd 0.146515
+ toa00014 1400.000 54902.80532604373697491 7.394 8 -i dfb -r 1400jb -group JBO.DFB.1400 -sys JBO.DFB.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 293281850
+ toa00015 1400.000 54903.86322806453857491 9.395 8 -i dfb -r 1400jb -group JBO.DFB.1400 -sys JBO.DFB.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 298836466
+ toa00016 1400.000 54904.90720719896247491 3.834 8 -i dfb -r 1400jb -group JBO.DFB.1400 -sys JBO.DFB.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 304317755
+ toa00017 1400.000 54908.92166493550747491 2.331 8 -i dfb -r 1400jb -group JBO.DFB.1400 -sys JBO.DFB.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 325399382
+ toa00018 1400.000 54910.90919589123377491 4.575 8 -i dfb -r 1400jb -group JBO.DFB.1400 -sys JBO.DFB.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 335836387
+ toa00019 1400.000 54911.78696260498517491 12.222 8 -i dfb -r 1400jb -group JBO.DFB.1400 -sys JBO.DFB.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 340445049
+ toa00020 1400.000 54912.78356268026127491 2.881 8 -i dfb -r 1400jb -group JBO.DFB.1400 -sys JBO.DFB.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 345677521
+# CJ090401_001118.FT 1400.000 54922.0081017000893 24.985  8 -i dfb -r 1400jb  -group JBO.DFB.1400 -sys JBO.DFB.1400 -padd 0.146515
+ toa00021 1400.000 54927.71965591136397491 3.703 8 -i dfb -r 1400jb -group JBO.DFB.1400 -sys JBO.DFB.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 424108179
+ toa00022 1400.000 54932.65266725859607491 1.735 8 -i dfb -r 1400jb -group JBO.DFB.1400 -sys JBO.DFB.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 450012137
+ toa00023 1400.000 54935.78428911826597491 3.230 8 -i dfb -r 1400jb -group JBO.DFB.1400 -sys JBO.DFB.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 466455117
+ toa00024 1400.000 54939.81011950614947491 8.722 8 -i dfb -r 1400jb -group JBO.DFB.1400 -sys JBO.DFB.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 487595086
+ toa00025 1400.000 54941.63929930847617491 5.543 8 -i dfb -r 1400jb -group JBO.DFB.1400 -sys JBO.DFB.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 497200604
+ toa00026 1400.000 54952.72726013291047491 3.683 8 -i dfb -r 1400jb -group JBO.DFB.1400 -sys JBO.DFB.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 555420300
+ toa00027 1400.000 54956.57497658431207491 1.425 8 -i dfb -r 1400jb -group JBO.DFB.1400 -sys JBO.DFB.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 575626093
+ toa00028 1400.000 54959.87920855624167491 1.251 8 -i dfb -r 1400jb -group JBO.DFB.1400 -sys JBO.DFB.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 592974430
+ toa00029 1400.000 54964.73206845667077491 8.858 8 -i dfb -r 1400jb -group JBO.DFB.1400 -sys JBO.DFB.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 618457783
+ toa00030 1400.000 54969.73878081366597491 1.777 8 -i dfb -r 1400jb -group JBO.DFB.1400 -sys JBO.DFB.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 644745533
+ toa00031 1400.000 54977.02795057175537491 3.563 8 -i dfb -r 1400jb -group JBO.DFB.1400 -sys JBO.DFB.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 683019464
+ toa00032 1400.000 54980.77469435217177491 2.416 8 -i dfb -r 1400jb -group JBO.DFB.1400 -sys JBO.DFB.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 702694856
+ toa00033 1400.000 55466.41165187328787491 4.310 8 -i dfb -r 1400jb -group JBO.DFB.1400 -sys JBO.DFB.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 3252916803
+ toa00034 1400.000 55468.42386626253327491 8.351 8 -i dfb -r 1400jb -group JBO.DFB.1400 -sys JBO.DFB.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 3263483334
+# CJ101125_124328.FT 1400.000 55525.5379732482792 50.437  8 -i dfb -r 1400jb  -group JBO.DFB.1400 -sys JBO.DFB.1400 -padd 0.146515
+# CJ101129_050435.FT 1400.000 55529.2219457373820 31.256  8 -i dfb -r 1400jb  -group JBO.DFB.1400 -sys JBO.DFB.1400 -padd 0.146515
+ toa00035 1400.000 55531.30910352605747491 10.382 8 -i dfb -r 1400jb -group JBO.DFB.1400 -sys JBO.DFB.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 3593743813
+ toa00036 1400.000 55533.14391178157577491 11.950 8 -i dfb -r 1400jb -group JBO.DFB.1400 -sys JBO.DFB.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 3603381307
+ toa00037 1400.000 55533.15491527307397491 9.883 8 -i dfb -r 1400jb -group JBO.DFB.1400 -sys JBO.DFB.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 3603439104
+# CJ101209_034028.FT 1400.000 55539.1639412029928 70.026  8 -i dfb -r 1400jb  -group JBO.DFB.1400 -sys JBO.DFB.1400 -padd 0.146515
+# CJ101209_235719.FT 1400.000 55540.0087383568209 59.659  8 -i dfb -r 1400jb  -group JBO.DFB.1400 -sys JBO.DFB.1400 -padd 0.146515
+ toa00038 1400.000 55544.03553738227827491 4.313 8 -i dfb -r 1400jb -group JBO.DFB.1400 -sys JBO.DFB.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 3660582347
+ toa00039 1400.000 55550.00432057319637491 10.748 8 -i dfb -r 1400jb -group JBO.DFB.1400 -sys JBO.DFB.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 3691930244
+ toa00040 1400.000 55551.19878392377677491 12.556 8 -i dfb -r 1400jb -group JBO.DFB.1400 -sys JBO.DFB.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 3698203010
+ toa00041 1556.99804700 55065.69616016309564986 2.18000 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 1148618526
+ toa00042 1557.46899400 55065.70081775215117235 4.01600 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 1148642986
+ toa00043 1558.29296900 55072.27925854896535727 3.82400 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 1183187859
+ toa00044 1547.54504400 55079.26234558567791142 25.61900 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 1219858195
+ toa00045 1545.01599100 55092.40402891366639624 2.87800 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 1288871450
+ toa00046 1544.59204100 55097.21319306052953566 4.62800 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 1314128702
+ toa00047 1543.93896500 55103.24670239425482352 1.62100 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 1345813276
+ toa00048 1556.83801300 55108.40932048916313066 0.95400 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 1372924730
+C J091009_153840.NEFTp 1531.46496600 55113.65718863133034588 21.81900 jb  -group JBO.DFB.1520 -sys JBO.DFB.1520  -padd 0.146515
+ toa00049 1541.43603500 55117.26029934102242622 0.45400 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 1419407249
+ toa00050 1540.75695800 55117.26117311519575113 0.49000 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 1419411838
+ toa00051 1563.61303700 55122.24087865451249799 3.21300 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 1445565404
+ toa00052 1539.98095700 55132.33529893682334064 2.69500 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 1498577662
+C J091112_083851.NEFTp 1623.51293900 55147.36669313067831055 5.45300 jb  -group JBO.DFB.1520 -sys JBO.DFB.1520  -padd 0.146515
+C J091116_040657.NEFTp 1557.38598600 55151.17758699621584029 16.90700 jb  -group JBO.DFB.1520 -sys JBO.DFB.1520  -padd 0.146515
+C J091116_041101.NEFTp 1556.58898900 55151.17870895754910165 18.94400 jb  -group JBO.DFB.1520 -sys JBO.DFB.1520  -padd 0.146515
+ toa00053 1558.18994100 55164.14038406126789669 2.93100 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 1665613318
+ toa00054 1554.48901400 55169.11714144166284344 2.63000 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 1691751990
+ toa00055 1554.30896000 55175.18886274179600990 4.23100 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 1723640415
+ toa00056 1554.62597700 55175.19304986712275083 7.19800 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 1723662406
+ toa00057 1554.43603500 55178.99869455989494158 3.91600 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 1743647130
+ toa00058 1554.26599100 55183.05078807847538345 19.64800 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 1764930050
+C J091222_002232.NEFTp 1601.29199200 55187.02229296199399045 2.59500 jb  -group JBO.DFB.1520 -sys JBO.DFB.1520  -padd 0.146515
+ toa00059 1554.35705600 55187.02637719477517751 3.57100 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 1785807146
+ toa00060 1554.36401400 55193.09125218499428032 12.46400 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 1817659664
+ toa00061 1553.98303200 55196.97865931560781592 1.70000 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 1838075535
+ toa00062 1555.63696300 55201.21701380596569040 2.32400 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 1860334032
+ toa00063 1554.82495100 55206.18373506201019483 1.26800 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 1886419142
+ toa00064 1554.72302200 55211.96782903621803316 1.67200 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 1916794043
+ toa00065 1555.34899900 55215.98647506109317549 2.49600 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 1937899451
+ toa00066 1555.72204600 55219.90311059584601070 3.07500 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 1958467419
+ toa00067 1552.51696800 55225.11981404729062648 2.25900 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 1985863142
+ toa00068 1552.57897900 55229.92398566902495292 2.40000 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 2011094145
+ toa00069 1555.07605000 55235.00852079843003226 1.49100 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 2037793901
+ toa00070 1555.42504900 55239.80587349202282441 4.56800 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 2062987796
+ toa00071 1554.84301800 55244.98132709774120572 8.56000 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 2090167052
+ toa00072 1554.78796400 55249.04148914613264241 1.65400 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 2111486744
+ toa00073 1555.25402800 55253.99735354662382223 1.01900 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 2137513502
+ toa00074 1554.41198700 55258.82951722324852471 5.60400 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 2162887204
+ toa00075 1554.32397500 55267.03992985743134456 5.96400 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 2206002303
+ toa00076 1554.89599600 55271.98219033132884990 3.06100 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 2231954434
+ toa00077 1554.31604000 55286.90734384178309400 1.05400 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 2310328313
+ toa00078 1555.34802200 55292.80078981356499144 3.01800 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 2341276057
+ toa00079 1553.81396500 55296.68424398805683682 2.42900 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 2361666008
+ toa00080 1554.74096700 55301.72702641596310800 4.05400 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 2388146909
+ toa00081 1555.92504900 55309.82564141196614047 1.55300 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 2430671871
+ toa00082 1554.38305700 55313.83209252515326968 12.42400 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 2451708914
+ toa00083 1552.27197300 55317.04479283752427152 3.61700 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 2468579238
+ toa00084 1555.57605000 55321.89418467051960535 2.37800 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 2494042122
+ toa00085 1553.61206100 55325.76021448842199933 3.98800 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 2514342002
+ toa00086 1563.11303700 55331.74455728221431814 1.97600 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 2545765865
+ toa00087 1560.79296900 55335.81362285363598916 1.21900 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 2567129854
+ toa00088 1564.00402800 55359.69133552671686802 2.84900 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 2692507963
+ toa00089 1564.18994100 55369.66622751335393646 11.15700 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 2744886373
+ toa00090 1567.94702100 55376.82887477240460514 7.55300 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 2782496286
+ toa00091 1567.02294900 55382.78436595736847013 2.39400 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 2813766935
+C J100709_171253.NEFTp 1564.54895000 55386.72391583200899490 15.53500 jb  -group JBO.DFB.1520 -sys JBO.DFB.1520  -padd 0.146515
+ toa00092 1566.38098100 55393.49851061802277572 42.13600 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 2870028579
+ toa00093 1564.92102100 55402.41297306136373822 6.64500 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 2916838816
+C J100731_080755.NEFTp 1577.50805700 55408.34658539644640740 39.20900 jb  -group JBO.DFB.1520 -sys JBO.DFB.1520  -padd 0.146515
+C J100731_081734.NEFTp 1563.31994600 55408.34849387557672173 32.75900 jb  -group JBO.DFB.1520 -sys JBO.DFB.1520  -padd 0.146515
+ toa00094 1563.13305700 55416.43630089513516000 4.37700 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 2990476937
+ toa00095 1561.62500000 55426.26470284709935230 3.38300 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 3042088136
+ toa00096 1563.18603500 55437.32156881172424266 15.80700 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 3100149593
+ toa00097 1554.73303200 55447.25787811453480645 9.17500 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 3152330645
+ toa00098 1554.02294900 55455.26104483782617480 5.96200 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 3194359333
+ toa00099 1402.82897900 55466.41165168182877752 4.31000 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 3252916802
+ toa00100 1388.06604000 55468.42386607645919670 8.35200 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 3263483333
+ toa00101 1547.18005400 55480.18687407848261915 1.98800 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 3325260776
+ toa00102 1544.65405300 55485.40969717658866687 2.79300 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 3352688362
+ toa00103 1545.71594200 55485.41587724066701002 4.18700 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 3352720823
+ toa00104 1546.29895000 55493.35214067301755323 1.02300 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 3394400332
+C J101125_124328.NEFTp 1386.32202100 55525.53797306286724833 50.16600 jb  -group JBO.DFB.1520 -sys JBO.DFB.1520  -padd 0.146515
+C J101129_050435.NEFTp 1385.21594200 55529.22194555233696889 31.23600 jb  -group JBO.DFB.1520 -sys JBO.DFB.1520  -padd 0.146515
+ toa00105 1385.36401400 55531.30910315060739366 10.38200 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 3593743811
+ toa00106 1390.19702100 55533.15041903096049056 7.74600 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 3603415487
+ toa00107 1389.77600100 55533.15491546716493519 9.88200 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 3603439105
+C J101209_034028.NEFTp 1400.01794400 55539.16394101259332672 69.83900 jb  -group JBO.DFB.1520 -sys JBO.DFB.1520  -padd 0.146515
+C J101209_235719.NEFTp 1390.57495100 55540.00873816985900078 59.79200 jb  -group JBO.DFB.1520 -sys JBO.DFB.1520  -padd 0.146515
+ toa00108 1386.50305200 55544.03553719675372422 4.31400 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 3660582346
+ toa00109 1381.54504400 55550.00432038954466139 10.74900 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 3691930243
+ toa00110 1384.18396000 55551.19878373911677914 12.56000 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 3698203009
+C J101225_050254.NEFTp 1557.70996100 55555.21663419658959171 23.08800 jb  -group JBO.DFB.1520 -sys JBO.DFB.1520  -padd 0.146515
+ toa00111 1547.00598100 55564.10169457602624563 2.57400 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 3765966023
+ toa00112 1551.64404300 55568.00657819176794492 0.98300 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 3786472984
+ toa00113 1540.12597700 55572.15570415273257696 1.42000 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 3808263746
+ toa00114 1548.70605500 55579.11127644545344326 1.89800 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 3844791545
+ toa00115 1548.16394000 55586.01840241780301542 25.84900 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 3881064645
+ toa00116 1547.70300300 55591.05376160481454138 1.64000 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 3907509144
+ toa00117 1548.30297900 55599.04901605825579312 0.56600 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 3949496314
+ toa00118 1548.20996100 55606.02685443098834215 6.54800 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 3986140834
+ toa00119 1535.73706100 55610.83223586163939176 5.59300 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 4011375504
+ toa00120 1541.76196300 55615.79689219222070138 1.61800 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 4037445689
+ toa00121 1549.27502400 55621.93391163723945612 2.43200 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 4069674306
+C J110314_235930.NEFTp 1628.28002900 55635.00596016200517724 1.81100 jb  -group JBO.DFB.1520 -sys JBO.DFB.1520  -padd 0.146515
+ toa00122 1547.43701200 55645.95503893958204431 2.41500 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 4195813142
+ toa00123 1554.01293900 55652.92873389517432346 6.17500 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 4232433070
+ toa00124 1554.59704600 55652.93472230404928256 14.52000 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 4232464511
+ toa00125 1553.34204100 55660.95790928283124375 5.92500 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 4274594130
+ toa00126 1544.55603000 55664.87523350558040578 2.88300 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 4295163236
+ toa00127 1553.38793900 55669.72100660180013252 3.87900 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 4320607965
+ toa00128 1546.91101100 55674.86626343369825962 4.34500 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 4347626726
+ toa00129 1546.98999000 55680.83680952158171893 1.86600 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 4378976366
+ toa00130 1545.30896000 55686.88940925287802673 0.94400 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 4410756778
+ toa00131 1548.83496100 55692.71209468469443680 2.69400 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 4441331725
+ toa00132 1546.22900400 55694.76180540824087304 0.52400 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 4452093540
+ toa00133 1546.11901900 55708.80241679458822732 1.91900 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 4525818953
+ toa00134 1542.09704600 55728.80775033209404343 5.74200 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 4630865081
+ toa00135 1547.12805200 55737.58494726975264486 2.70900 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 4676953315
+ toa00136 1547.89001500 55741.45564226307764431 1.33100 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 4697275940
+ toa00137 1542.22204600 55744.70567421933879446 3.10700 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 4714343541
+ toa00138 1546.34997600 55748.63040133487711190 5.56600 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 4734950213
+ toa00139 1544.81799300 55780.66176994596370351 4.94800 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 4903148742
+C J110824_053522.NEFTp 1549.36901900 55797.23711243941069426 74.56600 jb  -group JBO.DFB.1520 -sys JBO.DFB.1520  -padd 0.146515
+ toa00140 1548.59997600 55829.17988055173663229 2.37400 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 5157937160
+ toa00141 1544.61303700 55837.40600539804985845 1.95100 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 5201138028
+ toa00142 1544.91796900 55840.42820464480425544 3.65700 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 5217009632
+ toa00143 1545.86596700 55849.26484986901143701 1.59000 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 5263416286
+ toa00144 1546.14794900 55865.34423752940259620 7.30700 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 5347861384
+ toa00145 1545.04199200 55876.28194389934973261 1.01600 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 5405305430
+ toa00146 1543.09301800 55885.07165610211725424 2.26600 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 5451468428
+ toa00147 1543.04504400 55893.13416492449395365 3.86200 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 5493811784
+ toa00148 1546.49304200 55901.03592157816165740 14.41300 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 5535310806
+ toa00149 1548.14904800 55906.26805517403616905 4.60200 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 5562787554
+ toa00150 1553.16699200 55914.10295925652718028 2.78500 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 5603935270
+ toa00151 1552.94799800 55919.03677506651660965 5.37200 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 5629847392
+ toa00152 1544.02099600 55923.27759683410678635 2.11800 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 5652119806
+ toa00153 1554.20703100 55929.01407465545222140 8.78500 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 5682245169
+ toa00154 1551.66198700 55936.21245112265105180 2.46700 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 5720049162
+ toa00155 1551.21899400 55942.96550885711161714 2.44300 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 5755514662
+ toa00156 1550.50305200 55943.96598099404211810 1.78800 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 5760768317
+ toa00157 1551.08203100 55947.09087428324078859 2.49100 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 5777180798
+ toa00158 1557.02697800 55954.11527761622878616 4.17000 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 5814069652
+ toa00159 1550.39599600 55960.83634245832360508 0.79500 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 5849364893
+ toa00160 1550.56396500 55967.95772837559663957 0.75900 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 5886762560
+ toa00161 1549.82299800 55970.85997101183669687 3.67900 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 5902005381
+ toa00162 1549.26599100 55980.88840890345348287 2.06000 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 5954668172
+ toa00163 1549.93701200 56005.83647234416961256 3.14100 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 6085675128
+ toa00164 1549.75305200 56010.87991639232518724 1.44800 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 6112160549
+ toa00165 1562.64599600 56030.93154250384044533 0.91600 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 6217450094
+ toa00166 1549.84802200 56043.78895392159349784 1.61800 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 6284964118
+ toa00167 1549.39001500 56044.78719089863458267 0.82200 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 6290205007
+ toa00168 1550.25097700 56045.88253027514331182 1.21100 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 6295956212
+ toa00169 1549.52099600 56054.68548904988536750 4.53800 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 6342179731
+ toa00170 1549.08996600 56058.65184792712438453 1.54600 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 6363007693
+ toa00171 1550.45300300 56059.78923674606539338 1.01200 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 6368979052
+ toa00172 1575.07897900 56071.82244040228200719 5.98100 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 6432164230
+ toa00173 1564.39404300 56085.70530346686293841 5.47700 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 6505059544
+ toa00174 1550.62902800 56094.70093868965745374 0.50000 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 6552295192
+ toa00175 1564.31201200 56101.69549489789534578 2.52000 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 6589022120
+ toa00176 1549.73596200 56107.57502319431419666 0.83100 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 6619894591
+ toa00177 1550.29504400 56109.55913406436025257 10.01400 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 6630313487
+ toa00178 1551.10900900 56114.73432710760054407 1.53700 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 6657488076
+ toa00179 1549.84301800 56116.52228520344131555 1.15900 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 6666876169
+ toa00180 1540.87902800 56130.55362614187047585 1.86400 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 6740555178
+ toa00181 1572.52905300 56143.33543712952496394 2.41900 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 6807675533
+ toa00182 1574.28601100 56149.51664083989143537 1.36100 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 6840133418
+ toa00183 1572.94799800 56151.45073114083613506 0.51500 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 6850290463
+ toa00184 1573.54504400 56154.48149107647733489 1.44100 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 6866203801
+ toa00185 1539.30896000 56162.74762647141185044 6.23300 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 6909611554
+ toa00186 1541.52795400 56179.26768813077279861 1.35700 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 6996365143
+ toa00187 1541.80297900 56188.25433401729154612 1.13400 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 7043559413
+ toa00188 1542.00695800 56192.37364086417124840 0.95600 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 7065191955
+ toa00189 1542.97094700 56193.43696567445239696 1.62300 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 7070775413
+ toa00190 1540.10498000 56250.31520295998143242 1.06900 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 7369486930
+ toa00191 1540.10302700 56253.15992742582235851 2.83700 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 7384428239
+ toa00192 1547.81604000 56255.16749597411773296 1.18100 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 7394970329
+ toa00193 1546.52502400 56265.99796264400513666 2.83900 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 7451850817
+C J121231_033655.NEFTp 1542.90197800 56292.16963538924124677 35.66000 h
+ toa00194 1547.79199200 56330.16650923432552221 1.67300 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 7788847141
+ toa00195 1555.47399900 56337.04346014074203284 1.50900 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 7824960661
+ toa00196 1555.29699700 56340.01533027425114329 1.19100 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 7840567059
+ toa00197 1555.70605500 56357.96455073566192526 0.89600 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 7934822820
+ toa00198 1556.32104500 56374.03638607148798032 3.08900 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 8019218808
+ toa00199 1554.80505400 56379.90166088029936207 0.47700 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 8050018398
+ toa00200 1556.63195800 56383.91356573227748870 0.86400 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 8071085924
+ toa00201 1554.33898900 56391.91350229253412438 1.36600 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 8113093732
+ toa00202 1555.71203600 56403.90328372031298274 2.06500 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 8176049991
+ toa00203 1556.77795400 56412.91124935766116453 0.23000 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 8223349606
+ toa00204 1556.56897000 56423.79492363979099965 1.10400 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 8280500128
+ toa00205 1555.68200700 56441.76900751876067917 1.74300 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 8374878184
+ toa00206 1554.73498500 56466.80633363809747580 7.64300 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 8506344491
+ toa00207 1555.53405800 56474.66100737157433018 0.74300 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 8547588660
+ toa00208 1553.52697800 56479.80296580008843508 0.58100 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 8574590542
+ toa00209 1554.07202100 56480.63335130941517024 0.76500 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 8578950292
+ toa00210 1556.13793900 56500.57821588796859489 0.43200 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 8683681191
+ toa00211 1554.44494600 56509.54187092361159559 0.91500 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 8730751265
+ toa00212 1554.65600600 56520.53807697206916148 1.38800 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 8788493300
+C J130826_102346.NEFTp 1551.38501000 56530.43385376309946011 76.07700 jb  -group JBO.DFB.1520 -sys JBO.DFB.1520  -padd 0.146515
+ toa00213 1555.96899400 56534.48693680938146686 6.00300 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 8861744456
+ toa00214 1554.49902300 56543.47868215683677749 1.13300 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 8908963010
+ toa00215 1552.03198200 56557.49999982109221550 2.37700 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 8982597266
+ toa00216 1556.02600100 56577.20915986321962708 8.00100 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 9086101091
+ toa00217 1555.17199700 56604.29673766714003067 1.32500 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 9228361215
+ toa00218 1556.50402800 56618.11544285722004064 2.13800 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 9300934690
+ toa00219 1555.33203100 56626.22144310048531866 2.09500 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 9343506569
+ toa00220 1558.20397900 56628.23149574773024115 3.35100 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 9354063125
+ toa00221 1555.58203100 56629.07358894033121475 0.38600 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 9358485074
+ toa00222 1553.13696300 56632.29066437428320855 5.74400 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 9375380013
+ toa00223 1553.76196300 56649.17419210744658473 0.51000 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 9464050640
+ toa00224 1565.28796400 56683.08139570873058775 0.46100 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 9642121853
+ toa00225 1564.67602500 56704.02385332567016905 0.56600 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 9752101260
+ toa00226 1564.24096700 56739.92577596417551975 0.35400 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 9940629798
+ toa00227 1568.22900400 56760.86868337097178214 1.07400 jb -group JBO.DFB.1520 -sys JBO.DFB.1520 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 10050603126
+C J140824_114402.NEFTp 1559.53894000 56893.50514233121007379 3.84600 jb  -group JBO.DFB.1520 -sys JBO.DFB.1520  -padd 0.146515
+C J140924_094049.NEFTp 1558.35400400 56924.42064742603268357 1.04800 jb  -group JBO.DFB.1520 -sys JBO.DFB.1520  -padd 0.146515
+C J141015_081807.NEFTp 1555.56298800 56945.36338426780870137 0.31500 jb  -group JBO.DFB.1520 -sys JBO.DFB.1520  -padd 0.146515
+C J141130_051712.NEFTp 1563.99304200 56991.23765214771941956 2.84700 jb  -group JBO.DFB.1520 -sys JBO.DFB.1520  -padd 0.146515
+C J141218_040617.NEFTp 1565.51001000 57009.18825208160695084 0.84100 jb  -group JBO.DFB.1520 -sys JBO.DFB.1520  -padd 0.146515
+ toa00228 1352.999 54484.11842609970183962 17.269 g -group EFF.EBPP.1360 -sys EFF.EBPP.1360 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -1905393547
+ toa00229 1352.999 55037.50302082659343962 9.311 g -group EFF.EBPP.1360 -sys EFF.EBPP.1360 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 1000569544
+ toa00230 1352.999 55087.39976868893803962 4.671 g -group EFF.EBPP.1360 -sys EFF.EBPP.1360 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 1262591853
+ toa00231 1352.999 55087.53376178069033962 1.436 g -group EFF.EBPP.1360 -sys EFF.EBPP.1360 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 1263295626
+C freq ?? -c037180.align.pazr.30min 1352.999 55108.2732062497416  18.104  g  -group EFF.EBPP.1360 -sys EFF.EBPP.1360  -padd 0.441779
+ toa00232 1352.999 55110.21413215059753962 1.386 g -group EFF.EBPP.1360 -sys EFF.EBPP.1360 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 1382403187
+C Er. c037264.align.pazr.30min 1355.754 55110.2314234524715  81.954  g  -group EFF.EBPP.1360 -sys EFF.EBPP.1360  -padd 0.441779
+ toa00233 1352.999 55134.19631955120483962 3.174 g -group EFF.EBPP.1360 -sys EFF.EBPP.1360 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 1508352135
+ toa00234 1355.754 55134.29488447894963962 12.277 g -group EFF.EBPP.1360 -sys EFF.EBPP.1360 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 1508869859
+C freq ?? -c037718.align.pazr.30min 1352.999 55146.1562384605621  26.544  g  -group EFF.EBPP.1360 -sys EFF.EBPP.1360  -padd 0.441779
+C freq ?? -c037731.align.pazr.30min 1352.999 55146.2475465168557  23.555  g  -group EFF.EBPP.1360 -sys EFF.EBPP.1360  -padd 0.441779
+ toa00235 1352.999 55229.05034757364673962 1.416 g -group EFF.EBPP.1360 -sys EFF.EBPP.1360 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 2006505863
+ toa00236 1352.999 55264.94348397994393962 11.158 g -group EFF.EBPP.1360 -sys EFF.EBPP.1360 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 2194992572
+ toa00237 1352.999 55284.78752340969063962 25.071 g -group EFF.EBPP.1360 -sys EFF.EBPP.1360 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 2299198223
+ toa00238 1352.999 55284.90126185655903962 5.921 g -group EFF.EBPP.1360 -sys EFF.EBPP.1360 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 2299795463
+ toa00239 1352.999 55311.70137766102993962 1.856 g -group EFF.EBPP.1360 -sys EFF.EBPP.1360 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 2440519953
+ toa00240 1352.999 55351.75875014256133962 1.285 g -group EFF.EBPP.1360 -sys EFF.EBPP.1360 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 2650855133
+C freq ?? -c038906.align.pazr.30min 1352.999 55359.5766782995645  28.323  g  -group EFF.EBPP.1360 -sys EFF.EBPP.1360  -padd 0.441779
+ toa00241 1352.999 55373.48754636916163962 0.765 g -group EFF.EBPP.1360 -sys EFF.EBPP.1360 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 2764950297
+ toa00242 1352.999 55373.55608815996363962 0.903 g -group EFF.EBPP.1360 -sys EFF.EBPP.1360 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 2765310163
+ toa00243 1353.000 55471.43565982509273962 4.029 g -group EFF.EBPP.1360 -sys EFF.EBPP.1360 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 3279302071
+ toa00244 1353.000 55513.27623868183963962 3.675 g -group EFF.EBPP.1360 -sys EFF.EBPP.1360 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 3499038258
+C Er. -c040766.align.pazr.30min 1353.000 55513.3058680632474  77.106  g  -group EFF.EBPP.1360 -sys EFF.EBPP.1360  -padd 0.441779
+C Er. -c040767.align.pazr.30min 1352.999 55513.3542939010273 102.690  g  -group EFF.EBPP.1360 -sys EFF.EBPP.1360  -padd 0.441779
+C Er. - c040769.align.pazr.30min 1353.000 55513.4066551688059  67.940  g  -group EFF.EBPP.1360 -sys EFF.EBPP.1360  -padd 0.441779
+C ??? maser ?c041059.align.pazr.30min 1352.999 55533.1856367426741   0.950  g  -group EFF.EBPP.1360 -sys EFF.EBPP.1360  -padd 0.441779
+ toa00245 1352.999 55573.92637744640583962 4.236 g -group EFF.EBPP.1360 -sys EFF.EBPP.1360 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 3817563324
+ toa00246 1352.999 55573.99068407028923962 7.364 g -group EFF.EBPP.1360 -sys EFF.EBPP.1360 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 3817901026
+ toa00247 1352.999 55574.05392367484823962 2.770 g -group EFF.EBPP.1360 -sys EFF.EBPP.1360 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 3818233122
+ toa00248 1352.999 55574.07466475587993962 2.655 g -group EFF.EBPP.1360 -sys EFF.EBPP.1360 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 3818342041
+ toa00249 1352.999 55574.15088728128093962 3.893 g -group EFF.EBPP.1360 -sys EFF.EBPP.1360 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 3818742311
+ toa00250 1352.999 55574.23607081548253962 3.342 g -group EFF.EBPP.1360 -sys EFF.EBPP.1360 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 3819189634
+ toa00251 1352.999 55574.92431158665003962 1.756 g -group EFF.EBPP.1360 -sys EFF.EBPP.1360 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 3822803651
+ toa00252 1352.999 55574.99041694995303962 2.316 g -group EFF.EBPP.1360 -sys EFF.EBPP.1360 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 3823150767
+ toa00253 1352.999 55575.05619823358493962 2.634 g -group EFF.EBPP.1360 -sys EFF.EBPP.1360 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 3823496180
+ toa00254 1352.999 55575.12907984740543962 7.530 g -group EFF.EBPP.1360 -sys EFF.EBPP.1360 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 3823878875
+ toa00255 1352.999 55575.19600727456033962 4.154 g -group EFF.EBPP.1360 -sys EFF.EBPP.1360 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 3824230304
+ toa00256 1352.999 55575.26997692608843962 15.189 g -group EFF.EBPP.1360 -sys EFF.EBPP.1360 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 3824618710
+ toa00257 1352.999 55576.01570265645513962 21.003 g -group EFF.EBPP.1360 -sys EFF.EBPP.1360 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 3828534429
+ toa00258 1352.999 55576.04008115622123962 2.460 g -group EFF.EBPP.1360 -sys EFF.EBPP.1360 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 3828662439
+ toa00259 1352.999 55576.16292847146203962 3.409 g -group EFF.EBPP.1360 -sys EFF.EBPP.1360 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 3829307505
+ toa00260 1352.999 55576.18553264221733962 2.237 g -group EFF.EBPP.1360 -sys EFF.EBPP.1360 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 3829426199
+ toa00261 1352.999 55576.20813697298613962 1.555 g -group EFF.EBPP.1360 -sys EFF.EBPP.1360 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 3829544894
+ toa00262 1352.999 55576.22636591109873962 1.835 g -group EFF.EBPP.1360 -sys EFF.EBPP.1360 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 3829640614
+ toa00263 1352.999 55578.15544001593053962 0.742 g -group EFF.EBPP.1360 -sys EFF.EBPP.1360 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 3839771189
+ toa00264 1352.999 55578.17585675211403962 0.800 g -group EFF.EBPP.1360 -sys EFF.EBPP.1360 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 3839878420
+ toa00265 1352.999 55604.84781272626241369 4.113 g -group EFF.EBPP.1360 -sys EFF.EBPP.1360 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 3979949648
+ toa00266 1352.999 55604.93420018680851369 3.599 g -group EFF.EBPP.1360 -sys EFF.EBPP.1360 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 3980403300
+ toa00267 1352.999 55604.99329416055011369 2.054 g -group EFF.EBPP.1360 -sys EFF.EBPP.1360 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 3980713621
+ toa00268 1353.000 55605.00859973858161369 7.137 g -group EFF.EBPP.1360 -sys EFF.EBPP.1360 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 3980793995
+C Er. -c045808.align.pazr.30min 1352.999 55605.0695088719850  64.412  g  -group EFF.EBPP.1360 -sys EFF.EBPP.1360  -padd 0.441779
+ toa00269 1352.999 55605.08870420290661369 4.476 g -group EFF.EBPP.1360 -sys EFF.EBPP.1360 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 3981214644
+ toa00270 1352.999 55605.15998861386831369 4.769 g -group EFF.EBPP.1360 -sys EFF.EBPP.1360 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 3981588973
+ toa00271 1352.999 55628.04214140823443962 4.906 g -group EFF.EBPP.1360 -sys EFF.EBPP.1360 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 4101750905
+ toa00272 1352.999 55660.79932905556826554 3.336 g -group EFF.EBPP.1360 -sys EFF.EBPP.1360 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 4273761549
+ toa00273 1352.999 55661.84106800272586554 10.342 g -group EFF.EBPP.1360 -sys EFF.EBPP.1360 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 4279230865
+ toa00274 1352.999 55661.89626549259436554 15.788 g -group EFF.EBPP.1360 -sys EFF.EBPP.1360 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 4279520664
+ toa00275 1352.999 55661.94482200382816554 32.778 g -group EFF.EBPP.1360 -sys EFF.EBPP.1360 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 4279775597
+ toa00276 1352.999 55661.98512755300116554 14.442 g -group EFF.EBPP.1360 -sys EFF.EBPP.1360 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 4279987211
+ toa00277 1353.041 55695.77892736227633962 10.966 g -group EFF.EBPP.1360 -sys EFF.EBPP.1360 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 4457434739
+ toa00278 1352.999 55696.73559056871243962 5.962 g -group EFF.EBPP.1360 -sys EFF.EBPP.1360 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 4462458775
+ toa00279 1352.999 55696.75670150289363962 11.184 g -group EFF.EBPP.1360 -sys EFF.EBPP.1360 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 4462569642
+ toa00280 1352.999 55722.71042518010803962 1.023 g -group EFF.EBPP.1360 -sys EFF.EBPP.1360 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 4598848896
+ toa00281 1352.999 55786.52940776033863962 2.087 g -group EFF.EBPP.1360 -sys EFF.EBPP.1360 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 4933961669
+ toa00282 1353.000 55786.54370392228423962 7.709 g -group EFF.EBPP.1360 -sys EFF.EBPP.1360 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 4934036730
+ toa00283 1352.999 55787.49262199782543962 2.923 g -group EFF.EBPP.1360 -sys EFF.EBPP.1360 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 4939019102
+ toa00284 1352.999 55822.39267756721353962 2.947 g -group EFF.EBPP.1360 -sys EFF.EBPP.1360 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 5122294456
+C Er. -c052960.align.pazr.30min 1352.999 55822.4149306723663  88.587  g  -group EFF.EBPP.1360 -sys EFF.EBPP.1360  -padd 0.441779
+# Cc053620.align.pazr.30min 1346.010 55850.3120372992573   6.463  g  -group EFF.EBPP.1360 -sys EFF.EBPP.1360  -padd 0.441779
+ toa00285 1352.999 55935.09340304565153962 0.407 g -group EFF.EBPP.1360 -sys EFF.EBPP.1360 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 5714172784
+# C  Er. -c055530.align.pazr.30min 1352.999 55962.1300021682979 123.727  g  -group EFF.EBPP.1360 -sys EFF.EBPP.1360  -padd 0.441779
+C no signal c055530.align.pazr.30min 1352.999 55962.1300021682977 693.749  g  -group EFF.EBPP.1360 -sys EFF.EBPP.1360  -padd 0.441779
+ toa00286 1352.999 55996.89454873376673962 2.962 g -group EFF.EBPP.1360 -sys EFF.EBPP.1360 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 6038720459
+C drift MJD c056978.align.pazr.30min 1352.999 56060.8122805004003  26.955  g  -group EFF.EBPP.1360 -sys EFF.EBPP.1360  -padd 0.441779
+C no signal c057209.align.pazr.30min 1352.999 56093.7196876557363 268.732  g  -group EFF.EBPP.1360 -sys EFF.EBPP.1360  -padd 0.441779
+C drift MJD c057418.align.pazr.30min 1352.999 56114.5290276059028  38.712  g  -group EFF.EBPP.1360 -sys EFF.EBPP.1360  -padd 0.441779
+ toa00287 1352.999 56135.60819231208963962 9.083 g -group EFF.EBPP.1360 -sys EFF.EBPP.1360 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 6767098783
+ toa00288 1352.999 56135.65706010902693962 2.280 g -group EFF.EBPP.1360 -sys EFF.EBPP.1360 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 6767355389
+ toa00289 1352.999 56150.56390617342843962 0.673 g -group EFF.EBPP.1360 -sys EFF.EBPP.1360 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 6845633475
+ toa00290 1352.999 56158.34631798600483962 2.133 g -group EFF.EBPP.1360 -sys EFF.EBPP.1360 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 6886500865
+ toa00291 1352.999 56158.39812131153343962 1.543 g -group EFF.EBPP.1360 -sys EFF.EBPP.1360 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 6886772918
+ toa00292 1352.999 56158.44971320637603962 1.552 g -group EFF.EBPP.1360 -sys EFF.EBPP.1360 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 6887043859
+ toa00293 1352.999 56158.50131227602853962 2.280 g -group EFF.EBPP.1360 -sys EFF.EBPP.1360 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 6887314836
+ toa00294 1352.999 56158.55324643051563962 3.995 g -group EFF.EBPP.1360 -sys EFF.EBPP.1360 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 6887587571
+ toa00295 1352.999 56158.60507314015923962 5.560 g -group EFF.EBPP.1360 -sys EFF.EBPP.1360 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 6887859740
+ toa00296 1352.999 56158.65664025662163962 4.017 g -group EFF.EBPP.1360 -sys EFF.EBPP.1360 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 6888130544
+ toa00297 1352.999 56158.68998851595473962 8.507 g -group EFF.EBPP.1360 -sys EFF.EBPP.1360 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 6888305671
+ toa00298 1352.999 56191.23450244644033962 8.378 g -group EFF.EBPP.1360 -sys EFF.EBPP.1360 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 7059210560
+ toa00299 1352.999 56271.16037052420123962 2.799 g -group EFF.EBPP.1360 -sys EFF.EBPP.1360 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 7478962542
+ toa00300 1352.999 56298.06700253049523962 5.822 g -group EFF.EBPP.1360 -sys EFF.EBPP.1360 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 7620272178
+ toa00301 1352.999 56361.08526633113953962 2.623 g -group EFF.EBPP.1360 -sys EFF.EBPP.1360 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 7951212242
+ toa00302 1352.999 56422.76702567357203962 6.169 g -group EFF.EBPP.1360 -sys EFF.EBPP.1360 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 8275102194
+ toa00303 1352.999 56485.77471080568751369 15.021 g -group EFF.EBPP.1360 -sys EFF.EBPP.1360 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 8605947947
+# CC? c062587.align.pazr.30min 1352.999 56521.6120402449971   1.827  g  -group EFF.EBPP.1360 -sys EFF.EBPP.1360  -padd 0.441779
+CC ?c062883.align.pazr.30min 1352.999 56522.4680438541065   0.580  g  -group EFF.EBPP.1360 -sys EFF.EBPP.1360  -padd 0.441779
+CC ?c063114.align.pazr.30min 1352.999 56542.4519560411461   3.579  g  -group EFF.EBPP.1360 -sys EFF.EBPP.1360  -padd 0.441779
+CC ?c063745.align.pazr.30min 1352.999 56606.2322221391068   1.217  g  -group EFF.EBPP.1360 -sys EFF.EBPP.1360  -padd 0.441779
+CC ?c064475.align.pazr.30min 1352.999 56634.3223030365648   1.195  g  -group EFF.EBPP.1360 -sys EFF.EBPP.1360  -padd 0.441779
+CC ?c064759.align.pazr.30min 1352.999 56635.2162615407081   6.583  g  -group EFF.EBPP.1360 -sys EFF.EBPP.1360  -padd 0.441779
+CC ?c064916.align.pazr.30min 1352.999 56669.1930788987230   2.698  g  -group EFF.EBPP.1360 -sys EFF.EBPP.1360  -padd 0.441779
+CC ?c065450.align.pazr.30min 1353.062 56696.9930439563217   0.998  g  -group EFF.EBPP.1360 -sys EFF.EBPP.1360  -padd 0.441779
+CC ?c065820.align.pazr.30min 1352.999 56795.5896993146523   8.656  g  -group EFF.EBPP.1360 -sys EFF.EBPP.1360  -padd 0.441779
+ toa00304 1409.99900000 50361.19640703509605710 12.93600 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -23556323710
+C c001332.align.pazr.30min 1411.39900000 50361.22634363519710021 12.00300 g  -group EFF.EBPP.1410 -sys EFF.EBPP.1410  -padd 0.429283
+C c001334.align.pazr.30min 1411.39900000 50361.24750072650400057 11.72600 g  -group EFF.EBPP.1410 -sys EFF.EBPP.1410  -padd 0.429283
+C c001336.align.pazr.30min 1411.39900000 50361.26865821943399837 8.66500 g  -group EFF.EBPP.1410 -sys EFF.EBPP.1410  -padd 0.429283
+C c001338.align.pazr.30min 1411.39900000 50361.28981535127989844 6.47000 g  -group EFF.EBPP.1410 -sys EFF.EBPP.1410  -padd 0.429283
+C c001340.align.pazr.30min 1411.39900000 50361.31097326396960057 7.39900 g  -group EFF.EBPP.1410 -sys EFF.EBPP.1410  -padd 0.429283
+C c001342.align.pazr.30min 1411.39900000 50361.33213024291629978 6.92700 g  -group EFF.EBPP.1410 -sys EFF.EBPP.1410  -padd 0.429283
+C c001344.align.pazr.30min 1411.39900000 50361.35328762027220151 6.66300 g  -group EFF.EBPP.1410 -sys EFF.EBPP.1410  -padd 0.429283
+C c001346.align.pazr.30min 1411.39900000 50361.37444539540770094 8.58600 g  -group EFF.EBPP.1410 -sys EFF.EBPP.1410  -padd 0.429283
+C c001348.align.pazr.30min 1411.39900000 50361.39560261501249983 6.97300 g  -group EFF.EBPP.1410 -sys EFF.EBPP.1410  -padd 0.429283
+C c001350.align.pazr.30min 1411.39900000 50361.41676023014089836 8.63600 g  -group EFF.EBPP.1410 -sys EFF.EBPP.1410  -padd 0.429283
+C c001352.align.pazr.30min 1411.39900000 50361.43791766884730166 9.43100 g  -group EFF.EBPP.1410 -sys EFF.EBPP.1410  -padd 0.429283
+C c001984.align.pazr.30min 1409.99900000 50435.28967628699859915 62.18200 g  -group EFF.EBPP.1410 -sys EFF.EBPP.1410  -padd 0.429283
+ toa00305 1409.99900000 50458.92971674582695722 4.34100 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -23043047518
+ toa00306 1409.99900000 50459.03950301934805960 2.67200 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -23042470864
+ toa00307 1409.99900000 50459.07608431308185952 3.18100 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -23042278720
+ toa00308 1409.99900000 50459.09527033463925842 3.36700 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -23042177945
+C c002126.align.pazr.30min 1409.99900000 50459.13296947677890003 3.39000 g  -group EFF.EBPP.1410 -sys EFF.EBPP.1410  -padd 0.429283
+ toa00309 1409.99900000 50459.19314120078065737 2.89900 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -23041663876
+ toa00310 1409.99900000 50459.28341497327725900 4.75000 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -23041189711
+ toa00311 1409.99900000 50459.93957090044335938 8.62700 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -23037743267
+ toa00312 1409.99900000 50459.98631649510345791 9.67300 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -23037497741
+ toa00313 1409.99900000 50460.09622985285225975 15.71800 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -23036920437
+ toa00314 1409.99900000 50461.12022072389565845 25.93900 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -23031542382
+C c002488.align.pazr.30min 1409.99900000 50470.05013141716240099 9.27300 g  -group EFF.EBPP.1410 -sys EFF.EBPP.1410  -padd 0.429283
+C c002495.align.pazr.30min 1409.99900000 50470.07410379450849902 8.28000 g  -group EFF.EBPP.1410 -sys EFF.EBPP.1410  -padd 0.429283
+C c002720.align.pazr.30min 1409.99900000 50526.77223022689739906 1.37000 g  -group EFF.EBPP.1410 -sys EFF.EBPP.1410  -padd 0.429283
+C c002726.align.pazr.30min 1409.99900000 50526.79638334153860058 1.12700 g  -group EFF.EBPP.1410 -sys EFF.EBPP.1410  -padd 0.429283
+C c002732.align.pazr.30min 1410.00000000 50526.80989607191079926 3.12400 g  -group EFF.EBPP.1410 -sys EFF.EBPP.1410  -padd 0.429283
+C c002889.align.pazr.30min 1410.00000000 50530.71721091913839885 13.03900 g  -group EFF.EBPP.1410 -sys EFF.EBPP.1410  -padd 0.429283
+C c002898.align.pazr.30min 1409.99900000 50530.79257588858889960 10.78700 g  -group EFF.EBPP.1410 -sys EFF.EBPP.1410  -padd 0.429283
+C c003070.align.pazr.30min 1409.99900000 50547.70633503928129926 4.46000 g  -group EFF.EBPP.1410 -sys EFF.EBPP.1410  -padd 0.429283
+C c003126.align.pazr.30min 1409.99900000 50547.89601520601690154 14.66200 g  -group EFF.EBPP.1410 -sys EFF.EBPP.1410  -padd 0.429283
+ toa00315 1410.00000000 50646.74769695334705826 3.53700 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -22056796008
+C c003323.align.pazr.30min 1410.00000000 50646.75497700224169861 1.79000 g  -group EFF.EBPP.1410 -sys EFF.EBPP.1410  -padd 0.429283
+ toa00316 1409.12500000 50693.24561358525735837 6.40300 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -21812626068
+ toa00317 1409.12400000 50735.23683610551395755 5.36400 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -21592104950
+C c003898.align.pazr.30min 1409.99900000 50758.13738003495939921 9.93600 g  -group EFF.EBPP.1410 -sys EFF.EBPP.1410  -padd 0.429283
+C c004639.align.pazr.30min 1409.99900000 50804.99178274873190020 21.36400 g  -group EFF.EBPP.1410 -sys EFF.EBPP.1410  -padd 0.429283
+C c004643.align.pazr.30min 1410.00000000 50805.00884279807630151 15.76100 g  -group EFF.EBPP.1410 -sys EFF.EBPP.1410  -padd 0.429283
+C c004743.align.pazr.30min 1409.99900000 50841.90014403772410034 5.96400 g  -group EFF.EBPP.1410 -sys EFF.EBPP.1410  -padd 0.429283
+C c004758.align.pazr.30min 1409.99900000 50841.98436398525930002 30.79500 g  -group EFF.EBPP.1410 -sys EFF.EBPP.1410  -padd 0.429283
+C c004781.align.pazr.30min 1409.99900000 50842.08782206064289966 1.44500 g  -group EFF.EBPP.1410 -sys EFF.EBPP.1410  -padd 0.429283
+C c004886.align.pazr.30min 1409.99900000 50842.88884293098210065 6.19300 g  -group EFF.EBPP.1410 -sys EFF.EBPP.1410  -padd 0.429283
+C c004889.align.pazr.30min 1409.99900000 50842.91448922806269906 3.75500 g  -group EFF.EBPP.1410 -sys EFF.EBPP.1410  -padd 0.429283
+ toa00318 1409.99900000 50843.05877351535735780 5.63400 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -21025846784
+ toa00319 1409.99900000 50843.07590342624295825 10.82200 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -21025756819
+C c004967.align.pazr.30min 1410.00000000 50843.18177107575279905 60.15800 g  -group EFF.EBPP.1410 -sys EFF.EBPP.1410  -padd 0.429283
+C c005101.align.pazr.30min 1410.00000000 50846.95828719763370174 3.00700 g  -group EFF.EBPP.1410 -sys EFF.EBPP.1410  -padd 0.429283
+ toa00320 1409.99900000 50846.96628797665925841 1.75400 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -21005328117
+C c005108.align.pazr.30min 1410.00000000 50846.97460662004640142 4.04400 g  -group EFF.EBPP.1410 -sys EFF.EBPP.1410  -padd 0.429283
+ toa00321 1407.49900000 50846.98050976028745988 3.16500 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -21005253436
+C c005213.align.pazr.30min 1409.99900000 50863.81823812592239875 36.24700 g  -group EFF.EBPP.1410 -sys EFF.EBPP.1410  -padd 0.429283
+C c005217.align.pazr.30min 1409.99900000 50863.84995118217129928 36.70800 g  -group EFF.EBPP.1410 -sys EFF.EBPP.1410  -padd 0.429283
+C c005221.align.pazr.30min 1409.99900000 50863.86953713409360134 36.85800 g  -group EFF.EBPP.1410 -sys EFF.EBPP.1410  -padd 0.429283
+ toa00322 1409.99900000 50894.77635454273945708 19.62000 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -20754262489
+ toa00323 1409.12400000 50931.94740785800355691 7.90900 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -20559077486
+ toa00324 1409.99900000 50981.79478329263065699 4.98700 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -20297336583
+ toa00325 1409.99900000 51011.77739189290615822 1.98900 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -20139900441
+ toa00326 1409.99900000 51012.42562164475045943 5.53100 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -20136496309
+C c006306.align.pazr.30min 1408.29700000 51012.46604339365289960 2.73800 g  -group EFF.EBPP.1410 -sys EFF.EBPP.1410  -padd 0.429283
+C c006321.align.pazr.30min 1408.29700000 51012.48420327432729948 2.93900 g  -group EFF.EBPP.1410 -sys EFF.EBPP.1410  -padd 0.429283
+ toa00327 1409.99900000 51012.49989045406435888 6.75500 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -20136106277
+C c006334.align.pazr.30min 1408.29700000 51012.52670634371580149 1.84200 g  -group EFF.EBPP.1410 -sys EFF.EBPP.1410  -padd 0.429283
+C c006349.align.pazr.30min 1408.29700000 51012.55202044360949998 1.80100 g  -group EFF.EBPP.1410 -sys EFF.EBPP.1410  -padd 0.429283
+C c006364.align.pazr.30min 1408.29700000 51012.57564855634129941 2.26300 g  -group EFF.EBPP.1410 -sys EFF.EBPP.1410  -padd 0.429283
+C c006379.align.pazr.30min 1408.29800000 51012.59006985942179924 17.38800 g  -group EFF.EBPP.1410 -sys EFF.EBPP.1410  -padd 0.429283
+ toa00328 1409.99900000 51012.60012995460855716 4.17400 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -20135579853
+ toa00329 1409.99900000 51012.69541245255555732 2.28900 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -20135079458
+ toa00330 1409.99900000 51012.71786148087925976 2.46000 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -20134961562
+ toa00331 1409.99900000 51012.73099963917785853 5.03500 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -20134892564
+ toa00332 1409.99900000 51013.55064842172705990 5.62700 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -20130587916
+C c006462.align.pazr.30min 1408.29700000 51013.59017080262029964 2.13400 g  -group EFF.EBPP.1410 -sys EFF.EBPP.1410  -padd 0.429283
+C c006477.align.pazr.30min 1408.29700000 51013.61992948490430066 2.59300 g  -group EFF.EBPP.1410 -sys EFF.EBPP.1410  -padd 0.429283
+C c006496.align.pazr.30min 1408.29700000 51013.65422203081190133 2.89200 g  -group EFF.EBPP.1410 -sys EFF.EBPP.1410  -padd 0.429283
+C c006512.align.pazr.30min 1408.29700000 51013.69095756756439997 3.14100 g  -group EFF.EBPP.1410 -sys EFF.EBPP.1410  -padd 0.429283
+C c006533.align.pazr.30min 1408.29700000 51013.71264905097029896 5.68300 g  -group EFF.EBPP.1410 -sys EFF.EBPP.1410  -padd 0.429283
+ toa00333 1409.99900000 51054.41800967799275905 1.74500 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -19915984480
+C c006905.align.pazr.30min 1408.29700000 51054.44094697482290002 2.16400 g  -group EFF.EBPP.1410 -sys EFF.EBPP.1410  -padd 0.429283
+C c007450.align.pazr.30min 1409.99900000 51083.24535316354700143 25.60700 g  -group EFF.EBPP.1410 -sys EFF.EBPP.1410  -padd 0.429283
+C c007457.align.pazr.30min 1408.29700000 51083.26956292488160116 32.82800 g  -group EFF.EBPP.1410 -sys EFF.EBPP.1410  -padd 0.429283
+C c007472.align.pazr.30min 1408.29700000 51083.29218157225729868 24.38100 g  -group EFF.EBPP.1410 -sys EFF.EBPP.1410  -padd 0.429283
+C c007487.align.pazr.30min 1408.29700000 51083.31478896822819991 29.97600 g  -group EFF.EBPP.1410 -sys EFF.EBPP.1410  -padd 0.429283
+C c007502.align.pazr.30min 1408.29700000 51083.33740929156709853 11.76000 g  -group EFF.EBPP.1410 -sys EFF.EBPP.1410  -padd 0.429283
+C c007517.align.pazr.30min 1408.29700000 51083.36002369304659965 13.43700 g  -group EFF.EBPP.1410 -sys EFF.EBPP.1410  -padd 0.429283
+C c007532.align.pazr.30min 1408.29700000 51083.38260914197660156 13.27900 g  -group EFF.EBPP.1410 -sys EFF.EBPP.1410  -padd 0.429283
+C c007547.align.pazr.30min 1408.29700000 51083.40520771464349892 9.43100 g  -group EFF.EBPP.1410 -sys EFF.EBPP.1410  -padd 0.429283
+C c007562.align.pazr.30min 1408.29700000 51083.42028497247810037 6.65300 g  -group EFF.EBPP.1410 -sys EFF.EBPP.1410  -padd 0.429283
+ toa00334 1409.99900000 51166.02907466976925714 3.60000 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -19329835423
+C c008155.align.pazr.30min 1409.99900000 51168.14942347822309898 6.35400 g  -group EFF.EBPP.1410 -sys EFF.EBPP.1410  -padd 0.429283
+C c008161.align.pazr.30min 1409.99900000 51168.17103819298609935 3.77500 g  -group EFF.EBPP.1410 -sys EFF.EBPP.1410  -padd 0.429283
+C c008167.align.pazr.30min 1409.99900000 51168.19261801709989967 5.82100 g  -group EFF.EBPP.1410 -sys EFF.EBPP.1410  -padd 0.429283
+C c008173.align.pazr.30min 1409.99900000 51168.21420563164170048 94.10700 g  -group EFF.EBPP.1410 -sys EFF.EBPP.1410  -padd 0.429283
+C c008179.align.pazr.30min 1409.99900000 51168.23388352241410004 75.31100 g  -group EFF.EBPP.1410 -sys EFF.EBPP.1410  -padd 0.429283
+ toa00335 1409.99900000 51183.08552722033095843 3.00700 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -19240259077
+ toa00336 1409.99900000 51183.25287462863705794 17.41600 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -19239380210
+ toa00337 1409.99900000 51237.82026077082195907 1.60700 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -18952817606
+ toa00338 1409.99900000 51237.84153787886155722 2.20200 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -18952705873
+ toa00339 1409.99900000 51238.89907757977305873 1.41400 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -18947152047
+ toa00340 1409.99900000 51238.91327579110255879 2.31000 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -18947077479
+ toa00341 1409.99900000 51248.04289392865565726 2.92600 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -18899134579
+ toa00342 1409.99900000 51256.82451455481045837 9.36700 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -18853020263
+ toa00343 1409.99900000 51258.73792874368735777 12.03400 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -18842973217
+ toa00344 1409.99900000 51260.96338693967525895 1.62900 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -18831288513
+ toa00345 1409.99900000 51275.80544420477425997 1.86500 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -18753351937
+ toa00346 1409.99900000 51309.80779571041615721 1.89900 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -18574808311
+ toa00347 1409.99900000 51383.63394879549395948 1.00900 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -18187154161
+C c010618.align.pazr.30min 1409.99900000 51397.26412093396820069 71.47900 g  -group EFF.EBPP.1410 -sys EFF.EBPP.1410  -padd 0.429283
+ toa00348 1409.99900000 51397.47492244931415921 4.24700 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -18114472935
+ toa00349 1409.99900000 51397.48919046870725917 7.66000 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -18114398008
+ toa00350 1410.00000000 51452.17587992703505744 4.48500 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -17827215609
+ toa00351 1409.99900000 51535.98390100891725989 1.55100 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -17387072937
+ toa00352 1409.99900000 51558.11292882948315845 7.84500 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -17270857440
+ toa00353 1409.99900000 51578.79924226298885752 4.72000 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -17162219766
+ toa00354 1409.99900000 51580.03578508150615771 3.41800 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -17155727012
+ toa00355 1408.94900000 51583.85244265186425732 14.47400 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -17135682756
+C c013047.align.pazr.30min 1409.99900000 51594.94386603908209921 87.07700 g  -group EFF.EBPP.1410 -sys EFF.EBPP.1410  -padd 0.429283
+C c013828.align.pazr.30min 1409.99900000 51683.71061382892009917 5.21600 g  -group EFF.EBPP.1410 -sys EFF.EBPP.1410  -padd 0.429283
+C c014028.align.pazr.30min 1409.99900000 51684.78578735233760000 2.17400 g  -group EFF.EBPP.1410 -sys EFF.EBPP.1410  -padd 0.429283
+C c014202.align.pazr.30min 1409.99900000 51685.80429426684129979 2.72600 g  -group EFF.EBPP.1410 -sys EFF.EBPP.1410  -padd 0.429283
+ toa00356 1409.99900000 51687.65691005120775851 6.43500 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -16590598171
+ toa00357 1409.99900000 51688.68317185521845995 5.20400 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -16585210226
+ toa00358 1409.99900000 51689.69320658845715737 5.78900 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -16579907407
+C c014780.align.pazr.30min 1409.99900000 51734.66725752382910031 50.71700 g  -group EFF.EBPP.1410 -sys EFF.EBPP.1410  -padd 0.429283
+C c014904.align.pazr.30min 1409.99900000 51770.69924209822340089 173.47000 g  -group EFF.EBPP.1410 -sys EFF.EBPP.1410  -padd 0.429283
+ toa00359 1411.39900000 51817.39679440141545779 9.61700 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -15909315858
+ toa00360 1416.99900000 51849.35451435802695978 1.84100 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -15741481582
+ toa00361 1409.99900000 51894.09913236542185781 2.54400 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -15506490649
+ toa00362 1409.99900000 51908.06859982400745916 4.09100 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -15433125482
+ toa00363 1409.99900000 51987.84166693368545846 2.72500 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -15014199507
+ toa00364 1409.99900000 51988.00954884057095977 1.56700 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -15013317852
+ toa00365 1409.99900000 52011.82131967928435994 4.63000 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -14888281122
+C c016333.align.pazr.30min 1409.99900000 52013.64821007705279854 84.29500 g  -group EFF.EBPP.1410 -sys EFF.EBPP.1410  -padd 0.429283
+C c016336.align.pazr.30min 1409.99900000 52013.67038202567849936 82.85100 g  -group EFF.EBPP.1410 -sys EFF.EBPP.1410  -padd 0.429283
+ toa00366 1409.99900000 52014.88456062249726013 1.17600 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -14872194760
+ toa00367 1409.99900000 52024.88738483121135896 6.94300 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -14819672296
+C c016484.align.pazr.30min 1409.99900000 52024.92377333434140141 58.79300 g  -group EFF.EBPP.1410 -sys EFF.EBPP.1410  -padd 0.429283
+C c016489.align.pazr.30min 1409.99900000 52024.95049976157480032 106.56200 g  -group EFF.EBPP.1410 -sys EFF.EBPP.1410  -padd 0.429283
+C c016495.align.pazr.30min 1409.99900000 52024.97689843645920149 86.94500 g  -group EFF.EBPP.1410 -sys EFF.EBPP.1410  -padd 0.429283
+C c016501.align.pazr.30min 1409.99900000 52025.00929026964509916 73.07300 g  -group EFF.EBPP.1410 -sys EFF.EBPP.1410  -padd 0.429283
+C c016510.align.pazr.30min 1409.99900000 52025.03642400647990129 87.25300 g  -group EFF.EBPP.1410 -sys EFF.EBPP.1410  -padd 0.429283
+ toa00368 1409.99900000 52042.81304196389135679 1.96300 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -14725547260
+ toa00369 1409.99900000 52046.69991924575975755 1.61200 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -14705136588
+C c016772.align.pazr.30min 1409.99900000 52091.75298652409700040 52.45900 g  -group EFF.EBPP.1410 -sys EFF.EBPP.1410  -padd 0.429283
+ toa00370 1409.99900000 52101.76554427679845698 15.96000 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -14415994136
+C c017003.align.pazr.30min 1409.99900000 52113.73392413961159875 69.27400 g  -group EFF.EBPP.1410 -sys EFF.EBPP.1410  -padd 0.429283
+ toa00371 1409.99900000 52214.22990783635645922 3.99000 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -13825396943
+ toa00372 1409.99900000 52240.16631393591655790 30.79600 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -13689180922
+ toa00373 1409.99900000 52303.01419635049855710 1.80000 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -13359118449
+ toa00374 1409.99900000 52305.97351316757375865 4.95200 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -13343579060
+ toa00375 1409.99900000 52331.94276669452585675 5.72800 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -13207203121
+ toa00376 1409.99900000 52364.71735001082075793 1.77000 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -13035097062
+ toa00377 1409.99900000 52365.98899336908945894 2.00000 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -13028419394
+ toa00378 1409.99900000 52393.83714142786875694 9.02000 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -12882192066
+ toa00379 1409.99900000 52436.77773193348685747 7.65300 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -12656716287
+ toa00380 1409.99900000 52459.77964177787475701 5.07500 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -12535935566
+ toa00381 1409.99900000 52481.71685236474785678 4.34000 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -12420743259
+C c021033.align.pazr.30min 1409.99900000 52496.41448528098279880 5.28500 g  -group EFF.EBPP.1410 -sys EFF.EBPP.1410  -padd 0.429283
+C c021039.align.pazr.30min 1409.99900000 52496.43580504641190032 4.19500 g  -group EFF.EBPP.1410 -sys EFF.EBPP.1410  -padd 0.429283
+C c021045.align.pazr.30min 1409.99900000 52496.45712424447630085 3.18500 g  -group EFF.EBPP.1410 -sys EFF.EBPP.1410  -padd 0.429283
+C c021416.align.pazr.30min 1409.99900000 52538.37422502403169844 3.92000 g  -group EFF.EBPP.1410 -sys EFF.EBPP.1410  -padd 0.429283
+ toa00382 1409.99900000 52540.25485018694215948 27.25400 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -12113342225
+ toa00383 1409.99900000 52540.27944495157065912 28.77300 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -12113213078
+C c021835.align.pazr.30min 1409.99900000 52558.23781299363690067 83.40200 g  -group EFF.EBPP.1410 -sys EFF.EBPP.1410  -padd 0.429283
+ toa00384 1409.99900000 52598.21003511061565898 34.44600 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -11808974523
+C c021899.align.pazr.30min 1409.99900000 52598.32390099603210132 16.22500 g  -group EFF.EBPP.1410 -sys EFF.EBPP.1410  -padd 0.429283
+ toa00385 1409.99900000 52630.13800986126105978 14.85000 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -11641292850
+ toa00386 1409.99900000 52630.31901681147715759 48.38300 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -11640342147
+ toa00387 1409.99900000 52664.07240100968195999 2.44000 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -11463079481
+ toa00388 1409.99900000 52664.09943904759225812 3.03300 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -11462937510
+ toa00389 1408.36600000 52727.82991953788096022 16.46700 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -11128268920
+ toa00390 1409.99900000 52727.92637792577555682 15.66000 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -11127762454
+ toa00391 1409.99900000 52760.67177121015465839 26.99300 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -10955817898
+ toa00392 1409.99900000 52760.82842633185155872 5.44700 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -10954995233
+ toa00393 1409.99900000 52808.71924832667125809 0.93000 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -10703527238
+ toa00394 1409.99900000 52820.75743690032445936 1.20600 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -10640316456
+ toa00395 1409.99900000 52893.61231511640835972 4.88800 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -10257742693
+ toa00396 1408.36600000 52975.19357679635905949 6.16100 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -9829297422
+ toa00397 1408.36600000 52975.25723427433755812 9.59200 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -9828963132
+ toa00398 1408.36600000 53028.14611151543305805 4.29000 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -9551202729
+ toa00399 1408.36600000 53028.22307942626495840 0.49800 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -9550798482
+ toa00400 1408.36600000 53061.03604588960115744 27.37300 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -9378482014
+ toa00401 1408.36600000 53085.67341478944335857 15.28500 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -9249106732
+ toa00402 1408.36600000 53085.73394700118065852 3.95100 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -9248788920
+ toa00403 1408.36600000 53135.79231533668875780 0.75200 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -8985935264
+ toa00404 1408.36600000 53193.71296340649885674 19.17000 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -8681800428
+ toa00405 1408.36600000 53223.69284792995955751 29.67400 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -8524374039
+ toa00406 1408.36600000 53258.54733853220525812 2.68800 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -8341343440
+ toa00407 1408.36600000 53284.24005826109835719 3.80300 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -8206415501
+ toa00408 1408.36600000 53297.23837985771825980 2.55300 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -8138152157
+ toa00409 1407.37400000 53336.37067625281615928 1.74500 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -7932635770
+ toa00410 1407.37500000 53336.40575265050906022 5.42200 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -7932451574
+C c025127.align.pazr.30min 1408.36600000 53336.98493090970439923 132.08700 g  -group EFF.EBPP.1410 -sys EFF.EBPP.1410  -padd 0.429283
+ toa00411 1407.37400000 53337.30872717856815750 17.49700 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -7927709563
+ toa00412 1408.36600000 53382.17696799352215702 26.54700 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -7692068974
+ toa00413 1408.36600000 53413.10215343544025994 3.76600 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -7529662705
+ toa00414 1408.36600000 53440.02347247541015800 5.92800 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -7388291049
+ toa00415 1408.36600000 53464.96284773910895776 10.30800 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -7257330717
+ toa00416 1408.36600000 53466.82038250714705778 9.43100 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -7247576503
+C c025738.align.pazr.30min 1408.36600000 53466.95695637236769926 39.10100 g  -group EFF.EBPP.1410 -sys EFF.EBPP.1410  -padd 0.429283
+ toa00417 1408.36600000 53486.77965034991095787 2.06500 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -7142773170
+ toa00418 1408.36600000 53486.91295175559505874 0.77100 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -7142073131
+ toa00419 1408.36600000 53492.84203723361315734 2.80800 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -7110940571
+ toa00420 1408.36600000 53492.90298636204915776 7.46300 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -7110620559
+ toa00421 1408.36600000 53495.83822980879815982 10.13600 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -7095206767
+ toa00422 1408.36600000 53495.90222258826705708 16.19500 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -7094870701
+ toa00423 1408.36600000 53499.84542880837815797 6.31900 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -7074166295
+ toa00424 1408.36600000 53499.90457226140515938 7.39700 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -7073855786
+ toa00425 1408.36600000 53511.79171340931916016 5.44300 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -7011437324
+ toa00426 1408.36600000 53511.85840341469455932 9.74200 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -7011087102
+ toa00427 1408.36600000 53514.77010229163745929 36.42000 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -6995798742
+ toa00428 1408.36600000 53514.81822406588795953 19.65900 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -6995546102
+ toa00429 1408.36600000 53546.69044016048485683 8.50500 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -6828190290
+ toa00430 1408.36600000 53546.75284495081725804 7.21600 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -6827862655
+ toa00431 1408.36600000 53624.46175101150005797 2.18900 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -6419800089
+ toa00432 1408.36600000 53624.50163802377685822 4.65600 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -6419590655
+ toa00433 1408.36600000 53638.42289387562785900 13.72600 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -6346481422
+ toa00434 1408.36600000 53638.54618092541235679 36.46400 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -6345834015
+ toa00435 1408.36600000 53644.45136914555755918 1.59600 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -6314822510
+ toa00436 1408.36600000 53644.48910328969635823 3.14000 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -6314624318
+ toa00437 1409.23700000 53645.37499691734695755 15.83800 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -6309971508
+ toa00438 1408.36600000 53672.31453729837395865 4.78500 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -6168493913
+ toa00439 1408.36600000 53679.28899726895005766 6.74200 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -6131864743
+ toa00440 1409.23700000 53691.26479201464165907 10.06700 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -6068968720
+ toa00441 1408.36600000 53761.03225732297965915 2.93400 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -5702565001
+ toa00442 1408.36600000 53798.96434030745675752 2.51300 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -5503368167
+ toa00443 1408.36600000 53802.95961834938826012 1.60100 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -5482386756
+ toa00444 1408.36600000 53814.92380042212635753 1.91500 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -5419561794
+ toa00445 1408.36600000 53886.70719539021605964 18.12100 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -5042631698
+ toa00446 1408.36600000 54147.07659721816345903 8.54200 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -3675309891
+ toa00447 1408.36600000 54154.07259272458015669 39.27200 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -3638570640
+ toa00448 1408.36600000 54157.09077561332995880 3.96100 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -3622722824
+ toa00449 1408.36600000 54166.06387736045725727 0.67600 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -3575602005
+ toa00450 1408.36600000 54215.89561338659525684 0.95600 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -3313931737
+ toa00451 1408.36600000 54242.84635437338245960 15.26500 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -3172419328
+ toa00452 1408.36600000 54275.60062506650385809 1.83300 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -3000430850
+ toa00453 1408.36600000 54275.75737277473345681 8.39800 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -2999607659
+ toa00454 1408.36600000 54310.59015066968256018 1.66400 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -2816700517
+ toa00455 1408.36600000 54322.67693301002945698 0.84800 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -2753231422
+C c031838.align.pazr.30min 1408.36600000 54351.52758108333430087 2.13600 g  -group EFF.EBPP.1410 -sys EFF.EBPP.1410  -padd 0.429283
+ toa00456 1409.23700000 54394.45328716786055760 26.42200 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -2376296406
+ toa00457 1405.15300000 54458.13920157254165726 15.11800 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -2041827947
+ toa00458 1405.15300000 54460.10880817567565752 3.06100 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -2031485376
+ toa00459 1405.15300000 54528.92701431380815673 4.52000 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -1670081407
+ toa00460 1404.08400000 54660.64576393948315906 4.25000 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -978432823
+ toa00461 1404.08400000 54716.35806753582075739 1.06000 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -685876067
+ toa00462 1404.08400000 54716.45421321220575688 1.17800 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -685371234
+C c034512.align.pazr.30min 1404.08400000 54773.21431731663070153 2.74200 g  -group EFF.EBPP.1410 -sys EFF.EBPP.1410  -padd 0.429283
+ toa00463 1404.08400000 54781.17099556432445932 2.05800 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -345500231
+C c034927.align.pazr.30min 1404.08400000 54845.00754629722320033 5.68700 g  -group EFF.EBPP.1410 -sys EFF.EBPP.1410  -padd 0.429283
+C c034939.align.pazr.30min 1404.08400000 54845.12634251454329970 2.49500 g  -group EFF.EBPP.1410 -sys EFF.EBPP.1410  -padd 0.429283
+ toa00464 1402.99900000 54898.92131963442115843 1.64400 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 272884273
+C c035382.align.pazr.30min 1402.99900000 54915.85010449488540019 7.57000 g  -group EFF.EBPP.1410 -sys EFF.EBPP.1410  -padd 0.429283
+C c035385.align.pazr.30min 1405.28800000 54915.86781245881499913 77.74700 g  -group EFF.EBPP.1410 -sys EFF.EBPP.1410  -padd 0.429283
+C c035390.align.pazr.30min 1402.99900000 54915.92423615867869913 4.29200 g  -group EFF.EBPP.1410 -sys EFF.EBPP.1410  -padd 0.429283
+ toa00465 1406.20700000 54924.77663224610135966 23.35400 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 408655126
+ toa00466 1406.20700000 54924.87054399750465687 21.77600 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 409148309
+ toa00467 1406.20700000 54925.77790510130835837 2.81000 g -group EFF.EBPP.1410 -sys EFF.EBPP.1410 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 413913100
+C c035898.align.pazr.30min 1406.20700000 54949.79733813472639881 21.63400 g  -group EFF.EBPP.1410 -sys EFF.EBPP.1410  -padd 0.429283
+C c035901.align.pazr.30min 1406.20800000 54949.81810162398020125 112.97600 g  -group EFF.EBPP.1410 -sys EFF.EBPP.1410  -padd 0.429283
+C c036859.align.pazr.30min 1404.08400000 55086.35262747617349888 1.81700 g  -group EFF.EBPP.1410 -sys EFF.EBPP.1410  -padd 0.429283
+C c036871.align.pazr.30min 1402.99900000 55086.44818276724519990 7.54600 g  -group EFF.EBPP.1410 -sys EFF.EBPP.1410  -padd 0.429283
+ toa00468 2634.250 53803.92116325339722818 0.866 g -group EFF.EBPP.2639 -sys EFF.EBPP.2639 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -5477338221
+ toa00469 2634.250 53803.94208354499052818 1.269 g -group EFF.EBPP.2639 -sys EFF.EBPP.2639 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -5477228381
+ toa00470 2632.500 53952.55660895786692818 3.142 g -group EFF.EBPP.2639 -sys EFF.EBPP.2639 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -4696860324
+C Er.? c029477.align.pazr.30min 2639.256 53974.4913429366673  33.597  g  -group EFF.EBPP.2639 -sys EFF.EBPP.2639  -padd 0.441916
+ toa00471 2632.500 54072.24242410529472818 1.519 g -group EFF.EBPP.2639 -sys EFF.EBPP.2639 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -4068316697
+ toa00472 2634.250 54093.18361102093832818 1.004 g -group EFF.EBPP.2639 -sys EFF.EBPP.2639 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -3958336733
+ toa00473 2634.250 54118.09211810060292818 2.040 g -group EFF.EBPP.2639 -sys EFF.EBPP.2639 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -3827524163
+ toa00474 2634.250 54122.07743062087592818 2.165 g -group EFF.EBPP.2639 -sys EFF.EBPP.2639 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -3806592716
+ toa00475 2632.500 54133.07775475069832818 1.471 g -group EFF.EBPP.2639 -sys EFF.EBPP.2639 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -3748825527
+ toa00476 2633.680 54144.02465082106202818 2.992 g -group EFF.EBPP.2639 -sys EFF.EBPP.2639 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -3691336443
+C ??? maser?  c032151.align.pazr.30min 2634.250 54372.5297687790246   2.095  g  -group EFF.EBPP.2639 -sys EFF.EBPP.2639  -padd 0.441916
+ toa00477 2627.809 54502.01717565479907262 1.555 g -group EFF.EBPP.2639 -sys EFF.EBPP.2639 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -1811396100
+ toa00478 2625.499 54544.84680575841682818 1.233 g -group EFF.EBPP.2639 -sys EFF.EBPP.2639 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -1586483737
+ toa00479 2625.499 54549.90430579067682818 3.958 g -group EFF.EBPP.2639 -sys EFF.EBPP.2639 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -1559925972
+ toa00480 2625.499 54550.90245399619582818 1.828 g -group EFF.EBPP.2639 -sys EFF.EBPP.2639 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -1554684205
+ toa00481 2625.499 54551.87077552515752818 2.455 g -group EFF.EBPP.2639 -sys EFF.EBPP.2639 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -1549599670
+ toa00482 2625.499 54555.86306745035012818 4.749 g -group EFF.EBPP.2639 -sys EFF.EBPP.2639 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -1528637510
+ toa00483 2625.499 54608.76634264990422818 1.989 g -group EFF.EBPP.2639 -sys EFF.EBPP.2639 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -1250847495
+ toa00484 2625.499 54608.85906247740972818 4.902 g -group EFF.EBPP.2639 -sys EFF.EBPP.2639 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -1250360685
+C Er. c033250.align.pazr.30min 2630.346 54608.8773958298455  75.505  g  -group EFF.EBPP.2639 -sys EFF.EBPP.2639  -padd 0.441916
+ toa00485 2625.499 54609.65214137646222818 2.644 g -group EFF.EBPP.2639 -sys EFF.EBPP.2639 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -1246196546
+ toa00486 2625.499 54609.75532411097432818 2.164 g -group EFF.EBPP.2639 -sys EFF.EBPP.2639 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -1245654745
+ toa00487 2625.499 54643.65840285706162818 4.001 g -group EFF.EBPP.2639 -sys EFF.EBPP.2639 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -1067632943
+ toa00488 2625.499 54643.75982662622062818 3.278 g -group EFF.EBPP.2639 -sys EFF.EBPP.2639 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -1067100315
+ toa00489 2625.499 54653.59868073597192818 0.910 g -group EFF.EBPP.2639 -sys EFF.EBPP.2639 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -1015437215
+ toa00490 2625.499 54708.46620385065302818 3.141 g -group EFF.EBPP.2639 -sys EFF.EBPP.2639 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -727319475
+ toa00491 2625.499 54709.42096086548012818 2.503 g -group EFF.EBPP.2639 -sys EFF.EBPP.2639 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -722306431
+ toa00492 2625.499 54714.55006968761102818 9.474 g -group EFF.EBPP.2639 -sys EFF.EBPP.2639 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -695370173
+ toa00493 2625.499 54786.21265081162662818 1.894 g -group EFF.EBPP.2639 -sys EFF.EBPP.2639 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -319020430
+C RFI c035135.align.pazr.30min 2627.949 54899.8375347601602  50.515  g  -group EFF.EBPP.2639 -sys EFF.EBPP.2639  -padd 0.441916
+ toa00494 2627.949 54899.93419024863232818 2.442 g -group EFF.EBPP.2639 -sys EFF.EBPP.2639 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 278203671
+ toa00495 2627.949 54905.83909739648802818 3.151 g -group EFF.EBPP.2639 -sys EFF.EBPP.2639 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 309210801
+ toa00496 2627.949 54905.94600705613662818 1.952 g -group EFF.EBPP.2639 -sys EFF.EBPP.2639 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 309772179
+ toa00497 2627.949 54906.81738439023292818 2.651 g -group EFF.EBPP.2639 -sys EFF.EBPP.2639 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 314348016
+ toa00498 2627.949 54906.91064814304782818 4.357 g -group EFF.EBPP.2639 -sys EFF.EBPP.2639 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 314837797
+ toa00499 2627.949 54912.79390068949492818 1.774 g -group EFF.EBPP.2639 -sys EFF.EBPP.2639 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 345731801
+ toa00500 2627.949 54912.89114620255312818 9.753 g -group EFF.EBPP.2639 -sys EFF.EBPP.2639 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 346242383
+C Er. c035541.align.pazr.30min 2627.949 54917.7892247826186  38.247  g  -group EFF.EBPP.2639 -sys EFF.EBPP.2639  -padd 0.441916
+ toa00501 2625.499 54939.74388901545842818 2.458 g -group EFF.EBPP.2639 -sys EFF.EBPP.2639 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 487247264
+ toa00502 2625.499 54939.84399334485902818 2.148 g -group EFF.EBPP.2639 -sys EFF.EBPP.2639 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 487772982
+ toa00503 2625.499 54948.71717589993542818 2.172 g -group EFF.EBPP.2639 -sys EFF.EBPP.2639 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 534365793
+ toa00504 2625.499 54948.83096074561362818 3.025 g -group EFF.EBPP.2639 -sys EFF.EBPP.2639 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 534963291
+ toa00505 2625.499 54956.74387757737252818 2.258 g -group EFF.EBPP.2639 -sys EFF.EBPP.2639 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 576513001
+ toa00506 2627.949 54964.66957179767782818 1.198 g -group EFF.EBPP.2639 -sys EFF.EBPP.2639 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 618129622
+ toa00507 2627.949 54964.77272006396402818 1.697 g -group EFF.EBPP.2639 -sys EFF.EBPP.2639 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 618671239
+ toa00508 2627.949 54992.81001174399272818 4.266 g -group EFF.EBPP.2639 -sys EFF.EBPP.2639 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 765888562
+ toa00509 2627.949 55002.59196790155822818 2.766 g -group EFF.EBPP.2639 -sys EFF.EBPP.2639 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 817253712
+ toa00510 2627.949 55038.50006982983832818 1.378 g -group EFF.EBPP.2639 -sys EFF.EBPP.2639 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 1005804604
+ toa00511 2627.949 55100.39437516295172818 1.139 g -group EFF.EBPP.2639 -sys EFF.EBPP.2639 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 1330833248
+ toa00512 2627.949 55121.21949121496202818 2.686 g -group EFF.EBPP.2639 -sys EFF.EBPP.2639 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 1440201856
+ toa00513 2627.949 55121.31562532008942818 2.239 g -group EFF.EBPP.2639 -sys EFF.EBPP.2639 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 1440706703
+ toa00514 2627.949 55137.17393545677692818 3.219 g -group EFF.EBPP.2639 -sys EFF.EBPP.2639 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 1523991159
+ toa00515 2627.949 55158.22528946496282818 1.713 g -group EFF.EBPP.2639 -sys EFF.EBPP.2639 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 1634549214
+ toa00516 2627.949 55171.16541705157362818 1.545 g -group EFF.EBPP.2639 -sys EFF.EBPP.2639 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 1702507887
+ toa00517 2627.949 55171.22443303472222818 2.208 g -group EFF.EBPP.2639 -sys EFF.EBPP.2639 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 1702817816
+ toa00518 2627.949 55226.05375013410152818 2.617 g -group EFF.EBPP.2639 -sys EFF.EBPP.2639 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 1990767407
+ toa00519 2627.949 55253.09472225513172818 2.062 g -group EFF.EBPP.2639 -sys EFF.EBPP.2639 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 2132773507
+C RFI c038555.align.pazr.30min 2627.949 55299.8201970754597   2.352  g  -group EFF.EBPP.2639 -sys EFF.EBPP.2639  -padd 0.441916
+ toa00520 2627.949 55299.87919015677142818 1.488 g -group EFF.EBPP.2639 -sys EFF.EBPP.2639 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 2378444494
+ toa00521 2627.949 55329.76690994740602818 1.298 g -group EFF.EBPP.2639 -sys EFF.EBPP.2639 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 2535380655
+ toa00522 2627.949 55350.61304424632272818 3.134 g -group EFF.EBPP.2639 -sys EFF.EBPP.2639 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 2644839161
+ toa00523 2627.949 55360.65070628573682818 1.362 g -group EFF.EBPP.2639 -sys EFF.EBPP.2639 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 2697546132
+C freq ?? c039098.align.pazr.30min 2627.949 55372.7100925239304  16.533  g  -group EFF.EBPP.2639 -sys EFF.EBPP.2639  -padd 0.441916
+C Er. c039101.align.pazr.30min 2628.462 55372.7331891333349  47.784  g  -group EFF.EBPP.2639 -sys EFF.EBPP.2639  -padd 0.441916
+ toa00524 2627.949 55378.71891230364572818 2.118 g -group EFF.EBPP.2639 -sys EFF.EBPP.2639 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 2792421432
+ toa00525 2630.345 55472.40825255197642818 1.832 g -group EFF.EBPP.2639 -sys EFF.EBPP.2639 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 3284409897
+ toa00526 2627.949 55485.40241921943852818 3.307 g -group EFF.EBPP.2639 -sys EFF.EBPP.2639 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 3352650135
+ toa00527 2627.949 55489.18956052899332818 1.737 g -group EFF.EBPP.2639 -sys EFF.EBPP.2639 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 3372539921
+ toa00528 2627.949 55501.22869222397882818 1.339 g -group EFF.EBPP.2639 -sys EFF.EBPP.2639 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 3435766510
+ toa00529 2627.949 55576.90255806908862818 11.138 g -group EFF.EBPP.2639 -sys EFF.EBPP.2639 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 3833191401
+ toa00530 2627.949 55576.92370391718732818 8.454 g -group EFF.EBPP.2639 -sys EFF.EBPP.2639 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 3833302445
+ toa00531 2627.949 55603.85086820139390225 5.953 g -group EFF.EBPP.2639 -sys EFF.EBPP.2639 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 3974713985
+ toa00532 2627.949 55603.86557877625860225 7.525 g -group EFF.EBPP.2639 -sys EFF.EBPP.2639 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 3974791245
+ toa00533 2627.949 55604.16033018165280225 5.641 g -group EFF.EBPP.2639 -sys EFF.EBPP.2639 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 3976339255
+ toa00534 2627.949 55632.75739592963362818 3.329 g -group EFF.EBPP.2639 -sys EFF.EBPP.2639 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 4126509821
+C Er. c046814.align.pazr.30min 2627.949 55632.7874305780921  56.278  g  -group EFF.EBPP.2639 -sys EFF.EBPP.2639  -padd 0.441916
+C Er. c046829.align.pazr.30min 2627.949 55632.8126544405100  82.656  g  -group EFF.EBPP.2639 -sys EFF.EBPP.2639  -padd 0.441916
+C Er. c046844.align.pazr.30min 2627.949 55632.8448615117718  58.201  g  -group EFF.EBPP.2639 -sys EFF.EBPP.2639  -padd 0.441916
+C Er. c046859.align.pazr.30min 2627.949 55632.8743442153742  57.820  g  -group EFF.EBPP.2639 -sys EFF.EBPP.2639  -padd 0.441916
+C Er. c047628.align.pazr.30min 2627.949 55659.9064700040567  32.438  g  -group EFF.EBPP.2639 -sys EFF.EBPP.2639  -padd 0.441916
+ toa00535 2627.949 55694.82085675080412818 1.923 g -group EFF.EBPP.2639 -sys EFF.EBPP.2639 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 4452403620
+ toa00536 2627.949 55694.83361138500852818 15.637 g -group EFF.EBPP.2639 -sys EFF.EBPP.2639 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 4452470595
+ toa00537 2627.949 55723.62737301917638003 4.071 g -group EFF.EBPP.2639 -sys EFF.EBPP.2639 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 4603663010
+ toa00538 2627.949 55757.56755796996132818 6.234 g -group EFF.EBPP.2639 -sys EFF.EBPP.2639 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 4781879055
+C freq ?? c051988.align.pazr.30min 2627.949 55758.5752527786051  21.365  g  -group EFF.EBPP.2639 -sys EFF.EBPP.2639  -padd 0.441916
+ toa00539 2627.949 55786.32703707511442818 3.528 g -group EFF.EBPP.2639 -sys EFF.EBPP.2639 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 4932899139
+ toa00540 2627.949 55849.33327552952202818 1.040 g -group EFF.EBPP.2639 -sys EFF.EBPP.2639 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 5263775591
+C freq ?? c053620.align.pazr.30min 2627.949 55850.3120372941073  14.716  g  -group EFF.EBPP.2639 -sys EFF.EBPP.2639  -padd 0.441916
+ toa00541 2627.949 55906.12672458700832818 2.361 g -group EFF.EBPP.2639 -sys EFF.EBPP.2639 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 5562045228
+C RFI c054422.align.pazr.30min 2627.949 55906.3288424652786  21.151  g  -group EFF.EBPP.2639 -sys EFF.EBPP.2639  -padd 0.441916
+ toa00542 2627.949 55907.10081034229492818 2.499 g -group EFF.EBPP.2639 -sys EFF.EBPP.2639 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 5567161673
+ toa00543 2627.949 55933.22459517051342818 1.868 g -group EFF.EBPP.2639 -sys EFF.EBPP.2639 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 5704359638
+ toa00544 2627.949 55961.10172475304152818 0.890 g -group EFF.EBPP.2639 -sys EFF.EBPP.2639 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 5850758721
+# C
+ toa00545 2625.499 55995.82841461811162818 2.906 g -group EFF.EBPP.2639 -sys EFF.EBPP.2639 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 6033122717
+ toa00546 2625.499 55995.97234971812992818 1.675 g -group EFF.EBPP.2639 -sys EFF.EBPP.2639 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 6033878474
+C could be a drift MJD c056530.align.pazr.30min 2625.499 56032.0603356963745   4.151  g  -group EFF.EBPP.2639 -sys EFF.EBPP.2639  -padd 0.441916
+C drift MJD c056742.align.pazr.30min 2625.499 56059.9216668538939  17.031  g  -group EFF.EBPP.2639 -sys EFF.EBPP.2639  -padd 0.441916
+C drift MJD, no signal c057647.align.pazr.30min 2625.499 56115.7575521926663  45.943  g  -group EFF.EBPP.2639 -sys EFF.EBPP.2639  -padd 0.441916
+ toa00547 2625.499 56149.63590298075112818 2.081 g -group EFF.EBPP.2639 -sys EFF.EBPP.2639 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 6840759782
+ toa00548 2625.499 56190.24353008103992818 6.722 g -group EFF.EBPP.2639 -sys EFF.EBPP.2639 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 7054006761
+ toa00549 2625.499 56243.25192140768352818 6.696 g -group EFF.EBPP.2639 -sys EFF.EBPP.2639 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 7332392133
+ toa00550 2625.499 56273.18121161292352818 3.102 g -group EFF.EBPP.2639 -sys EFF.EBPP.2639 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 7489575780
+ toa00551 2625.499 56297.22937512910642818 8.540 g -group EFF.EBPP.2639 -sys EFF.EBPP.2639 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 7615872508
+ toa00552 2625.499 56360.04495387597282818 3.053 g -group EFF.EBPP.2639 -sys EFF.EBPP.2639 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 7945748622
+ toa00553 2625.499 56395.94054422137512818 2.739 g -group EFF.EBPP.2639 -sys EFF.EBPP.2639 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 8134238302
+C c061728.align.pazr.30min 2625.499 56457.7750810307875  10.853  g  -group EFF.EBPP.2639 -sys EFF.EBPP.2639  -padd 0.441916
+C note: point below still is RFI contaminated, but performs ok
+ toa00554 2597.499 56457.77509269045910225 4.258 g -group EFF.EBPP.2639 -sys EFF.EBPP.2639 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 8458923292
+ toa00555 2622.954 56486.74480349371320225 3.579 g -group EFF.EBPP.2639 -sys EFF.EBPP.2639 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 8611042201
+CC ?c063445.align.pazr.30min 2625.499 56543.5239813898639   5.759  g  -group EFF.EBPP.2639 -sys EFF.EBPP.2639  -padd 0.441916
+CC ?c064025.align.pazr.30min 2625.793 56608.2785828525209   3.665  g  -group EFF.EBPP.2639 -sys EFF.EBPP.2639  -padd 0.441916
+CC ?c064069.align.pazr.30min 2625.499 56633.3445834303070   1.820  g  -group EFF.EBPP.2639 -sys EFF.EBPP.2639  -padd 0.441916
+CC ?c064408.align.pazr.30min 2625.499 56634.1767013528263   3.812  g  -group EFF.EBPP.2639 -sys EFF.EBPP.2639  -padd 0.441916
+CC ?c065584.align.pazr.30min 2625.499 56698.0145022167566   2.429  g  -group EFF.EBPP.2639 -sys EFF.EBPP.2639  -padd 0.441916
+CC ?c066084.align.pazr.30min 2625.499 56796.8289235562040   1.364  g  -group EFF.EBPP.2639 -sys EFF.EBPP.2639  -padd 0.441916
+ toa00556 1396.992000 53355.189682668788323 1.146 ncy -group NRT.BON.1400 -sys NRT.BON.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -7833800060
+ toa00557 1397.000000 53357.189204190371812 0.698 ncy -group NRT.BON.1400 -sys NRT.BON.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -7823298114
+ toa00558 1397.000000 53359.183729746953105 1.051 ncy -group NRT.BON.1400 -sys NRT.BON.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -7812824473
+ toa00559 1396.989000 53361.177705576806310 0.302 ncy -group NRT.BON.1400 -sys NRT.BON.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -7802353163
+ toa00560 1397.000000 53363.169648114719872 0.231 ncy -group NRT.BON.1400 -sys NRT.BON.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -7791890541
+ toa00561 1396.989000 53374.143425320378234 0.702 ncy -group NRT.BON.1400 -sys NRT.BON.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -7734258755
+ toa00562 1397.000000 53379.107492244609943 5.205 ncy -group NRT.BON.1400 -sys NRT.BON.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -7708188454
+ toa00563 1396.973000 53385.112684276387280 0.396 ncy -group NRT.BON.1400 -sys NRT.BON.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -7676652329
+ toa00564 1397.000000 53394.089756822009432 2.908 ncy -group NRT.BON.1400 -sys NRT.BON.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -7629507068
+ toa00565 1396.991000 53399.071679890121563 0.635 ncy -group NRT.BON.1400 -sys NRT.BON.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -7603344997
+ toa00566 1397.000000 53410.039584559049801 0.708 ncy -group NRT.BON.1400 -sys NRT.BON.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -7545745589
+ toa00567 1396.992000 53411.037344841498320 0.372 ncy -group NRT.BON.1400 -sys NRT.BON.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -7540505314
+ toa00568 1397.000000 53412.034214213137130 1.729 ncy -group NRT.BON.1400 -sys NRT.BON.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -7535270302
+ toa00569 1397.000000 53423.004086927735080 0.812 ncy -group NRT.BON.1400 -sys NRT.BON.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -7477664988
+ toa00570 1397.000000 53424.001355394652109 0.278 ncy -group NRT.BON.1400 -sys NRT.BON.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -7472427809
+ toa00571 1397.000000 53424.998624122047952 0.660 ncy -group NRT.BON.1400 -sys NRT.BON.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -7467190131
+ toa00572 1397.000000 53425.997344912935328 1.939 ncy -group NRT.BON.1400 -sys NRT.BON.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -7461944744
+ toa00573 1397.000000 53426.995009932908672 0.780 ncy -group NRT.BON.1400 -sys NRT.BON.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -7456705291
+ toa00574 1397.000000 53433.970622022293305 8.795 ncy -group NRT.BON.1400 -sys NRT.BON.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -7420074635
+ toa00575 1397.000000 53434.965753568460855 0.787 ncy -group NRT.BON.1400 -sys NRT.BON.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -7414848655
+ toa00576 1397.000000 53450.929327006140784 0.551 ncy -group NRT.BON.1400 -sys NRT.BON.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -7331021146
+ toa00577 1397.000000 53451.927047240360041 1.070 ncy -group NRT.BON.1400 -sys NRT.BON.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -7325782528
+ toa00578 1397.000000 53494.802118305255638 0.682 ncy -group NRT.BON.1400 -sys NRT.BON.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -7100648063
+ toa00579 1397.000000 53496.796573778918267 2.159 ncy -group NRT.BON.1400 -sys NRT.BON.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -7090174061
+ toa00580 1397.000000 53499.790162977111443 3.369 ncy -group NRT.BON.1400 -sys NRT.BON.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -7074456445
+ toa00581 1396.961000 53502.789937690939312 0.320 ncy -group NRT.BON.1400 -sys NRT.BON.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -7058705094
+ toa00582 1397.349000 53505.773206918495440 1.121 ncy -group NRT.BON.1400 -sys NRT.BON.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -7043039162
+ toa00583 1397.000000 53508.765911432916533 6.714 ncy -group NRT.BON.1400 -sys NRT.BON.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -7027326860
+ toa00584 1396.982000 53510.765772313879067 0.437 ncy -group NRT.BON.1400 -sys NRT.BON.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -7016825170
+ toa00585 1396.991000 53512.758692644906423 0.498 ncy -group NRT.BON.1400 -sys NRT.BON.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -7006359456
+ toa00586 1396.988000 53518.737608607365920 0.710 ncy -group NRT.BON.1400 -sys NRT.BON.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -6974966278
+ toa00587 1396.543000 53527.718385571759157 0.819 ncy -group NRT.BON.1400 -sys NRT.BON.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -6927808841
+ toa00588 1397.000000 53533.706089333763405 5.159 ncy -group NRT.BON.1400 -sys NRT.BON.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -6896369674
+ toa00589 1397.000000 53543.673693423911865 2.119 ncy -group NRT.BON.1400 -sys NRT.BON.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -6844029572
+ toa00590 1397.000000 53545.662546260737088 0.426 ncy -group NRT.BON.1400 -sys NRT.BON.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -6833586837
+ toa00591 1396.991000 53546.665533168973048 4.612 ncy -group NRT.BON.1400 -sys NRT.BON.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -6828321055
+ toa00592 1397.000000 53548.654480631661164 1.142 ncy -group NRT.BON.1400 -sys NRT.BON.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -6817877813
+ toa00593 1395.760000 53549.666431588984350 0.963 ncy -group NRT.BON.1400 -sys NRT.BON.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -6812563549
+ toa00594 1397.000000 53550.660892826420678 0.426 ncy -group NRT.BON.1400 -sys NRT.BON.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -6807340924
+ toa00595 1397.000000 53553.648314471464212 0.974 ncy -group NRT.BON.1400 -sys NRT.BON.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -6791654391
+ toa00596 1397.000000 53560.628225182129790 0.791 ncy -group NRT.BON.1400 -sys NRT.BON.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -6755002658
+ toa00597 1397.000000 53561.626601778722495 2.379 ncy -group NRT.BON.1400 -sys NRT.BON.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -6749760895
+ toa00598 1396.936000 53570.601449561888309 1.516 ncy -group NRT.BON.1400 -sys NRT.BON.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -6702634767
+ toa00599 1397.031000 53574.590506271385638 0.409 ncy -group NRT.BON.1400 -sys NRT.BON.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -6681686492
+ toa00600 1396.995000 53575.585738839871860 1.587 ncy -group NRT.BON.1400 -sys NRT.BON.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -6676460233
+ toa00601 1397.000000 53577.583544375995585 0.355 ncy -group NRT.BON.1400 -sys NRT.BON.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -6665970762
+ toa00602 1396.968000 53580.581329025806258 3.776 ncy -group NRT.BON.1400 -sys NRT.BON.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -6650229496
+ toa00603 1397.000000 53582.567593815189582 0.982 ncy -group NRT.BON.1400 -sys NRT.BON.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -6639797959
+ toa00604 1397.000000 53588.550902558463468 1.056 ncy -group NRT.BON.1400 -sys NRT.BON.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -6608380012
+ toa00605 1397.000000 53589.547627834780622 0.173 ncy -group NRT.BON.1400 -sys NRT.BON.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -6603145234
+ toa00606 1397.000000 53596.529123665943961 3.464 ncy -group NRT.BON.1400 -sys NRT.BON.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -6566484580
+ toa00607 1396.990000 53597.526512295963338 0.698 ncy -group NRT.BON.1400 -sys NRT.BON.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -6561246254
+ toa00608 1397.000000 53600.517533476179266 0.195 ncy -group NRT.BON.1400 -sys NRT.BON.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -6545539864
+ toa00609 1396.983000 53603.510558457815538 0.446 ncy -group NRT.BON.1400 -sys NRT.BON.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -6529823701
+ toa00610 1397.000000 53607.509343720870031 3.044 ncy -group NRT.BON.1400 -sys NRT.BON.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -6508823171
+ toa00611 1397.000000 53610.497129486625203 5.672 ncy -group NRT.BON.1400 -sys NRT.BON.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -6493135071
+ toa00612 1397.000000 53614.476683683647266 1.306 ncy -group NRT.BON.1400 -sys NRT.BON.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -6472234880
+ toa00613 1397.000000 53616.473401958621027 1.410 ncy -group NRT.BON.1400 -sys NRT.BON.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -6461750362
+ toa00614 1396.961000 53623.449591824393229 0.447 ncy -group NRT.BON.1400 -sys NRT.BON.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -6425114635
+ toa00615 1397.000000 53624.455067234427848 0.889 ncy -group NRT.BON.1400 -sys NRT.BON.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -6419835183
+ toa00616 1397.000000 53625.464681458555914 1.572 ncy -group NRT.BON.1400 -sys NRT.BON.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -6414533873
+ toa00617 1396.944000 53626.450201571072736 2.995 ncy -group NRT.BON.1400 -sys NRT.BON.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -6409358554
+ toa00618 1397.000000 53629.454671436975262 4.180 ncy -group NRT.BON.1400 -sys NRT.BON.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -6393578648
+ toa00619 1397.000000 53630.436158860714027 7.912 ncy -group NRT.BON.1400 -sys NRT.BON.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -6388424252
+ toa00620 1397.000000 53631.444295048208829 2.605 ncy -group NRT.BON.1400 -sys NRT.BON.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -6383130499
+ toa00621 1397.000000 53633.437178361938358 1.917 ncy -group NRT.BON.1400 -sys NRT.BON.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -6372666154
+ toa00622 1396.991000 53636.419304828966164 12.555 ncy -group NRT.BON.1400 -sys NRT.BON.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -6357003989
+ toa00623 1396.991000 53638.415159656659906 3.944 ncy -group NRT.BON.1400 -sys NRT.BON.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -6346522036
+ toa00624 1396.976000 53640.409212313261060 8.191 ncy -group NRT.BON.1400 -sys NRT.BON.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -6336051435
+ toa00625 1396.929000 53643.401090877076766 1.705 ncy -group NRT.BON.1400 -sys NRT.BON.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -6320339022
+ toa00626 1397.000000 53644.396797618606355 1.305 ncy -group NRT.BON.1400 -sys NRT.BON.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -6315109138
+ toa00627 1397.000000 53647.389734945447908 0.513 ncy -group NRT.BON.1400 -sys NRT.BON.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -6299391571
+ toa00628 1390.942000 53659.356995504265087 0.863 ncy -group NRT.BON.1400 -sys NRT.BON.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -6236543206
+ toa00629 1396.982000 53668.333864673687680 1.246 ncy -group NRT.BON.1400 -sys NRT.BON.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -6189397926
+ toa00630 1396.991000 53672.321595561537242 1.407 ncy -group NRT.BON.1400 -sys NRT.BON.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -6168456847
+ toa00631 1397.000000 53681.296911101516358 4.289 ncy -group NRT.BON.1400 -sys NRT.BON.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -6121320091
+ toa00632 1396.362000 53682.294482623242794 0.792 ncy -group NRT.BON.1400 -sys NRT.BON.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -6116080430
+ toa00633 1398.000000 53688.275188113235863 0.286 ncy -group NRT.BON.1400 -sys NRT.BON.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -6084671240
+ toa00634 1397.142000 53690.259813115748564 0.509 ncy -group NRT.BON.1400 -sys NRT.BON.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -6074247526
+ toa00635 1395.095000 53695.247758720932691 0.456 ncy -group NRT.BON.1400 -sys NRT.BON.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -6048051845
+ toa00636 1398.000000 53696.243435863625983 6.775 ncy -group NRT.BON.1400 -sys NRT.BON.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -6042823086
+ toa00637 1398.000000 53697.240876377460730 0.661 ncy -group NRT.BON.1400 -sys NRT.BON.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -6037584450
+ toa00638 1398.000000 53698.250498976273257 0.368 ncy -group NRT.BON.1400 -sys NRT.BON.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -6032281334
+ toa00639 1398.000000 53706.228658920972230 0.353 ncy -group NRT.BON.1400 -sys NRT.BON.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -5990380913
+ toa00640 1398.000000 53712.222975602750200 4.231 ncy -group NRT.BON.1400 -sys NRT.BON.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -5958900616
+ toa00641 1398.000000 53718.211252843539115 8.569 ncy -group NRT.BON.1400 -sys NRT.BON.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -5927450320
+ toa00642 1398.645000 53722.189223136199309 2.215 ncy -group NRT.BON.1400 -sys NRT.BON.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -5906558058
+ toa00643 1398.000000 53728.152247404965226 0.419 ncy -group NRT.BON.1400 -sys NRT.BON.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -5875242575
+ toa00644 1398.000000 53750.102964304564075 0.477 ncy -group NRT.BON.1400 -sys NRT.BON.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -5759962633
+ toa00645 1398.000000 53758.086691111249174 0.628 ncy -group NRT.BON.1400 -sys NRT.BON.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -5718034979
+ toa00646 1398.000000 53764.076585399536156 0.314 ncy -group NRT.BON.1400 -sys NRT.BON.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -5686577147
+ toa00647 1398.081000 53795.976701026242590 1.940 ncy -group NRT.BON.1400 -sys NRT.BON.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -5519056459
+ toa00648 1398.000000 53839.849133901062215 7.026 ncy -group NRT.BON.1400 -sys NRT.BON.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -5288677010
+ toa00649 1398.000000 53840.841216719264440 1.012 ncy -group NRT.BON.1400 -sys NRT.BON.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -5283467350
+ toa00650 1398.000000 53872.767119300179572 0.220 ncy -group NRT.BON.1400 -sys NRT.BON.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -5115828574
+ toa00651 1398.000000 53879.754463161499306 3.756 ncy -group NRT.BON.1400 -sys NRT.BON.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -5079139041
+ toa00652 1398.000000 53895.709381418480710 1.628 ncy -group NRT.BON.1400 -sys NRT.BON.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -4995362417
+ toa00653 1398.000000 53929.613013586570022 0.923 ncy -group NRT.BON.1400 -sys NRT.BON.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -4817339228
+ toa00654 1398.000000 53933.617094658204088 2.044 ncy -group NRT.BON.1400 -sys NRT.BON.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -4796312249
+ toa00655 1398.000000 53934.600609019523807 2.759 ncy -group NRT.BON.1400 -sys NRT.BON.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -4791147560
+ toa00656 1398.000000 53955.547310274765612 0.237 ncy -group NRT.BON.1400 -sys NRT.BON.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -4681155530
+ toa00657 1398.000000 53956.535301898177434 0.679 ncy -group NRT.BON.1400 -sys NRT.BON.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -4675966608
+ toa00658 1398.000000 53967.526661916191229 4.151 ncy -group NRT.BON.1400 -sys NRT.BON.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -4618248661
+# C../../data/combination_kj_diode/53976.000012.f.000.000.zap 1398.000000 53976.488535991339315   0.436  ncy  -group NRT.BON.1400 -sys NRT.BON.1400
+ toa00659 1398.000000 53980.491015229222313 1.133 ncy -group NRT.BON.1400 -sys NRT.BON.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -4550167622
+ toa00660 1398.000000 54052.281228104310735 0.499 ncy -group NRT.BON.1400 -sys NRT.BON.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -4173148858
+ toa00661 1398.000000 54055.273033582361425 1.022 ncy -group NRT.BON.1400 -sys NRT.BON.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -4157438164
+ toa00662 1398.000000 54061.255960403059746 0.916 ncy -group NRT.BON.1400 -sys NRT.BON.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -4126015566
+ toa00663 1397.921000 54066.243064559146161 3.177 ncy -group NRT.BON.1400 -sys NRT.BON.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -4099823217
+ toa00664 1398.000000 54109.125614454188284 2.176 ncy -group NRT.BON.1400 -sys NRT.BON.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -3874613213
+ toa00665 1398.000000 54123.100596940966598 3.983 ncy -group NRT.BON.1400 -sys NRT.BON.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -3801219918
+ toa00666 1398.000000 54126.092138086689898 4.632 ncy -group NRT.BON.1400 -sys NRT.BON.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -3785510981
+ toa00667 1398.000000 54138.046436511847983 2.008 ncy -group NRT.BON.1400 -sys NRT.BON.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -3722730561
+ toa00668 1398.000000 54143.032778815676966 1.394 ncy -group NRT.BON.1400 -sys NRT.BON.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -3696545980
+ toa00669 1398.000000 54153.005475911122777 0.845 ncy -group NRT.BON.1400 -sys NRT.BON.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -3644174099
+ toa00670 1397.959000 54185.914687052424125 0.676 ncy -group NRT.BON.1400 -sys NRT.BON.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -3471361598
+ toa00671 1398.000000 54186.912651731056729 0.519 ncy -group NRT.BON.1400 -sys NRT.BON.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -3466121997
+ toa00672 1398.000000 54189.904457267465898 0.533 ncy -group NRT.BON.1400 -sys NRT.BON.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -3450411441
+ toa00673 1398.000000 54190.901725659619715 1.041 ncy -group NRT.BON.1400 -sys NRT.BON.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -3445173972
+ toa00674 1398.000000 54237.773392266801049 0.249 ncy -group NRT.BON.1400 -sys NRT.BON.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -3199054934
+ toa00675 1398.000000 54259.723126044783553 0.688 ncy -group NRT.BON.1400 -sys NRT.BON.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -3083801672
+ toa00676 1398.000000 54277.663472073141522 0.308 ncy -group NRT.BON.1400 -sys NRT.BON.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -2989597766
+ toa00677 1398.000000 54278.660740625646305 0.275 ncy -group NRT.BON.1400 -sys NRT.BON.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -2984361369
+ toa00678 1398.000000 54564.877848306811217 0.247 ncy -group NRT.BON.1400 -sys NRT.BON.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -1481299923
+ toa00679 1398.000000 54580.827904722790366 7.026 ncy -group NRT.BON.1400 -sys NRT.BON.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -1397546951
+ toa00680 1398.000000 54607.764319629781666 1.623 ncy -group NRT.BON.1400 -sys NRT.BON.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -1256108240
+ toa00681 1398.000000 54617.732441852460849 0.534 ncy -group NRT.BON.1400 -sys NRT.BON.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -1203768227
+ toa00682 1398.000000 54625.711286062798321 1.609 ncy -group NRT.BON.1400 -sys NRT.BON.1400 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -1161872561
+ toa00683 1628.232000 55901.232531830806517 2.802 ncy -group NRT.BON.1600 -sys NRT.BON.1600 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 5536343407
+ toa00684 1619.324000 55917.180086303971844 1.710 ncy -group NRT.BON.1600 -sys NRT.BON.1600 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 5620097500
+ toa00685 1627.022000 55934.129485112171674 2.247 ncy -group NRT.BON.1600 -sys NRT.BON.1600 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 5709111319
+ toa00686 1628.446000 55946.095044057785373 0.483 ncy -group NRT.BON.1600 -sys NRT.BON.1600 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 5771950289
+ toa00687 1627.778000 55978.002651102996840 0.721 ncy -group NRT.BON.1600 -sys NRT.BON.1600 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 5939514075
+ toa00688 1627.818000 55980.999895748319696 1.081 ncy -group NRT.BON.1600 -sys NRT.BON.1600 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 5955253542
+ toa00689 1619.792000 55985.985816400556558 2.349 ncy -group NRT.BON.1600 -sys NRT.BON.1600 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 5981436478
+ toa00690 1627.647000 55986.980408767010042 0.769 ncy -group NRT.BON.1600 -sys NRT.BON.1600 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 5986659817
+ toa00691 1626.833000 55990.973071116932594 12.881 ncy -group NRT.BON.1600 -sys NRT.BON.1600 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 6007624358
+ toa00692 1626.784000 55998.955231119584275 3.272 ncy -group NRT.BON.1600 -sys NRT.BON.1600 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 6049540416
+ toa00693 1589.825000 56045.826982682531142 1.566 ncy -group NRT.BON.1600 -sys NRT.BON.1600 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 6295664535
+ toa00694 1625.126000 56062.774732114934027 0.566 ncy -group NRT.BON.1600 -sys NRT.BON.1600 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 6384655268
+ toa00695 1628.871000 56075.742945647644334 0.231 ncy -group NRT.BON.1600 -sys NRT.BON.1600 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 6452749041
+ toa00696 1624.868000 56079.732052052100586 2.397 ncy -group NRT.BON.1600 -sys NRT.BON.1600 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 6473696332
+ toa00697 1628.126000 56096.683493614674891 3.621 ncy -group NRT.BON.1600 -sys NRT.BON.1600 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 6562706210
+ toa00698 1629.999000 56101.670322523136994 2.251 ncy -group NRT.BON.1600 -sys NRT.BON.1600 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 6588889925
+ toa00699 1629.826000 56110.645873506495438 0.236 ncy -group NRT.BON.1600 -sys NRT.BON.1600 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 6636020745
+ toa00700 1626.811000 56127.598764703267025 2.411 ncy -group NRT.BON.1600 -sys NRT.BON.1600 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 6725040734
+ toa00701 1628.112000 56134.579484931002304 2.935 ncy -group NRT.BON.1600 -sys NRT.BON.1600 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 6761696666
+ toa00702 1624.851000 56135.586487600339172 5.169 ncy -group NRT.BON.1600 -sys NRT.BON.1600 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 6766984811
+ toa00703 1628.635000 56137.571383832666349 0.582 ncy -group NRT.BON.1600 -sys NRT.BON.1600 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 6777406614
+ toa00704 1627.402000 56152.532262519177634 1.719 ncy -group NRT.BON.1600 -sys NRT.BON.1600 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 6855969287
+ toa00705 1626.824000 56169.479042905882699 2.160 ncy -group NRT.BON.1600 -sys NRT.BON.1600 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 6944961015
+ toa00706 1627.648000 56178.461741696991161 0.870 ncy -group NRT.BON.1600 -sys NRT.BON.1600 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 6992132534
+ toa00707 1627.999000 56204.393534510153421 2.528 ncy -group NRT.BON.1600 -sys NRT.BON.1600 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 7128316584
+ toa00708 1628.295000 56206.386986958554734 9.770 ncy -group NRT.BON.1600 -sys NRT.BON.1600 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 7138785991
+ toa00709 1625.975000 56241.294646114612795 0.932 ncy -group NRT.BON.1600 -sys NRT.BON.1600 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 7322111509
+ toa00710 1627.340000 56243.285107551491092 8.767 ncy -group NRT.BON.1600 -sys NRT.BON.1600 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 7332566447
+ toa00711 1591.993000 56251.259446566681422 0.621 ncy -group NRT.BON.1600 -sys NRT.BON.1600 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 7374446726
+ toa00712 1628.793000 56400.865588204950929 2.218 ncy -group NRT.BON.1600 -sys NRT.BON.1600 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 8160101093
+ toa00713 1627.250000 56402.855063811327607 3.176 ncy -group NRT.BON.1600 -sys NRT.BON.1600 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 8170546639
+ toa00714 1627.055000 56418.812120438477201 1.922 ncy -group NRT.BON.1600 -sys NRT.BON.1600 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 8254334966
+ toa00715 1627.830000 56420.812184719356446 8.892 ncy -group NRT.BON.1600 -sys NRT.BON.1600 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 8264836330
+ toa00716 1627.197000 56430.770557271472389 1.183 ncy -group NRT.BON.1600 -sys NRT.BON.1600 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 8317127585
+ toa00717 1626.793000 56451.716720819047809 1.588 ncy -group NRT.BON.1600 -sys NRT.BON.1600 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 8427110899
+ toa00718 1630.316000 56533.490428996841026 0.559 ncy -group NRT.BON.1600 -sys NRT.BON.1600 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 8856511672
+ toa00719 1627.465000 56608.289660239017547 0.657 ncy -group NRT.BON.1600 -sys NRT.BON.1600 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 9249329590
+ toa00720 1627.778000 56619.253135285732111 0.743 ncy -group NRT.BON.1600 -sys NRT.BON.1600 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 9306910219
+ toa00721 1629.315000 56690.062757721349638 0.616 ncy -group NRT.BON.1600 -sys NRT.BON.1600 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 9678785342
+ toa00722 1626.842000 56698.042354367256684 1.135 ncy -group NRT.BON.1600 -sys NRT.BON.1600 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 9720690160
+ toa00723 1629.002000 56712.996369497486002 0.468 ncy -group NRT.BON.1600 -sys NRT.BON.1600 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 9799219761
+ toa00724 1627.469000 56736.930620359762129 0.495 ncy -group NRT.BON.1600 -sys NRT.BON.1600 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 9924903812
+ toa00725 1626.646000 56751.883658440815947 1.798 ncy -group NRT.BON.1600 -sys NRT.BON.1600 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 10003423201
+ toa00726 1626.732000 56767.844134008328515 0.619 ncy -group NRT.BON.1600 -sys NRT.BON.1600 -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 10087231030
+ toa00727 1380.000 53750.09791688954925416 1.4 wsrt -i puma1 -r 1380 -B D -nbin 256 -group WSRT.P1.1380.C -sys WSRT.P1.1380.C -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -5759989138
+ toa00728 1380.000 53777.05405099758105416 4.7 wsrt -i puma1 -r 1380 -B D -nbin 256 -group WSRT.P1.1380.C -sys WSRT.P1.1380.C -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -5618425783
+ toa00729 1380.000 53806.94236120139285416 0.8 wsrt -i puma1 -r 1380 -B D -nbin 256 -group WSRT.P1.1380.C -sys WSRT.P1.1380.C -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -5461473689
+ toa00730 1380.000 53840.83495390399255416 0.5 wsrt -i puma1 -r 1380 -B D -nbin 256 -group WSRT.P1.1380.C -sys WSRT.P1.1380.C -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -5283500236
+ toa00731 1380.000 53854.60659729780535416 1.8 wsrt -i puma1 -r 1380 -B D -nbin 256 -group WSRT.P1.1380.C -sys WSRT.P1.1380.C -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -5211187516
+ toa00732 1380.000 53881.77905098731275416 1.0 wsrt -i puma1 -r 1380 -B D -nbin 256 -group WSRT.P1.1380.C -sys WSRT.P1.1380.C -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -5068509285
+ toa00733 1380.000 53882.60718677631845416 6.0 wsrt -i puma1 -r 1380 -B D -nbin 256 -group WSRT.P1.1380.C -sys WSRT.P1.1380.C -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -5064161517
+ toa00734 1380.000 53910.61261587388685416 0.6 wsrt -i puma1 -r 1380 -B D -nbin 256 -group WSRT.P1.1380.C -sys WSRT.P1.1380.C -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -4917107538
+ toa00735 1380.000 53945.60462978141235416 6.6 wsrt -i puma1 -r 1380 -B D -nbin 256 -group WSRT.P1.1380.C -sys WSRT.P1.1380.C -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -4733366618
+ toa00736 1380.000 54001.48599547659345416 3.4 wsrt -i puma1 -r 1380 -B D -nbin 256 -group WSRT.P1.1380.C -sys WSRT.P1.1380.C -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -4439914263
+ toa00737 1375.000 54009.45613437666265416 1.2 wsrt -i puma1 -r 1380 -B D -nbin 256 -group WSRT.P1.1380.C -sys WSRT.P1.1380.C -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -4398058091
+ toa00738 1380.000 54022.41423621261035416 1.4 wsrt -i puma1 -r 1380 -B D -nbin 256 -group WSRT.P1.1380.C -sys WSRT.P1.1380.C -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -4330005465
+ toa00739 1375.000 54025.15925943216895416 2.5 wsrt -i puma1 -r 1380 -B D -nbin 256 -group WSRT.P1.1380.C -sys WSRT.P1.1380.C -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -4315589959
+ toa00740 1375.000 54030.33495389744885416 0.9 wsrt -i puma1 -r 1380 -B D -nbin 256 -group WSRT.P1.1380.C -sys WSRT.P1.1380.C -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -4288407883
+ toa00741 1375.000 54072.12418986745905416 0.9 wsrt -i puma1 -r 1380 -B D -nbin 256 -group WSRT.P1.1380.C -sys WSRT.P1.1380.C -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -4068937725
+ toa00742 1375.000 54075.26388911350125416 1.1 wsrt -i puma1 -r 1380 -B D -nbin 256 -group WSRT.P1.1380.C -sys WSRT.P1.1380.C -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -4052446783
+ toa00743 1375.000 54079.14652800718545416 0.9 wsrt -i puma1 -r 1380 -B D -nbin 256 -group WSRT.P1.1380.C -sys WSRT.P1.1380.C -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -4032057684
+ toa00744 1375.000 54080.12743073576955416 6.8 wsrt -i puma1 -r 1380 -B D -nbin 256 -group WSRT.P1.1380.C -sys WSRT.P1.1380.C -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -4026905668
+ toa00745 1335.000 54106.18715289324855416 4.3 wsrt -i puma1 -r 1380 -B D -nbin 256 -group WSRT.P1.1380.C -sys WSRT.P1.1380.C -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -3890043480
+ toa00746 1375.000 54114.87175947102365416 4.7 wsrt -i puma1 -r 1380 -B D -nbin 256 -group WSRT.P1.1380.C -sys WSRT.P1.1380.C -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -3844434658
+ toa00747 1375.000 54135.12488434991235416 9.1 wsrt -i puma1 -r 1380 -B D -nbin 256 -group WSRT.P1.1380.C -sys WSRT.P1.1380.C -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -3738074267
+ toa00748 1375.000 54155.00613448679045416 7.7 wsrt -i puma1 -r 1380 -B D -nbin 256 -group WSRT.P1.1380.C -sys WSRT.P1.1380.C -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -3633668994
+ toa00749 1375.000 54162.80405101715465416 0.7 wsrt -i puma1 -r 1380 -B D -nbin 256 -group WSRT.P1.1380.C -sys WSRT.P1.1380.C -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -3592719741
+ toa00750 1375.000 54165.96215284915185416 0.6 wsrt -i puma1 -r 1380 -B D -nbin 256 -group WSRT.P1.1380.C -sys WSRT.P1.1380.C -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -3576136257
+ toa00751 1375.000 54196.95416682662185416 0.6 wsrt -i puma1 -r 1380 -B D -nbin 256 -group WSRT.P1.1380.C -sys WSRT.P1.1380.C -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -3413393818
+ toa00752 1375.000 54197.85983818489575416 1.3 wsrt -i puma1 -r 1380 -B D -nbin 256 -group WSRT.P1.1380.C -sys WSRT.P1.1380.C -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -3408637471
+ toa00753 1375.000 54217.90868063347645416 0.8 wsrt -i puma1 -r 1380 -B D -nbin 256 -group WSRT.P1.1380.C -sys WSRT.P1.1380.C -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -3303362700
+ toa00754 1375.000 54218.84814837116845416 0.5 wsrt -i puma1 -r 1380 -B D -nbin 256 -group WSRT.P1.1380.C -sys WSRT.P1.1380.C -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -3298430198
+ toa00755 1375.000 54275.63414365091845416 2.0 wsrt -i puma1 -r 1380 -B D -nbin 256 -group WSRT.P1.1380.C -sys WSRT.P1.1380.C -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -3000254821
+ toa00756 1375.000 54309.66574084023495416 3.7 wsrt -i puma1 -r 1380 -B D -nbin 256 -group WSRT.P1.1380.C -sys WSRT.P1.1380.C -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -2821554154
+ toa00757 1375.000 54372.49201400383775416 5.3 wsrt -i puma1 -r 1380 -B D -nbin 256 -group WSRT.P1.1380.C -sys WSRT.P1.1380.C -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -2491630691
+ toa00758 1375.000 54400.52719917837445416 1.2 wsrt -i puma1 -r 1380 -B D -nbin 256 -group WSRT.P1.1380.C -sys WSRT.P1.1380.C -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -2344398690
+ toa00759 1375.000 54401.10787057941605416 4.3 wsrt -i puma1 -r 1380 -B D -nbin 256 -group WSRT.P1.1380.C -sys WSRT.P1.1380.C -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -2341348646
+ toa00760 1375.000 54421.22766226390935416 2.7 wsrt -i puma1 -r 1380 -B D -nbin 256 -group WSRT.P1.1380.C -sys WSRT.P1.1380.C -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -2235683600
+ toa00761 1375.000 54455.30405114164585416 4.1 wsrt -i puma1 -r 1380 -B D -nbin 256 -group WSRT.P1.1380.C -sys WSRT.P1.1380.C -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -2056718622
+ toa00762 1375.000 54491.23298623100495416 3.6 wsrt -i puma1 -r 1380 -B D -nbin 256 -group WSRT.P1.1380.C -sys WSRT.P1.1380.C -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -1868030140
+ toa00763 1375.000 54519.95370378484865416 8.7 wsrt -i puma1 -r 1380 -B D -nbin 256 -group WSRT.P1.1380.C -sys WSRT.P1.1380.C -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -1717202504
+ toa00764 1375.000 54555.03576409672115416 4.4 wsrt -i puma1 -r 1380 -B D -nbin 256 -group WSRT.P1.1380.C -sys WSRT.P1.1380.C -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -1532981965
+ toa00765 1375.000 54582.78807889623755416 1.1 wsrt -i puma1 -r 1380 -B D -nbin 256 -group WSRT.P1.1380.C -sys WSRT.P1.1380.C -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -1387253737
+ toa00766 1375.000 54590.90405101524895416 2.1 wsrt -i puma1 -r 1380 -B D -nbin 256 -group WSRT.P1.1380.C -sys WSRT.P1.1380.C -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -1344637934
+ toa00767 1375.000 54667.63634276043225416 2.4 wsrt -i puma1 -r 1380 -B D -nbin 256 -group WSRT.P1.1380.C -sys WSRT.P1.1380.C -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -941725195
+ toa00768 1375.000 54695.45138909759925416 3.2 wsrt -i puma1 -r 1380 -B D -nbin 256 -group WSRT.P1.1380.C -sys WSRT.P1.1380.C -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -795666049
+ toa00769 1375.000 54722.51030098191525416 1.6 wsrt -i puma1 -r 1380 -B D -nbin 256 -group WSRT.P1.1380.C -sys WSRT.P1.1380.C -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -653567216
+ toa00770 1415.000 54750.43368078666355416 9.8 wsrt -i puma1 -r 1380 -B D -nbin 256 -group WSRT.P1.1380.C -sys WSRT.P1.1380.C -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -506926337
+ toa00771 1375.000 54821.23680560709315416 3.0 wsrt -i puma1 -r 1380 -B D -nbin 256 -group WSRT.P1.1380.C -sys WSRT.P1.1380.C -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -135079970
+ toa00772 1375.000 54848.16250006514085416 3.0 wsrt -i puma1 -r 1380 -B D -nbin 256 -group WSRT.P1.1380.C -sys WSRT.P1.1380.C -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 6328826
+ toa00773 1375.000 54946.88333350348635416 7.7 wsrt -i puma1 -r 1380 -B D -nbin 256 -group WSRT.P1.1380.C -sys WSRT.P1.1380.C -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 524735285
+ toa00774 1375.000 54960.84710667430455416 6.3 wsrt -i puma1 -r 1380 -B D -nbin 256 -group WSRT.P1.1380.C -sys WSRT.P1.1380.C -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 598056422
+ toa00775 1375.000 55002.74641219541725416 2.5 wsrt -i puma1 -r 1380 -B D -nbin 256 -group WSRT.P1.1380.C -sys WSRT.P1.1380.C -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 818064778
+ toa00776 1375.000 55029.67118071376005416 2.9 wsrt -i puma1 -r 1380 -B D -nbin 256 -group WSRT.P1.1380.C -sys WSRT.P1.1380.C -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 959444167
+ toa00777 1375.000 55065.57280109850595416 3.0 wsrt -i puma1 -r 1380 -B D -nbin 256 -group WSRT.P1.1380.C -sys WSRT.P1.1380.C -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 1147970683
+ toa00778 1375.000 55095.47905098800085416 3.3 wsrt -i puma1 -r 1380 -B D -nbin 256 -group WSRT.P1.1380.C -sys WSRT.P1.1380.C -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 1305020712
+ toa00779 1375.000 55124.40972243213785416 2.1 wsrt -i puma1 -r 1380 -B D -nbin 256 -group WSRT.P1.1380.C -sys WSRT.P1.1380.C -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 1456954229
+ toa00780 1375.000 55160.32743067761975416 4.8 wsrt -i puma1 -r 1380 -B D -nbin 256 -group WSRT.P1.1380.C -sys WSRT.P1.1380.C -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 1645590102
+ toa00781 1375.000 55193.27847231503745416 3.3 wsrt -i puma1 -r 1380 -B D -nbin 256 -group WSRT.P1.1380.C -sys WSRT.P1.1380.C -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 1818642752
+ toa00782 1375.000 55226.07349550103705416 8.4 wsrt -i puma1 -r 1380 -B D -nbin 256 -group WSRT.P1.1380.C -sys WSRT.P1.1380.C -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 1990871098
+ toa00783 1375.000 55253.95416681574495416 2.1 wsrt -i puma1 -r 1380 -B D -nbin 256 -group WSRT.P1.1380.C -sys WSRT.P1.1380.C -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 2137286727
+ toa00784 1375.000 55373.64548618657195416 0.8 wsrt -i puma1 -r 1380 -B D -nbin 256 -group WSRT.P1.1380.C -sys WSRT.P1.1380.C -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 2765779534
+
+ toa00785 367.500 54296.57754633107268065 5.3 wsrt -i puma1 -B B -r 367 -nbin 256 -group WSRT.P1.367.C -sys WSRT.P1.367.C -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -2890282690
+ toa00786 367.500 54309.64548619621848065 8.3 wsrt -i puma1 -B B -r 367 -nbin 256 -group WSRT.P1.367.C -sys WSRT.P1.367.C -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -2821660524
+ toa00787 367.500 54372.51215293043108065 5.3 wsrt -i puma1 -B B -r 367 -nbin 256 -group WSRT.P1.367.C -sys WSRT.P1.367.C -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -2491524958
+ toa00788 367.500 54421.32974558547568065 4.7 wsrt -i puma1 -B B -r 367 -nbin 256 -group WSRT.P1.367.C -sys WSRT.P1.367.C -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -2235147551
+ toa00789 367.500 54455.32453720052038065 15.0 wsrt -i puma1 -B B -r 367 -nbin 256 -group WSRT.P1.367.C -sys WSRT.P1.367.C -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -2056611034
+ toa00790 367.500 54491.21226871213878065 12.2 wsrt -i puma1 -B B -r 367 -nbin 256 -group WSRT.P1.367.C -sys WSRT.P1.367.C -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -1868138943
+ toa00791 367.500 54555.01539375085408065 5.4 wsrt -i puma1 -B B -r 367 -nbin 256 -group WSRT.P1.367.C -sys WSRT.P1.367.C -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -1533088949
+ toa00792 367.500 54667.65625007636088065 3.4 wsrt -i puma1 -B B -r 367 -nbin 256 -group WSRT.P1.367.C -sys WSRT.P1.367.C -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -941620672
+ toa00793 367.500 54695.47175940904978065 5.8 wsrt -i puma1 -B B -r 367 -nbin 256 -group WSRT.P1.367.C -sys WSRT.P1.367.C -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -795559097
+ toa00794 367.500 54848.18263908006138065 13.7 wsrt -i puma1 -B B -r 367 -nbin 256 -group WSRT.P1.367.C -sys WSRT.P1.367.C -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 6434565
+ toa00795 367.500 54878.10763906351298065 5.8 wsrt -i puma1 -B B -r 367 -nbin 256 -group WSRT.P1.367.C -sys WSRT.P1.367.C -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 163586824
+ toa00796 367.500 55002.76620391038278065 18.1 wsrt -i puma1 -B B -r 367 -nbin 256 -group WSRT.P1.367.C -sys WSRT.P1.367.C -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 818168696
+ toa00797 367.500 55005.73900473883698065 19.3 wsrt -i puma1 -B B -r 367 -nbin 256 -group WSRT.P1.367.C -sys WSRT.P1.367.C -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 833777828
+ toa00798 367.500 55029.69097239112868065 3.1 wsrt -i puma1 -B B -r 367 -nbin 256 -group WSRT.P1.367.C -sys WSRT.P1.367.C -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 959548061
+ toa00799 367.500 55095.49907422264528065 10.5 wsrt -i puma1 -B B -r 367 -nbin 256 -group WSRT.P1.367.C -sys WSRT.P1.367.C -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 1305125864
+ toa00800 367.500 55124.42951408920848065 9.7 wsrt -i puma1 -B B -r 367 -nbin 256 -group WSRT.P1.367.C -sys WSRT.P1.367.C -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 1457058148
+ toa00801 367.500 55193.23842602409878065 10.3 wsrt -i puma1 -B B -r 367 -nbin 256 -group WSRT.P1.367.C -sys WSRT.P1.367.C -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 1818432452
+
+
+ toa00802 323.750 54296.57754643004779059 2.7 wsrt -i puma1 -B B -r 323 -nbin 256 -group WSRT.P1.323.C -sys WSRT.P1.323.C -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -2890282695
+ toa00803 323.750 54309.64548629521639059 5.0 wsrt -i puma1 -B B -r 323 -nbin 256 -group WSRT.P1.323.C -sys WSRT.P1.323.C -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -2821660529
+ toa00804 323.750 54372.51215283969389059 12.6 wsrt -i puma1 -B B -r 323 -nbin 256 -group WSRT.P1.323.C -sys WSRT.P1.323.C -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -2491524964
+ toa00805 323.750 54400.50636590025699059 11.8 wsrt -i puma1 -B B -r 323 -nbin 256 -group WSRT.P1.323.C -sys WSRT.P1.323.C -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -2344508142
+ toa00806 323.750 54401.12824089935059059 11.3 wsrt -i puma1 -B B -r 323 -nbin 256 -group WSRT.P1.323.C -sys WSRT.P1.323.C -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -2341241672
+ toa00807 323.750 54421.32974549402579059 11.6 wsrt -i puma1 -B B -r 323 -nbin 256 -group WSRT.P1.323.C -sys WSRT.P1.323.C -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -2235147557
+ toa00808 323.750 54455.32453710940169059 18.1 wsrt -i puma1 -B B -r 323 -nbin 256 -group WSRT.P1.323.C -sys WSRT.P1.323.C -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -2056611040
+ toa00809 323.750 54491.21226862121369059 9.4 wsrt -i puma1 -B B -r 323 -nbin 256 -group WSRT.P1.323.C -sys WSRT.P1.323.C -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -1868138949
+ toa00810 323.750 54555.01539365998959059 7.2 wsrt -i puma1 -B B -r 323 -nbin 256 -group WSRT.P1.323.C -sys WSRT.P1.323.C -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -1533088955
+ toa00811 323.750 54610.81736119294499059 10.0 wsrt -i puma1 -B B -r 323 -nbin 256 -group WSRT.P1.323.C -sys WSRT.P1.323.C -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -1240077760
+ toa00812 323.750 54667.65625017578459059 19.9 wsrt -i puma1 -B B -r 323 -nbin 256 -group WSRT.P1.323.C -sys WSRT.P1.323.C -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -941620677
+ toa00813 323.750 54695.47175931750569059 6.7 wsrt -i puma1 -B B -r 323 -nbin 256 -group WSRT.P1.323.C -sys WSRT.P1.323.C -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -795559103
+ toa00814 323.750 54722.53009278776709059 11.7 wsrt -i puma1 -B B -r 323 -nbin 256 -group WSRT.P1.323.C -sys WSRT.P1.323.C -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -653463299
+ toa00815 323.750 54750.45347243895059059 8.8 wsrt -i puma1 -B B -r 323 -nbin 256 -group WSRT.P1.323.C -sys WSRT.P1.323.C -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -506822416
+ toa00816 323.750 54821.25659734032879059 15.0 wsrt -i puma1 -B B -r 323 -nbin 256 -group WSRT.P1.323.C -sys WSRT.P1.323.C -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -134976040
+ toa00817 323.750 54827.24340289167739059 14.3 wsrt -i puma1 -B B -r 323 -nbin 256 -group WSRT.P1.323.C -sys WSRT.P1.323.C -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn -103534478
+ toa00818 323.750 54848.18263898839229059 8.3 wsrt -i puma1 -B B -r 323 -nbin 256 -group WSRT.P1.323.C -sys WSRT.P1.323.C -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 6434559
+ toa00819 323.750 54878.10763897299419059 11.5 wsrt -i puma1 -B B -r 323 -nbin 256 -group WSRT.P1.323.C -sys WSRT.P1.323.C -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 163586818
+ toa00820 323.750 54946.90312510567359059 11.0 wsrt -i puma1 -B B -r 323 -nbin 256 -group WSRT.P1.323.C -sys WSRT.P1.323.C -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 524839201
+ toa00821 323.750 55002.76620381874989059 10.4 wsrt -i puma1 -B B -r 323 -nbin 256 -group WSRT.P1.323.C -sys WSRT.P1.323.C -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 818168690
+ toa00822 323.750 55005.73900483807549059 6.0 wsrt -i puma1 -B B -r 323 -nbin 256 -group WSRT.P1.323.C -sys WSRT.P1.323.C -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 833777823
+ toa00823 323.750 55029.69097229979529059 6.2 wsrt -i puma1 -B B -r 323 -nbin 256 -group WSRT.P1.323.C -sys WSRT.P1.323.C -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 959548055
+ toa00824 323.750 55065.59270856512559059 21.4 wsrt -i puma1 -B B -r 323 -nbin 256 -group WSRT.P1.323.C -sys WSRT.P1.323.C -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 1148075208
+ toa00825 323.750 55095.49907413168329059 14.8 wsrt -i puma1 -B B -r 323 -nbin 256 -group WSRT.P1.323.C -sys WSRT.P1.323.C -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 1305125858
+ toa00826 323.750 55193.23842612304779059 11.4 wsrt -i puma1 -B B -r 323 -nbin 256 -group WSRT.P1.323.C -sys WSRT.P1.323.C -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 1818432447
+ toa00827 323.750 55373.68553247738319059 16.6 wsrt -i puma1 -B B -r 323 -nbin 256 -group WSRT.P1.323.C -sys WSRT.P1.323.C -pta epta_dr1_v2_2 -pta_dataset epta_dr1_v2_2 -timing_package tempo2 -pn 2765989769
+

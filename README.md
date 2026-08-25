@@ -13,7 +13,7 @@ vs `jacfwd` of `residual_delta_jax`); there is no finite-difference route.
 The old `waveform_jacobian` noun is deleted. Design notes:
 [`feature_phase_gauge.md`](../jug/feature_phase_gauge.md) (in the JUG checkout).
 
-**Hybrid residual linearization.** `NonLinearTimingModel(nonlinear_params=...)`
+**Hybrid residual linearization.** `TimingSpec(nonlinear_params=...)`
 forwards a closed mode (`None` | `"binary"` | `"binary+"`) into
 `MetaPulsar.timing_engine` → JUG session export. JUG executes the matching
 residual formula; nltiming does not choose a mode from the inference plan.
@@ -78,11 +78,10 @@ can be dropped; the `nltiming` API does not change.
 Introductory notebooks (ground-up, for PTA users who have not sampled a timing
 model before) live in [`examples/notebooks/`](examples/notebooks/):
 
-1. `01_nonlinear_timing_charts.ipynb` — inference plan, charts, short NUTS, Enterprise
-2. `02_geometry_certification_and_pivot.ipynb` — geometry certifier, `identically_linear`, pivot RN
-3. `03_j1640_decentering_validation.ipynb` — full-basis **and** marginalized
-   dynamic decentering (the three-mode comparison) on real IPTA DR2 J1640
-4. `04_j1640_marginalization_validation.ipynb` — delta-flat vs z-prior on J1640
+1. `01_discovery_enterprise_backends.ipynb` — Discovery + Enterprise, backends, chains and corner plots
+2. `02_charts_and_binary.ipynb` — per-axis charts and Kepler↔Laplace binary coordinates
+3. `03_decentering_and_full_basis.ipynb` — default decentered sampling vs `inference="all"`
+4. `04_geometry.ipynb` — certify geometry; `identically_linear`
 
 See [`examples/notebooks/README.md`](examples/notebooks/README.md) for setup
 (MetaPulsar + JUG environment) and suggested order.
@@ -122,8 +121,8 @@ The chart is fixed by the prior you chose for that axis (one prior → one chart
 Separately, an optional static affine **layer** can map `z → ξ` for the sampler
 (`whitening=None` keeps that layer as the identity, which is what joint
 full-basis NUTS wants). Longer walkthrough:
-[`examples/notebooks/01_nonlinear_timing_charts.ipynb`](examples/notebooks/01_nonlinear_timing_charts.ipynb)
-§3. Reference: J. M. Lee, *Introduction to Smooth Manifolds*, 2nd ed., GTM 218,
+[`examples/notebooks/02_charts_and_binary.ipynb`](examples/notebooks/02_charts_and_binary.ipynb).
+Reference: J. M. Lee, *Introduction to Smooth Manifolds*, 2nd ed., GTM 218,
 Springer (2013), DOI
 [10.1007/978-1-4419-9982-5](https://doi.org/10.1007/978-1-4419-9982-5).
 
@@ -131,12 +130,12 @@ What to sample is a **typed inference plan** (`inference=`). You name what is
 *marginalized*; every other timing axis is sampled:
 
 ```python
-from nltiming import NonLinearTimingModel, TimingInference, InferencePreset
+from nltiming import TimingSpec, TimingInference, InferencePreset
 
 # Everyday presets (strings or InferencePreset):
-NonLinearTimingModel(engines="jug")                      # == inference="default"
-NonLinearTimingModel(engines="jug", inference="all")     # sample every axis
-NonLinearTimingModel(engines="jug", inference=InferencePreset.ALL)
+TimingSpec(engines="jug")                      # == inference="default"
+TimingSpec(engines="jug", inference="all")     # sample every axis
+TimingSpec(engines="jug", inference=InferencePreset.ALL)
 
 # Mixed mode — name marginalized axes + measure; unmentioned axes are sampled:
 TimingInference.groups(delta_flat=["DM1"], z_prior=["DM"])
@@ -318,7 +317,7 @@ report = certify_joint_geometry(jm, ctx, hyper_points=box_hyper_probe_points(cen
 this fix (e.g. a white-noise-only reference that cannot precondition
 timing↔red-noise cross-curvature) names the next thing to build — never a reason
 to loosen `GeometryThresholds` or raise the tree depth. Worked example:
-[`examples/notebooks/02_geometry_certification_and_pivot.ipynb`](examples/notebooks/02_geometry_certification_and_pivot.ipynb) §2b.
+[`examples/notebooks/04_geometry.ipynb`](examples/notebooks/04_geometry.ipynb).
 
 ## Discovery workflows
 
@@ -339,11 +338,11 @@ import discovery as ds
 import discovery.samplers.numpyro as ds_numpyro
 from numpyro.infer import init_to_value
 
-from nltiming import NonLinearTimingModel, sampling
+from nltiming import TimingSpec, sampling
 
 sampling.numpyro.ensure_x64()
 
-ntm = NonLinearTimingModel(
+ntm = TimingSpec(
     engines="jug",
     inference="all",          # sample every timing axis
     # whitening=None          # default: identity static layer (sampler coord z)
@@ -389,7 +388,7 @@ the exact marginal. Certify with `certify_decentered_geometry(...)`
 and init the `ξ` site with `decentered_init_values(ctx, model.transport)`.
 Expansion is a geometry-plan concern (`refine_timing_expansion` /
 `with_expansion`), never a `decentered_model` kwarg. Worked example:
-[`examples/notebooks/03_j1640_decentering_validation.ipynb`](examples/notebooks/03_j1640_decentering_validation.ipynb) §8.
+[`examples/notebooks/03_decentering_and_full_basis.ipynb`](examples/notebooks/03_decentering_and_full_basis.ipynb).
 
 **Static whitening path** (Enterprise-style preconditioning in Discovery): pass
 `whitening=WhiteningConfig()`, assemble `*ctx.discovery_signals()` (default
@@ -535,7 +534,7 @@ import numpy as np
 from enterprise.signals import gp_signals, parameter, signal_base, utils, white_signals
 from enterprise_extensions import sampler as ee_sampler
 
-from nltiming import NonLinearTimingModel, TimingInference, WhiteningConfig, sampling
+from nltiming import TimingSpec, TimingInference, WhiteningConfig, sampling
 from nltiming import priors
 
 outdir = Path("chains/J1909-3744")
@@ -553,7 +552,7 @@ red = gp_signals.FourierBasisGP(
     utils.powerlaw(log10_A=log10_A, gamma=gamma), components=30, name="red_noise",
 )
 
-ntm = NonLinearTimingModel(
+ntm = TimingSpec(
     engines={"tempo2": "jug", "pint": "jug"},
     inference=TimingInference.groups(delta_flat=["DM", "DM1"]),
     whitening=WhiteningConfig(),   # joint vector Parameter in sampler coord x
@@ -683,7 +682,7 @@ Each pulsar gets its own bound NLT signal instance and, under
 `WhiteningConfig`, its own joint vector parameter with a uniquely prefixed name:
 
 ```python
-ntm = NonLinearTimingModel(...)
+ntm = TimingSpec(...)
 models = [(noise_model + ntm.enterprise_signal())(psr) for psr in pulsars]
 pta = signal_base.PTA(models)
 sampler = ee_sampler.setup_sampler(pta, outdir=str(outdir))
@@ -735,9 +734,9 @@ mode and no `numerical_floor` knob anywhere in the API.
 The static whitening layer is configured with a small frozen dataclass:
 
 ```python
-from nltiming import NonLinearTimingModel, WhiteningConfig
+from nltiming import TimingSpec, WhiteningConfig
 
-ntm = NonLinearTimingModel(
+ntm = TimingSpec(
     inference="default",                # or TimingInference.default()
     whitening=WhiteningConfig(
         reference_noise="toa_errors",   # which precision builds F_delta
@@ -781,7 +780,7 @@ ntm = NonLinearTimingModel(
 
 ### Two-stage lifecycle: `for_pulsar` → `with_transport`
 
-A `TimingContext` is immutable and conditioning is **finalize-once**:
+A `TimingSignal` is immutable and conditioning is **finalize-once**:
 
 ```python
 # Common path — conditions with the WhiteningConfig's default reference noise:
@@ -964,8 +963,8 @@ nltiming extra). That stack currently requires **Python ≥ 3.12**.
 
 ## Layout
 
-- `nonlinear_timing_model.py` — `NonLinearTimingModel` (configuration) and
-  `TimingContext` (`ntm.for_pulsar(pulsar)`, all pulsar-bound queries)
+- `nonlinear_timing_model.py` — `TimingSpec` (configuration) and
+  `TimingSignal` (`ntm.for_pulsar(pulsar)`, all pulsar-bound queries)
 - `inference.py` — `TimingInference` / `InferencePreset` / `Marginalize`, plan
   resolution and fingerprints
 - `protocols.py` — `PulsarData` / `TimingPulsar` and timing engine interfaces

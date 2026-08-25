@@ -85,7 +85,7 @@ def test_engine_delta_map_matches_legacy_scatter():
 from nltiming import TimingInference as _TI  # noqa: E402
 from _engine_stubs import JaxLinearTestEngine
 from nltiming.engine_support import LinearModel  # noqa: E402
-from nltiming.nonlinear_timing_model import NonLinearTimingModel  # noqa: E402
+from nltiming.nonlinear_timing_model import TimingSpec  # noqa: E402
 
 
 class _LinearPulsar:
@@ -166,7 +166,7 @@ def _legacy_full_delta(ctx, sampled_vals):
 
 def test_likelihood_bit_identity_after_seam_migration():
     # Mixed plan exercises all three dispositions through the seam.
-    ntm = NonLinearTimingModel(
+    ntm = TimingSpec(
         engines="jug",
         inference=_TI.groups(z_prior=["F1"], delta_flat=["DM"]),
         name="timing",

@@ -14,7 +14,7 @@ from nltiming.engine_support import (
     zero_delta_tolerance,
 )
 from nltiming.nonlinear_timing_model import (
-    NonLinearTimingModel,
+    TimingSpec,
     _normalize_gauge_provenance,
 )
 from nltiming.protocols import GaugeProvenance
@@ -97,7 +97,7 @@ def test_context_gauge_provenance_for_direct_engine(tmp_path):
             return self._backend
 
     pulsar = _Pulsar()
-    ntm = NonLinearTimingModel(
+    ntm = TimingSpec(
         engines="jug",
         whitening=WhiteningConfig(),
         inference=TimingInference.groups(delta_flat=["Offset"]),

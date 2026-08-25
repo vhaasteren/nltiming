@@ -35,7 +35,7 @@ from numpyro.infer.util import log_density  # noqa: E402
 
 from nltiming import TimingInference, WhiteningConfig  # noqa: E402
 from nltiming.metric import OneAffineLayerError  # noqa: E402
-from nltiming.nonlinear_timing_model import NonLinearTimingModel  # noqa: E402
+from nltiming.nonlinear_timing_model import TimingSpec  # noqa: E402
 from nltiming.sampling import numpyro as N  # noqa: E402
 from nltiming import (  # noqa: E402
     GeometryThresholds,
@@ -78,7 +78,7 @@ def _ctx_and_likelihood(*, inference=None):
     """
     if inference is None:
         inference = TimingInference.groups(delta_flat=["DM"])
-    ntm = NonLinearTimingModel(engines="jug", inference=inference, name="timing")
+    ntm = TimingSpec(engines="jug", inference=inference, name="timing")
     ctx = ntm.for_pulsar(_DiscoveryPulsar())
     likelihood = ds.PulsarLikelihood(
         [
@@ -194,7 +194,7 @@ def test_decentered_exact_identity_linear_duck():
 def test_decentered_requires_identity_static_layer():
     """T-N2: a WhiteningConfig static layer is rejected before the likelihood is
     touched (the one-affine-layer invariant)."""
-    ntm = NonLinearTimingModel(
+    ntm = TimingSpec(
         engines="jug",
         inference=TimingInference.groups(delta_flat=["DM"]),
         whitening=WhiteningConfig(),
@@ -267,7 +267,7 @@ def test_decentered_accounting_and_binding(monkeypatch):
         N.decentered_model(likelihood, ctx, fixed={delay_key: 0.0})
 
     # Empty plan.sampled (everything marginalized) raises.
-    ntm2 = NonLinearTimingModel(
+    ntm2 = TimingSpec(
         engines="jug",
         inference=TimingInference.groups(delta_flat=["Offset", "F1", "DM"]),
         name="timing",

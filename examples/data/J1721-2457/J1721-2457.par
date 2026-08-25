@@ -1,0 +1,51 @@
+# Created: 2026-08-15T16:08:29.584739
+# Format:  PINT
+# By:      MetaPulsar
+# Product: gls-optimized
+# gls_delta_convention: pint_designmatrix
+# source_par: /workspaces/metapulsar/data/aei-dr2/combined/par/J1721-2457.par
+# source_tim: /workspaces/metapulsar/data/aei-dr2/combined/tim/J1721-2457.tim
+# writer: transplant
+# changed_params: 12
+# GLS timing MPE from AEI combination flexfit
+# rewritten by value transplant onto combination par
+PSRJ                           J1721-2457
+RAJ                    17:21:05.49806287 1
+DECJ                    -24:57:06.15783771 1
+F0                285.98934787862884915747723685301925 1
+F1              -4.519936931859250963759368538650843e-16 1
+PEPOCH              54999.999816170382115
+POSEPOCH            54999.999816170382115
+DMEPOCH                         55000.0 0
+DM                    48.27475612214831923123514189683192 1
+DM1                                 -0.021855178832439713793034385957980703 1
+DM2                                 0.0008470972084704752550626816187673285 1
+PMRA              2.050954825173285 1
+PMDEC            -24.961431650127267 1
+TRES                                  nan
+EPHVER                                  5
+UNITS                                 TDB
+TIMEEPH                              FB90
+DILATEFREQ                              N
+PLANET_SHAPIRO                          N
+T2CMETHOD                        IAU2000B
+NE_SW                                 4 0
+CORRECT_TROPOSPHERE                         N
+EPHEM                               DE421
+NITS                                    1
+NTOA                                    0
+CHI2R                               nan 0
+DM_SERIES                          TAYLOR
+CLK                          TT(BIPM2011)
+SWM                                     0
+IPM                                     1
+MODE 1
+TRACK -2
+
+# MetaPulsar combination: JUMP from all PTAs; JUMP -pta for non-reference; FDx -> FDJUMPx (value+uncertainty copied); FDJUMPDM = DM - DM_ref for non-reference (ref=epta_dr1_v2_2)
+JUMP                -sys NRT.BON.1600 5.5968372069844674e-06 1
+JUMP                -sys WSRT.P1.1380 -1.3184044984152204e-05 1
+JUMP              -sys WSRT.P1.1380.C -8.723715716976012e-07 1
+TZRMJD 53849.12075308133275442
+TZRFRQ 1398.00000000
+TZRSITE ncy

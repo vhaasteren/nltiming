@@ -21,7 +21,7 @@ from nltiming.run_io import (
 )
 from _engine_stubs import JaxLinearTestEngine
 from nltiming.engine_support import LinearModel
-from nltiming.nonlinear_timing_model import NonLinearTimingModel
+from nltiming.nonlinear_timing_model import TimingSpec
 from nltiming.space import ParameterSpace
 
 
@@ -88,7 +88,7 @@ def pulsar():
 
 @pytest.fixture
 def ntm():
-    return NonLinearTimingModel(
+    return TimingSpec(
         engines="jug",
         whitening=WhiteningConfig(),
         inference=TimingInference.groups(delta_flat=["Offset"]),

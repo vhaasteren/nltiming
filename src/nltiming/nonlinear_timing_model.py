@@ -462,15 +462,15 @@ def _exact_flat_columns(engine, plan, charts, delta_full, slots):
 
 
 @dataclass(frozen=True, eq=False)
-class TimingContext:
-    """Pulsar-bound nonlinear timing context resolved from model config.
+class TimingSignal:
+    """A :class:`TimingSpec` applied to one pulsar.
 
-    Produced by :meth:`NonLinearTimingModel.for_pulsar`; owns every pulsar-bound
-    query (sampled partition, priors, parameter space, likelihood signals,
-    run-metadata snapshots). The model itself stays pure configuration.
+    Produced by :meth:`TimingSpec.for_pulsar`. Owns every pulsar-bound query
+    (sampled partition, priors, parameter space, likelihood signals,
+    run-metadata snapshots). The spec itself stays pure configuration.
     """
 
-    model: "NonLinearTimingModel"
+    model: "TimingSpec"
     pulsar: Any
     engine: Any
     plan: TimingParameterPlan
@@ -502,7 +502,7 @@ class TimingContext:
         *,
         delta,
         source: str = "explicit_delta",
-    ) -> "TimingContext":
+    ) -> "TimingSignal":
         """Re-linearize all proper-prior axes at one fixed physical point (§5.3).
 
         ``delta`` is a mapping over ``ctx.plan.proper`` (no delta-flat names) or an
@@ -583,8 +583,8 @@ class TimingContext:
     def _require_conditioned(self, what: str) -> None:
         if not self.conditioned:
             raise ValueError(
-                f"{what} requires a conditioned TimingContext; call "
-                "ctx.with_transport(metric) (or NonLinearTimingModel.for_pulsar "
+                f"{what} requires a conditioned TimingSignal; call "
+                "ctx.with_transport(metric) (or TimingSpec.for_pulsar "
                 "with condition=True) first (§5.2)."
             )
 
@@ -599,7 +599,7 @@ class TimingContext:
 
     def with_transport(
         self, metric: LocalPosteriorMetric | None = None
-    ) -> "TimingContext":
+    ) -> "TimingSignal":
         """Return a new, conditioned context finalized on ``metric`` (§5.2).
 
         Finalize-once and immutable: raises on an already-conditioned context,
@@ -610,7 +610,7 @@ class TimingContext:
         """
         if self.conditioned:
             raise ValueError(
-                "TimingContext is already conditioned; conditioning is "
+                "TimingSignal is already conditioned; conditioning is "
                 "finalize-once. Build a fresh unconditioned context to "
                 "re-condition (§5.2)."
             )
@@ -968,12 +968,12 @@ class TimingContext:
         return manifest
 
 
-class NonLinearTimingModel:
-    """Nonlinear timing model configuration and likelihood-interface glue.
+class TimingSpec:
+    """Reusable nonlinear-timing recipe (engines, inference, charts).
 
-    Resolves against a ``TimingPulsar`` at call time. Does not own noise models or
-    samplers; the user assembles Enterprise/Discovery likelihood interfaces and runs
-    their chosen sampler.
+    Not a model until :meth:`for_pulsar` binds it to a ``TimingPulsar`` and
+    returns a :class:`TimingSignal`. Does not own noise models or samplers;
+    the user assembles Enterprise/Discovery likelihoods and runs their sampler.
     """
 
     def __init__(
@@ -1040,7 +1040,7 @@ class NonLinearTimingModel:
         self.static_layer = "identity" if whitening is None else "whitening"
         self.name = name
         self._prior_overrides: dict[str, PriorOverrideSpec] = {}
-        self._resolved_cache: dict[str, TimingContext] = {}
+        self._resolved_cache: dict[str, TimingSignal] = {}
         for prior_name, spec in dict(priors or {}).items():
             if not isinstance(spec, PriorOverrideSpec):
                 raise TypeError(
@@ -1124,9 +1124,9 @@ class NonLinearTimingModel:
         """Convenience wrapper for frame='delta' priors."""
         self.set_prior(name, kind, frame="delta", scale=scale, **bounds)
 
-    def with_engines(self, engines) -> "NonLinearTimingModel":
+    def with_engines(self, engines) -> "TimingSpec":
         """Return a new model config with a different engine selection."""
-        other = NonLinearTimingModel(
+        other = TimingSpec(
             engines=engines,
             derivative_method=self.derivative_method,
             tempo2_native=self.tempo2_native,
@@ -1602,7 +1602,7 @@ class NonLinearTimingModel:
             names=block.names, priors=tuple(priors), sources=block.sources
         )
 
-    def _default_metric(self, ctx: "TimingContext") -> LocalPosteriorMetric:
+    def _default_metric(self, ctx: "TimingSignal") -> LocalPosteriorMetric:
         """Build the reference-noise metric named by the whitening config.
 
         Only class 1 (``toa_errors``) and class 2 (``frozen_white``, which needs
@@ -1679,7 +1679,7 @@ class NonLinearTimingModel:
             ]
         )
 
-    def _unconditioned_for_pulsar(self, pulsar, engine) -> TimingContext:
+    def _unconditioned_for_pulsar(self, pulsar, engine) -> TimingSignal:
         """Build the unconditioned base context (identity transport, §5.2)."""
         linearity = self._resolve_linearity(pulsar, engine)
         candidates = resolve_chart_candidates(pulsar, engine, self.binary_chart)
@@ -1803,7 +1803,7 @@ class NonLinearTimingModel:
             design_matrix = np.array(design_matrix, copy=True)
             for s, col in cols.items():
                 design_matrix[:, s] = col
-        return TimingContext(
+        return TimingSignal(
             model=self,
             pulsar=pulsar,
             engine=engine,
@@ -1851,7 +1851,7 @@ class NonLinearTimingModel:
             )
         return np.asarray([float(spec.delta[name]) for name in proper], dtype=float)
 
-    def for_pulsar(self, pulsar, *, condition: bool = True) -> TimingContext:
+    def for_pulsar(self, pulsar, *, condition: bool = True) -> TimingSignal:
         """Resolve this model config against a pulsar (cached per state).
 
         With ``condition=True`` (the default) the returned context is

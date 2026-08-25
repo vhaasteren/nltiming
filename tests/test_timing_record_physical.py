@@ -7,7 +7,7 @@ from nltiming import WhiteningConfig
 from nltiming import TimingInference
 from _engine_stubs import JaxLinearTestEngine
 from nltiming.engine_support import LinearModel
-from nltiming.nonlinear_timing_model import NonLinearTimingModel
+from nltiming.nonlinear_timing_model import TimingSpec
 from nltiming.sampling.numpyro import sample_timing, record_physical_postprocess
 
 
@@ -94,7 +94,7 @@ def _patch_numpyro(monkeypatch, sample_value):
 def test_record_physical_postprocess_timing_scope_returns_prefixed_theta_values(
     pulsar, monkeypatch
 ):
-    ntm = NonLinearTimingModel(
+    ntm = TimingSpec(
         engines="jug",
         inference=TimingInference.groups(delta_flat=["Offset"]),
         name="timing",
@@ -115,7 +115,7 @@ def test_record_physical_postprocess_timing_scope_returns_prefixed_theta_values(
 
 
 def test_record_physical_postprocess_scope_all_raises(pulsar):
-    ntm = NonLinearTimingModel(
+    ntm = TimingSpec(
         engines="jug",
         inference=TimingInference.groups(delta_flat=["Offset"]),
         name="timing",
@@ -127,7 +127,7 @@ def test_record_physical_postprocess_scope_all_raises(pulsar):
 def test_record_physical_postprocess_touches_no_numpyro_state(pulsar, monkeypatch):
     """record_physical_postprocess is pure post-processing: it must not call
     numpyro.sample/factor/deterministic, so it works outside any trace."""
-    ntm = NonLinearTimingModel(
+    ntm = TimingSpec(
         engines="jug",
         inference=TimingInference.groups(delta_flat=["Offset"]),
         name="timing",
@@ -149,7 +149,7 @@ def test_record_physical_postprocess_touches_no_numpyro_state(pulsar, monkeypatc
 def test_record_physical_postprocess_explicit_coord_handles_standardized_scalar_params(
     pulsar,
 ):
-    ntm = NonLinearTimingModel(
+    ntm = TimingSpec(
         engines="jug",
         whitening=WhiteningConfig(),
         inference=TimingInference.groups(delta_flat=["Offset"]),
@@ -175,7 +175,7 @@ def test_record_physical_postprocess_explicit_coord_handles_standardized_scalar_
 def test_record_physical_postprocess_implicit_coord_handles_standardized_contribute_output(
     pulsar, monkeypatch
 ):
-    ntm = NonLinearTimingModel(
+    ntm = TimingSpec(
         engines="jug",
         whitening=WhiteningConfig(),
         inference=TimingInference.groups(delta_flat=["Offset"]),
@@ -199,7 +199,7 @@ def test_record_physical_postprocess_implicit_coord_handles_standardized_contrib
 
 
 def test_record_physical_postprocess_invalid_coord_raises(pulsar):
-    ntm = NonLinearTimingModel(
+    ntm = TimingSpec(
         engines="jug",
         inference=TimingInference.groups(delta_flat=["Offset"]),
         name="timing",

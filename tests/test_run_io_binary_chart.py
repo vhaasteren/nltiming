@@ -8,7 +8,7 @@ jax.config.update("jax_enable_x64", True)
 pytest.importorskip("jug")
 
 from nltiming import TimingInference  # noqa: E402
-from nltiming.nonlinear_timing_model import NonLinearTimingModel  # noqa: E402
+from nltiming.nonlinear_timing_model import TimingSpec  # noqa: E402
 from nltiming.physical_charts import kepler_from_laplace_vec  # noqa: E402
 from nltiming.run_io import RunResults, derived_kepler_columns  # noqa: E402
 
@@ -16,7 +16,7 @@ from test_physical_charts_context import _BinaryPulsar  # noqa: E402
 
 
 def _conditioned(binary_chart="auto", inference=None):
-    ntm = NonLinearTimingModel(
+    ntm = TimingSpec(
         engines="jug",
         inference=inference or TimingInference.sample_all(),
         binary_chart=binary_chart,

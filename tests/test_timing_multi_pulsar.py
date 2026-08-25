@@ -5,7 +5,7 @@ import numpy as np
 from nltiming import TimingInference
 from _engine_stubs import JaxLinearTestEngine
 from nltiming.engine_support import LinearModel
-from nltiming.nonlinear_timing_model import NonLinearTimingModel
+from nltiming.nonlinear_timing_model import TimingSpec
 from nltiming.sampling.numpyro import sample_timing, record_physical_postprocess
 
 
@@ -68,7 +68,7 @@ class _Host:
 def test_multi_pulsar_prefixes_and_cache_independence(monkeypatch):
     host_a = _Host("J0001+0001", "tok-a")
     host_b = _Host("J0002+0002", "tok-b")
-    ntm = NonLinearTimingModel(
+    ntm = TimingSpec(
         engines="jug",
         inference=TimingInference.groups(delta_flat=["Offset"]),
         name="timing",

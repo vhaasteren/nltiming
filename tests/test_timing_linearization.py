@@ -12,7 +12,7 @@ jax.config.update("jax_enable_x64", True)
 from nltiming import TimingInference  # noqa: E402
 from _engine_stubs import JaxLinearTestEngine
 from nltiming.engine_support import LinearModel  # noqa: E402
-from nltiming.nonlinear_timing_model import NonLinearTimingModel  # noqa: E402
+from nltiming.nonlinear_timing_model import TimingSpec  # noqa: E402
 
 
 class _Pulsar:
@@ -64,7 +64,7 @@ class _Pulsar:
 
 
 def _ctx(**kw):
-    ntm = NonLinearTimingModel(
+    ntm = TimingSpec(
         engines="jug",
         inference=TimingInference.groups(delta_flat=["Offset"]),
         name="timing",
@@ -149,7 +149,7 @@ def test_joint_transport_uses_expansion_effective_residual(monkeypatch):
     from nltiming import priors as P
     from nltiming.coordinates import TimingCoordinatePolicy
 
-    ntm = NonLinearTimingModel(
+    ntm = TimingSpec(
         engines="jug", inference=TimingInference.sample_all(),
         priors={"DM": P.delta_uniform(-1e-2, 1e-2)},
         coordinate_policy=TimingCoordinatePolicy(nonaffine_identically_linear="ignore"),
@@ -193,7 +193,7 @@ def test_with_expansion_is_immutable_and_before_conditioning_only():
     with pytest.raises(ValueError):
         ctx.linearization.sampled_basis[0, 0] = 1.0
     # conditioned context rejects re-expansion
-    conditioned = NonLinearTimingModel(
+    conditioned = TimingSpec(
         engines="jug", inference=TimingInference.sample_all(), name="timing"
     ).for_pulsar(_Pulsar())  # condition=True default
     with pytest.raises(ValueError, match="before static conditioning"):

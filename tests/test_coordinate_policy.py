@@ -51,12 +51,12 @@ def test_expansion_spec_factories_and_validation():
 
 
 def test_model_fingerprint_changes_with_coordinate_policy():
-    from nltiming import NonLinearTimingModel, TimingInference
+    from nltiming import TimingSpec, TimingInference
 
-    base = NonLinearTimingModel(
+    base = TimingSpec(
         engines="jug", inference=TimingInference.sample_all()
     )._config_fingerprint()
-    scaled = NonLinearTimingModel(
+    scaled = TimingSpec(
         engines="jug",
         inference=TimingInference.sample_all(),
         coordinate_policy=TimingCoordinatePolicy(linear_scale=25.0),

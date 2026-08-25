@@ -7,8 +7,8 @@ builder :func:`_sample_timing_coord`), physical value post-processing
 (:func:`model`), and an optional NUTS convenience recipe with
 init-at-reference (:func:`nuts`).
 
-All functions take a :class:`~nltiming.nonlinear_timing_model.TimingContext`
-(from ``NonLinearTimingModel.for_pulsar``); none of this leaks into the model config.
+All functions take a :class:`~nltiming.nonlinear_timing_model.TimingSignal`
+(from ``TimingSpec.for_pulsar``); none of this leaks into the model config.
 Sampler construction (NUTS/MCMC) is an opinionated convenience, not the
 canonical integration path — see the module README for the native NumPyro and
 Discovery ``makesampler_nuts`` workflows.
@@ -317,7 +317,7 @@ def model(
     Args:
         likelihood: Discovery ``PulsarLikelihood`` (or anything exposing
             ``logL`` with a ``params`` attribute).
-        ctx: ``TimingContext`` for the pulsar in the likelihood.
+        ctx: ``TimingSignal`` for the pulsar in the likelihood.
         priors: prior overrides / noise dictionary for non-timing parameters.
         fixed: parameter values held constant (not sampled).
 
@@ -1024,7 +1024,7 @@ def decentered_model(
 
     Recommended configuration::
 
-        NonLinearTimingModel(
+        TimingSpec(
             inference=TimingInference.default(),   # delta-flat defaults; sample the rest
             expansion=TimingExpansionSpec.engine_reference(),
             whitening=None,                        # required: identity static layer

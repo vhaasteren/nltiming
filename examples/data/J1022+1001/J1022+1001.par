@@ -1,0 +1,113 @@
+# Created: 2026-08-15T16:08:29.459055
+# Format:  PINT
+# By:      MetaPulsar
+# Product: gls-optimized
+# gls_delta_convention: pint_designmatrix
+# source_par: /workspaces/metapulsar/data/aei-dr2/combined/par/J1022+1001.par
+# source_tim: /workspaces/metapulsar/data/aei-dr2/combined/tim/J1022+1001.tim
+# writer: transplant
+# changed_params: 43
+# GLS timing MPE from AEI combination flexfit
+# rewritten by value transplant onto combination par
+PSRJ                           J1022+1001
+F0                60.77944889909430660925288232298339 1
+F1              -1.600801594511312434425832987576228e-16 1
+PEPOCH              54999.999816170382115
+DMEPOCH                         55000.0 0
+DM                   10.260671525907009617982049942327194 1
+DM1                                 1.8893491882535991033308445108396256e-05 1
+DM2                                 0.00015064877498013624218531347764837847 1
+BINARY                                DDH
+PB                7.805133735930803804161276997535298 1
+T0                50246.7165735504306576 1
+A1                16.765426348108466 1
+OM                97.68501855005266919180441023218373 1
+ECC             9.733728754637268e-05 1
+PBDOT                                 2.4689218075816173e-13 1
+XDOT            1.4623061159822342e-14 1
+OMDOT           0.007716211674326544569370937565401618 1
+TRES                                  nan
+EPHVER                                  5
+H3                              4.70864444163497527330515838792091e-07 1
+STIG                                1.1915580338161863016566144324315246 1
+NE_SW                                 4 0
+UNITS                                 TDB
+TIMEEPH                              FB90
+DILATEFREQ                              N
+PLANET_SHAPIRO                          N
+T2CMETHOD                        IAU2000B
+CORRECT_TROPOSPHERE                         N
+EPHEM                               DE421
+NITS                                    1
+NTOA                                    0
+CHI2R                               nan 0
+DM_SERIES                          TAYLOR
+POSEPOCH           54999.9998161703821150
+PX               -0.09081768457344563 1 0.0
+ELONG           153.865866925354538 1 0.00000000000000000000
+ELAT            -0.063849253418283 1 0.00000000000000000000
+PMELONG          -15.959169257642964 1 0.0
+PMELAT          -37.9961545430166 1 0.0
+ECL                              IERS2003
+CLK                          TT(BIPM2011)
+SWM                                     0
+IPM                                     1
+MODE 1
+TRACK -2
+
+# MetaPulsar combination: JUMP from all PTAs; JUMP -pta for non-reference; FDx -> FDJUMPx (value+uncertainty copied); FDJUMPDM = DM - DM_ref for non-reference (ref=epta_dr1_v2_2)
+JUMP               -sys EFF.EBPP.1360 -0.005619116539982365 1
+JUMP               -sys EFF.EBPP.1410 -0.005619811004658304 1
+JUMP               -sys EFF.EBPP.2639 -0.005479588880029255 1
+JUMP                -sys NRT.BON.1600 -0.005427489743120474 1
+JUMP                -sys JBO.DFB.1520 -0.005440440694139544 1
+JUMP                -sys JBO.DFB.1400 -0.005438301641368464 1
+JUMP               -sys WSRT.P1.323.C -0.005072640456910379 1
+JUMP               -sys WSRT.P1.367.C -0.005190041611417852 1
+JUMP              -sys WSRT.P1.1380.C -0.005489932343582772 1
+JUMP            -h 20CM_H-OH_CPSR2m 7.5759306593697e-16 1
+JUMP            -h 20CM_H-OH_CPSR2n -2.4709696900566e-14 1
+JUMP            -h 20CM_MULTI_CPSR2m -1.6245804616594893e-05 1
+JUMP            -h 20CM_MULTI_CPSR2n -1.759286036097189e-05 1
+JUMP            -g 50CM_CPSR2 6.952188567027246e-05 1
+JUMP            -g 10CM_WBCORR -1.1136738787107925e-06 1
+JUMP            -h 20CM_H-OH_PDFB1 -1.8115607691671308e-05 1
+JUMP            -h 20CM_MULTI_PDFB1 -1.7647395549280764e-05 1
+JUMP            -g 10CM_PDFB1 4.280668702108122e-07 1
+JUMP            -g 20CM_PDFB2 -1.6222643495028904e-05 1
+JUMP            -g 10CM_PDFB2 8.245499466391052e-07 1
+JUMP            -g 20CM_PDFB3 -1.6011777261872763e-05 1
+JUMP            -g 40CM_PDFB3 5.383025116022117e-05 1
+JUMP            -g 20CM_PDFB4 -1.6683916954177904e-05 1
+JUMP            -apsr_1369_1024 1 -1.71e-05 0
+JUMP            -apsr_732_1024 1 -6.45e-05 0
+JUMP            -apsr_732_512 1 -3.3e-05 0
+JUMP                -caspsr 1 -1.31e-06 0
+JUMP            -cpsr2_50cm 1 -2.36e-06 0
+JUMP            -cpsr2m_1341 1 -1.72e-06 0
+JUMP            -cpsr2n_1405 1 -1.8e-06 0
+JUMP            -dfb3_J0437_55319_56160 1 2.2e-07 0
+JUMP            -dfb3_J0437_56160_60000 1 4.5e-07 0
+JUMP            -pdfb1_512_ch 1 -1.22813e-05 0
+JUMP            -pdfb1_post_2006 1 -1.3e-07 0
+JUMP            -pdfb1_pre_2006 1 -1.13e-06 0
+JUMP            -pdfb2_1024_MHz 1 -5.435e-06 0
+JUMP            -pdfb2_256MHz_1024_ch 1 -1.1395e-05 0
+JUMP            -pdfb3_1024_MHz 1 1.03e-06 0
+JUMP            -pdfb3_256MHz_1024ch 1 4.295e-06 0
+JUMP            -pdfb3_256MHz_2048ch 1 8.32e-06 0
+JUMP            -pdfb3_64MHz_1024ch 1 1.494e-05 0
+JUMP            -pdfb3_64MHz_512ch 1 8.9e-06 0
+JUMP            -pdfb4_2048_1024_1024 1 2.14e-06 0
+JUMP            -pdfb4_256MHz_1024ch 1 5.05e-06 0
+JUMP            -pdfb4_55319_56055_cals 1 9.27e-07 0
+JUMP            -pdfb4_56055_56110_cals 1 3.82e-07 0
+JUMP            -pdfb4_56110_56160_cals 1 5.41e-07 0
+JUMP            -pdfb4_56160_60000_cals 1 4.25e-07 0
+JUMP -pta ppta_dr2 -0.003555250385646212 1
+FDJUMPLOG Y
+FDJUMP_SCALE LOG
+FDJUMPDM -pta ppta_dr2 0.00410534664197118 1
+TZRMJD 54846.95740826817257491
+TZRFRQ 1400.000
+TZRSITE 8

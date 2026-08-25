@@ -39,7 +39,7 @@ InferencePresetName = Literal["default", "all", "sample_all"]
 
 
 class InferencePreset(str, Enum):
-    """Named inference presets accepted by ``NonLinearTimingModel(inference=...)``."""
+    """Named inference presets accepted by ``TimingSpec(inference=...)``."""
 
     DEFAULT = "default"
     ALL = "all"

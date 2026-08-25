@@ -22,7 +22,7 @@ from nltiming.metric import (
     assert_static_layer_identity,
     dynamic_transport_record,
 )
-from nltiming.nonlinear_timing_model import NonLinearTimingModel
+from nltiming.nonlinear_timing_model import TimingSpec
 from nltiming.run_io import RunIOError, RunResults, save_dynamic_checkpoint
 from nltiming.space import ParameterSpace
 
@@ -169,7 +169,7 @@ def test_one_affine_layer_guard_rejects_nonidentity_static_layer():
 def test_joint_manifest_requires_identity_static_layer():
     pulsar = _Pulsar()
     # whitening=WhiteningConfig() conditions a non-identity static layer -> rejected.
-    ntm = NonLinearTimingModel(
+    ntm = TimingSpec(
         engines="jug",
         whitening=WhiteningConfig(),
         inference=TimingInference.groups(delta_flat=["Offset"]),
@@ -190,7 +190,7 @@ def test_joint_manifest_requires_identity_static_layer():
 
 def _joint_manifest(tmp_path, pulsar):
     # whitening=None -> identity static layer, satisfying the one-layer rule.
-    ntm = NonLinearTimingModel(engines="jug", name="timing")
+    ntm = TimingSpec(engines="jug", name="timing")
     ctx = ntm.for_pulsar(pulsar)
     record = dynamic_transport_record(_FakeTransport())
     manifest = ctx.run_manifest(

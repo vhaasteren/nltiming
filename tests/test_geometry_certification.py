@@ -36,7 +36,7 @@ from nltiming import (  # noqa: E402
     write_geometry_report,
 )
 from nltiming.geometry import target_metrics_at  # noqa: E402
-from nltiming.nonlinear_timing_model import NonLinearTimingModel  # noqa: E402
+from nltiming.nonlinear_timing_model import TimingSpec  # noqa: E402
 
 from test_joint_model import _Pulsar  # noqa: E402
 
@@ -111,7 +111,7 @@ def _oracle(
     kwargs = {"engines": "jug", "inference": TimingInference.sample_all(), "name": "timing"}
     if identically_linear is not None:
         kwargs["identically_linear"] = identically_linear
-    ntm = NonLinearTimingModel(**kwargs)
+    ntm = TimingSpec(**kwargs)
 
     psr = pulsar if pulsar is not None else _Pulsar()
     if engine_wrap is not None:

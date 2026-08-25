@@ -1,4 +1,4 @@
-"""Tests for prior_override_policy on NonLinearTimingModel."""
+"""Tests for prior_override_policy on TimingSpec."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ import warnings
 import pytest
 
 from nltiming import TimingInference
-from nltiming.nonlinear_timing_model import NonLinearTimingModel
+from nltiming.nonlinear_timing_model import TimingSpec
 from _planhelp import plan_for
 
 
@@ -17,7 +17,7 @@ class _StubBackend:
 
 
 def test_prior_override_warn_skips_unknown_fitpar():
-    ntm = NonLinearTimingModel(
+    ntm = TimingSpec(
         prior_override_policy="warn",
         inference=TimingInference.sample_all(),
     )
@@ -43,7 +43,7 @@ def test_prior_override_warn_skips_unknown_fitpar():
 
 
 def test_prior_override_strict_raises_unknown_fitpar():
-    ntm = NonLinearTimingModel(
+    ntm = TimingSpec(
         prior_override_policy="strict",
         inference=TimingInference.sample_all(),
     )

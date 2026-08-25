@@ -5,7 +5,7 @@ from nltiming import (
     EnterprisePulsarLike,
     EphemerisExtras,
     JaxTimingEngine,
-    NonLinearTimingModel,
+    TimingSpec,
     ParameterSpace,
     TimingEngine,
     TimingPulsar,
@@ -13,7 +13,7 @@ from nltiming import (
 
 
 def test_timing_subpackage_exports():
-    assert NonLinearTimingModel is not None
+    assert TimingSpec is not None
     assert ParameterSpace is not None
     assert EnterprisePulsarLike is not None
     assert TimingPulsar is not None
@@ -37,8 +37,8 @@ def test_timing_imports_and_constructs_without_jug():
             "sys.modules['jug'] = None",
             "sys.modules['jax'] = None",
             "import nltiming",
-            "from nltiming import NonLinearTimingModel",
-            "m = NonLinearTimingModel("
+            "from nltiming import TimingSpec",
+            "m = TimingSpec("
             "engines={'tempo2': 'libstempo', 'pint': 'pint'})",
             "assert m.tempo2_jug_options is None",
             "m.set_prior('F0', 'normal', mean=0.0, std=1.0)",
@@ -56,7 +56,7 @@ def test_jug_config_remains_opaque_without_importing_jug():
     # Block jug import for the duration of this test.
     sys.modules["jug"] = None  # type: ignore[assignment]
     try:
-        model = NonLinearTimingModel(engines="jug")
+        model = TimingSpec(engines="jug")
         options = model.tempo2_jug_options
         assert options == {}
         assert "jug" not in sys.modules or sys.modules.get("jug") is None

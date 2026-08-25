@@ -421,7 +421,7 @@ def build_run_manifest(
     git_commit: str | None = None,
     dynamic_transport=None,
 ) -> RunManifest:
-    """Build a RunManifest snapshot from a ``TimingContext``.
+    """Build a RunManifest snapshot from a ``TimingSignal``.
 
     For a joint full-basis run, pass ``dynamic_transport`` (a
     ``DynamicTransportRecord``); its section replaces the static transport and
@@ -497,7 +497,7 @@ def _gauge_manifest_block(ctx) -> dict[str, Any]:
     provenance = getattr(ctx, "gauge_provenance", None) or ()
     if not provenance:
         raise RunIOError(
-            "TimingContext.gauge_provenance is empty; gauge facts must be "
+            "TimingSignal.gauge_provenance is empty; gauge facts must be "
             "normalized at context construction."
         )
     contributions: dict[str, Any] = {}

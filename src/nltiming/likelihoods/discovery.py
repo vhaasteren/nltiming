@@ -1,7 +1,7 @@
 """Discovery likelihood interface for nonlinear timing.
 
 This module builds Discovery-native likelihood signals from a bound
-``NonLinearTimingModel`` pulsar: an optional improper GP for analytically
+``TimingSpec`` pulsar: an optional improper GP for analytically
 marginalized linear fit parameters, plus a JAX nonlinear delay for the
 numerically sampled block.
 
@@ -9,7 +9,7 @@ Priors
 ------
 Discovery delay keys carry timing-engine-native ``delta_theta`` values; this module
 does **not** attach timing priors to the likelihood. Sampled-parameter priors
-live in ``ParameterSpace`` (from ``NonLinearTimingModel.space``) and are
+live in ``ParameterSpace`` (from ``TimingSpec.space``) and are
 added separately—for example via ``sample_timing``, which evaluates
 ``space.logprior_coord`` as a NumPyro factor.
 
@@ -95,7 +95,7 @@ def discovery_signals(
         Timing pulsar with residuals, design matrix, and TOA metadata.
     space
         ``ParameterSpace`` for the sampled block. Passed for API symmetry with
-        ``NonLinearTimingModel.discovery_signals``; delay keys already use
+        ``TimingSpec.discovery_signals``; delay keys already use
         engine-native ``delta_theta``, so the likelihood path here does not
         consume ``space`` directly. Priors from ``space`` are applied outside
         this builder (see module docstring).

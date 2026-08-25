@@ -7,7 +7,7 @@ from nltiming import priors as prior_specs
 from nltiming import TimingInference
 from _engine_stubs import JaxLinearTestEngine
 from nltiming.engine_support import LinearModel
-from nltiming.nonlinear_timing_model import NonLinearTimingModel
+from nltiming.nonlinear_timing_model import TimingSpec
 from nltiming.selection import (
     ParameterMappingError,
     fitpar_suffix,
@@ -319,7 +319,7 @@ def test_timing_parameter_mapping_provider_is_package_export():
 
 
 def test_model_inference_groups_selects_plan(pulsar):
-    ntm = NonLinearTimingModel(
+    ntm = TimingSpec(
         engines="jug",
         inference=TimingInference.groups(delta_flat=["F1"]),
         name="timing",
@@ -332,20 +332,20 @@ def test_model_inference_groups_selects_plan(pulsar):
 def test_model_inference_string_and_enum_presets(pulsar):
     from nltiming import InferencePreset
 
-    default_ctx = NonLinearTimingModel(engines="jug", name="timing").for_pulsar(pulsar)
+    default_ctx = TimingSpec(engines="jug", name="timing").for_pulsar(pulsar)
     assert (
-        NonLinearTimingModel(engines="jug", inference="default", name="timing")
+        TimingSpec(engines="jug", inference="default", name="timing")
         .for_pulsar(pulsar)
         .plan.fingerprint()
         == default_ctx.plan.fingerprint()
     )
-    all_ctx = NonLinearTimingModel(
+    all_ctx = TimingSpec(
         engines="jug", inference="all", name="timing"
     ).for_pulsar(pulsar)
     assert all_ctx.sampled == tuple(pulsar.fitpars)
     assert all_ctx.plan.marginalized_delta == ()
     assert (
-        NonLinearTimingModel(
+        TimingSpec(
             engines="jug", inference=InferencePreset.ALL, name="timing"
         )
         .for_pulsar(pulsar)
@@ -356,13 +356,13 @@ def test_model_inference_string_and_enum_presets(pulsar):
 
 def test_model_inference_type_rejected():
     with pytest.raises(ValueError, match="unknown inference preset"):
-        NonLinearTimingModel(engines="jug", inference="PB")
+        TimingSpec(engines="jug", inference="PB")
     with pytest.raises(TypeError, match="TimingInference"):
-        NonLinearTimingModel(engines="jug", inference=123)
+        TimingSpec(engines="jug", inference=123)
 
 
 def test_constructor_priors_expand_to_suffixed_targets(pulsar):
-    ntm = NonLinearTimingModel(
+    ntm = TimingSpec(
         engines="jug",
         inference=TimingInference.groups(delta_flat=["F1"]),
         priors={"TASC": prior_specs.delta_uniform(-0.5, 0.5, scale="PB")},
@@ -383,7 +383,7 @@ def test_constructor_priors_expand_to_suffixed_targets(pulsar):
 
 def test_constructor_priors_reject_non_spec_values():
     with pytest.raises(TypeError, match="PriorOverrideSpec"):
-        NonLinearTimingModel(engines="jug", priors={"PB": ("uniform", -1, 1)})
+        TimingSpec(engines="jug", priors={"PB": ("uniform", -1, 1)})
 
 
 def test_prior_spec_helpers_validate_scale_frame():
@@ -395,7 +395,7 @@ def test_prior_spec_helpers_validate_scale_frame():
 
 
 def test_with_engines_carries_inference_and_priors(pulsar):
-    ntm = NonLinearTimingModel(
+    ntm = TimingSpec(
         engines="jug",
         inference=TimingInference.groups(delta_flat=["F1"]),
         priors={"TASC": prior_specs.delta_uniform(-0.5, 0.5, scale="PB")},
@@ -412,7 +412,7 @@ def test_with_engines_carries_inference_and_priors(pulsar):
 
 
 def test_omitted_tempo2_native_resolves_to_fixed_state_stripped():
-    ntm = NonLinearTimingModel(engines="jug", name="timing")
+    ntm = TimingSpec(engines="jug", name="timing")
     # Raw field stays None (the "user set a mode" signal for _uses_jug);
     # the resolved mode is the production default and is what layers see.
     assert ntm.tempo2_native is None
@@ -421,7 +421,7 @@ def test_omitted_tempo2_native_resolves_to_fixed_state_stripped():
 
 
 def test_explicit_tempo2_native_is_an_explicit_choice():
-    ntm = NonLinearTimingModel(
+    ntm = TimingSpec(
         engines="jug", tempo2_native="fixed_state", name="timing"
     )
     assert ntm.resolved_tempo2_native == "fixed_state"
@@ -429,8 +429,8 @@ def test_explicit_tempo2_native_is_an_explicit_choice():
 
 
 def test_resolved_tempo2_native_is_fingerprinted():
-    default = NonLinearTimingModel(engines="jug", name="timing")
-    explicit = NonLinearTimingModel(
+    default = TimingSpec(engines="jug", name="timing")
+    explicit = TimingSpec(
         engines="jug", tempo2_native="fixed_state", name="timing"
     )
     # The resolved mode enters the config fingerprint, so a non-default mode
@@ -445,15 +445,15 @@ def test_resolved_tempo2_native_is_fingerprinted():
 
 
 def test_omitted_nonlinear_params_stays_none():
-    ntm = NonLinearTimingModel(engines="jug", name="timing")
+    ntm = TimingSpec(engines="jug", name="timing")
     assert ntm.nonlinear_params is None
     assert ntm._timing_engine_kwargs()["nonlinear_params"] is None
     assert ntm._nonlinear_params_fingerprint() is None
 
 
 def test_explicit_nonlinear_params_forwarded_and_fingerprinted():
-    native = NonLinearTimingModel(engines="jug", name="timing")
-    hybrid = NonLinearTimingModel(
+    native = TimingSpec(engines="jug", name="timing")
+    hybrid = TimingSpec(
         engines="jug", nonlinear_params="binary", name="timing"
     )
     assert hybrid.nonlinear_params == "binary"
@@ -468,13 +468,13 @@ def test_nonlinear_params_rejects_unknown_mode():
     import pytest
 
     with pytest.raises(ValueError, match="nonlinear_params"):
-        NonLinearTimingModel(engines="jug", nonlinear_params="all", name="timing")
+        TimingSpec(engines="jug", nonlinear_params="all", name="timing")
 
 
 def test_nonlinear_params_implies_jug_use():
     # Hybrid mode requires jug even if engines omit it in the sense that
     # _uses_jug is true whenever nonlinear_params is set.
-    ntm = NonLinearTimingModel(
+    ntm = TimingSpec(
         engines={"pint": "pint", "tempo2": "libstempo"},
         nonlinear_params="binary+",
         name="timing",
@@ -485,8 +485,8 @@ def test_nonlinear_params_implies_jug_use():
 def test_run_meta_records_nonlinear_params():
     from nltiming.run_io import _run_meta_nonlinear_params
 
-    omitted = NonLinearTimingModel(engines="jug", name="timing")
-    hybrid = NonLinearTimingModel(
+    omitted = TimingSpec(engines="jug", name="timing")
+    hybrid = TimingSpec(
         engines="jug", nonlinear_params="binary", name="timing"
     )
     assert _run_meta_nonlinear_params(omitted) is None

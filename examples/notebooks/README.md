@@ -1,45 +1,35 @@
 # Nonlinear timing — introductory notebooks
 
 These notebooks introduce **numerical sampling of pulsar timing parameters**
-with `nltiming`. They assume you already know tempo2/PINT, can build a PTA
-likelihood in Discovery or Enterprise, and have sampled something like a
-continuous-wave (CW) source. They do **not** assume you have ever sampled
-timing-model parameters yourself — only that you know the usual practice of
-analytically marginalizing a linear timing model.
+with `nltiming`. They assume you already know tempo2/PINT and can build a PTA
+likelihood in Discovery or Enterprise. They do **not** assume you have sampled
+timing-model parameters before.
 
-## Pulsar object: MetaPulsar required today
+## Pulsar object: a `TimingPulsar`
 
-`nltiming` binds to the `TimingPulsar` protocol. **Right now the only
-production implementation is
+`nltiming` binds a `TimingSpec` to a pulsar through the `TimingPulsar`
+protocol and returns a `TimingSignal`. **Today the only production
+implementation is
 [MetaPulsar](https://github.com/vhaasteren/metapulsar)** — even for a single
-PTA dataset — so every notebook builds the pulsar with `create_metapulsar`.
+PTA dataset — so every notebook builds the host with `create_metapulsar`.
 Once Discovery and/or Enterprise provide a native `TimingPulsar`, that
 dependency can be dropped; the `nltiming` API in these notebooks will not
 change.
 
-Run top-to-bottom in an environment that has MetaPulsar, JUG, Discovery,
-NumPyro, and Enterprise (e.g. the MetaPulsar devcontainer with this package
-editable-installed).
+Run top-to-bottom from `examples/notebooks/` in an environment that has
+MetaPulsar, JUG, Discovery, NumPyro, Enterprise, and PTMCMCSampler (e.g. the
+MetaPulsar devcontainer with this package editable-installed).
 
 ## Suggested order
 
-1. **`01_nonlinear_timing_charts.ipynb`** (simulated data) — why sample timing
-   at all; the inference plan (sample vs analytically marginalize); coordinate
-   charts; a short joint NUTS run; the Enterprise path.
-2. **`02_geometry_certification_and_pivot.ipynb`** (simulated data) — checking
-   that the sampling geometry is healthy before a long run; declaring linear
-   axes; pivot-amplitude red noise.
-3. **`03_j1640_decentering_validation.ipynb`** (real IPTA DR2 J1640+2224) —
-   full-basis sampling on real data (charts, geometry check, modest NUTS, pivot
-   amplitude), then the **marginalized dynamic decentering** mode and a
-   three-mode comparison (full-basis / decentered / static).
-4. **`04_j1640_marginalization_validation.ipynb`** (real J1640) — the two
-   analytical-marginalization measures (delta-flat vs z-prior) as distinct
-   models.
+| # | Notebook | Data | Focus |
+|---|----------|------|-------|
+| 1 | `01_discovery_enterprise_backends.ipynb` | J1721-2457 | Discovery + Enterprise, backends (JUG, libstempo, Vela), chains and corner plots |
+| 2 | `02_charts_and_binary.ipynb` | J1022+1001 | Per-axis charts and Kepler↔Laplace (`EPS1/EPS2/TASC` on a DDH engine) |
+| 3 | `03_decentering_and_full_basis.ipynb` | J1022+1001 | Default decentered sampling vs `inference="all"` |
+| 4 | `04_geometry.ipynb` | J1022+1001 | Certify geometry; `identically_linear` |
 
-Notebooks **01** and **02** need no external data (PINT simulates TOAs).
-**03** and **04** look for EPTA-DR2 J1640 under a MetaPulsar checkout
-(`data/ipta-dr2/`).
-
-Sampling cells use short chains for pedagogy; scale `num_warmup` /
-`num_samples` / `num_chains` for science. Outputs are not committed.
+Data lives in [`examples/data/`](../data/): AEI-DR2 combined
+`par-optimized` pars and INCLUDE `.tim` trees. Sampling cells use short
+chains for pedagogy; scale `num_warmup` / `num_samples` / `Niter` for science.
+Outputs are not committed.

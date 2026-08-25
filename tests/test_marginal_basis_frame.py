@@ -24,7 +24,7 @@ from nltiming.priors import (  # noqa: E402
 )
 from nltiming.whitening import normalized_basis  # noqa: E402
 from nltiming.coordinates import TimingCoordinatePolicy  # noqa: E402
-from nltiming.nonlinear_timing_model import NonLinearTimingModel  # noqa: E402
+from nltiming.nonlinear_timing_model import TimingSpec  # noqa: E402
 from _engine_stubs import JaxLinearTestEngine  # noqa: E402
 from nltiming.engine_support import LinearModel  # noqa: E402
 
@@ -159,7 +159,7 @@ def _improper_marg_lnlike(residuals, toaerrs, design, marg_idx):
 
 
 def _ctx_for(pulsar, *, inference, binary_chart="auto", **kw):
-    ntm = NonLinearTimingModel(
+    ntm = TimingSpec(
         engines="jug",
         inference=inference,
         binary_chart=binary_chart,
@@ -693,7 +693,7 @@ def test_conversion_metadata_copied_to_manifest():
             return self._inner.timing_engine(engines=engines, **kwargs)
 
     wrapped = _Wrapped(pulsar)
-    ntm = NonLinearTimingModel(
+    ntm = TimingSpec(
         engines="jug",
         inference=TimingInference.groups(delta_flat=["ECC", "OM", "T0"]),
         binary_chart="auto",

@@ -18,7 +18,7 @@ import jax.numpy as jnp  # noqa: E402
 from nltiming import TimingInference, WhiteningConfig  # noqa: E402
 from _engine_stubs import JaxLinearTestEngine
 from nltiming.engine_support import LinearModel  # noqa: E402
-from nltiming.nonlinear_timing_model import NonLinearTimingModel  # noqa: E402
+from nltiming.nonlinear_timing_model import TimingSpec  # noqa: E402
 
 
 class _Pulsar:
@@ -82,7 +82,7 @@ class _Pulsar:
 
 
 def _joint_ctx():
-    ntm = NonLinearTimingModel(
+    ntm = TimingSpec(
         engines="jug",
         inference=TimingInference.sample_all(),
         name="timing",
@@ -118,7 +118,7 @@ def test_chart_records_tag_proper_axes_affine_normal():
 
 
 def test_nonlinear_axis_uses_prior_pit_chart():
-    ntm = NonLinearTimingModel(
+    ntm = TimingSpec(
         engines="jug",
         inference=TimingInference.sample_all(),
         identically_linear=[],  # assert none linear -> uniform cheat prior -> PIT
@@ -133,7 +133,7 @@ def test_uniform_override_on_identically_linear_axis_is_reported_nonaffine():
     from nltiming import priors as P
     from nltiming.coordinates import NonAffineIdenticallyLinearWarning
 
-    ntm = NonLinearTimingModel(
+    ntm = TimingSpec(
         engines="jug",
         inference=TimingInference.sample_all(),
         priors={"DM": P.delta_uniform(-1e-3, 1e-3)},
@@ -153,7 +153,7 @@ def test_nonaffine_identically_linear_warning_can_be_suppressed(recwarn):
         TimingCoordinatePolicy,
     )
 
-    ntm = NonLinearTimingModel(
+    ntm = TimingSpec(
         engines="jug",
         inference=TimingInference.sample_all(),
         priors={"DM": P.delta_uniform(-1e-3, 1e-3)},
@@ -168,7 +168,7 @@ def test_nonaffine_identically_linear_warning_can_be_suppressed(recwarn):
 def test_prior_on_delta_flat_axis_raises_and_names_z_prior_remedy():
     from nltiming import priors as P
 
-    ntm = NonLinearTimingModel(
+    ntm = TimingSpec(
         engines="jug",
         inference=TimingInference.groups(delta_flat=["DM"]),
         priors={"DM": P.delta_uniform(-1e-3, 1e-3)},
@@ -191,7 +191,7 @@ def test_whitening_none_is_identity_static_layer():
 def test_whitening_config_is_nonidentity_static_layer():
     from nltiming.metric import OneAffineLayerError, assert_static_layer_identity
 
-    ntm = NonLinearTimingModel(
+    ntm = TimingSpec(
         engines="jug",
         inference=TimingInference.sample_all(),
         whitening=WhiteningConfig(),
@@ -206,7 +206,7 @@ def test_whitening_config_is_nonidentity_static_layer():
 
 def test_transform_keyword_is_rejected():
     with pytest.raises(TypeError):
-        NonLinearTimingModel(
+        TimingSpec(
             engines="jug",
             transform="none",
             inference=TimingInference.sample_all(),
@@ -217,7 +217,7 @@ def test_z_prior_context_builds_with_wm_block_and_discovery_gp():
     """A marginalize_z_prior axis is live for Discovery: the context builds, the
     linearization carries a W_m block, and discovery_signals emits the proper
     unit-normal (standard-normal) GP for it."""
-    ntm = NonLinearTimingModel(
+    ntm = TimingSpec(
         engines="jug",
         inference=TimingInference.groups(z_prior=["DM"]),
         name="timing",
@@ -242,7 +242,7 @@ def test_z_prior_context_builds_with_wm_block_and_discovery_gp():
 def test_discovery_signals_joint_rejects_any_marginalization():
     # joint=True must sample every timing direction; a z-prior (or delta-flat)
     # marginal block would be the wrong model, so it fails loudly.
-    ntm = NonLinearTimingModel(
+    ntm = TimingSpec(
         engines="jug",
         inference=TimingInference.groups(z_prior=["DM"]),
         name="timing",
@@ -258,7 +258,7 @@ def test_z_prior_enterprise_assembly_builds_and_evaluates():
     into a full PTA whose likelihood evaluates (DM analytically marginalized)."""
     from enterprise.signals import parameter, signal_base, white_signals
 
-    ntm = NonLinearTimingModel(
+    ntm = TimingSpec(
         engines="jug",
         inference=TimingInference.groups(z_prior=["DM"]),
         whitening=WhiteningConfig(),
@@ -280,7 +280,7 @@ def test_z_prior_enterprise_can_sample_wm_coefficients():
     is the exact unit normal ``-1/2 c^T c`` and whose delay is ``W_m @ c``."""
     from enterprise.signals import parameter, signal_base, white_signals
 
-    ntm = NonLinearTimingModel(
+    ntm = TimingSpec(
         engines="jug",
         inference=TimingInference.groups(z_prior=["DM"]),
         whitening=WhiteningConfig(),
@@ -374,7 +374,7 @@ def test_joint_model_requires_identity_static_layer():
     from nltiming.metric import OneAffineLayerError
     from nltiming.sampling import numpyro as N
 
-    ntm = NonLinearTimingModel(
+    ntm = TimingSpec(
         engines="jug",
         inference=TimingInference.sample_all(),
         whitening=WhiteningConfig(),

@@ -1,0 +1,3 @@
+FORMAT 1
+C MetaPulsar combination tim for J1721-2457 (ref=epta_dr1_v2_2; INCLUDE of all PTA legs)
+INCLUDE J1721-2457/J1721-2457_epta_dr1_v2_2.tim

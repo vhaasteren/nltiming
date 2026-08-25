@@ -1,0 +1,4 @@
+FORMAT 1
+C MetaPulsar combination tim for J1022+1001 (ref=epta_dr1_v2_2; INCLUDE of all PTA legs)
+INCLUDE J1022+1001/J1022+1001_epta_dr1_v2_2.tim
+INCLUDE J1022+1001/J1022+1001_ppta_dr2.tim

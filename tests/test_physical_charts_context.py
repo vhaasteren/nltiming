@@ -17,7 +17,7 @@ import jax.numpy as jnp  # noqa: E402
 from nltiming import TimingInference  # noqa: E402
 from _engine_stubs import JaxLinearTestEngine
 from nltiming.engine_support import LinearModel  # noqa: E402
-from nltiming.nonlinear_timing_model import NonLinearTimingModel  # noqa: E402
+from nltiming.nonlinear_timing_model import TimingSpec  # noqa: E402
 from nltiming.priors import delta_uniform, normal  # noqa: E402
 
 REF = {
@@ -69,7 +69,7 @@ class _BinaryPulsar:
 
 
 def _ctx(inference=None, binary_chart="auto", **kw):
-    ntm = NonLinearTimingModel(
+    ntm = TimingSpec(
         engines="jug",
         inference=inference or TimingInference.sample_all(),
         binary_chart=binary_chart,
@@ -110,10 +110,10 @@ def test_delay_keys_and_sites():
 
 
 def test_cache_key_includes_policy():
-    ntm_auto = NonLinearTimingModel(
+    ntm_auto = TimingSpec(
         engines="jug", inference=TimingInference.sample_all(), binary_chart="auto"
     )
-    ntm_off = NonLinearTimingModel(
+    ntm_off = TimingSpec(
         engines="jug", inference=TimingInference.sample_all(), binary_chart="off"
     )
     assert ntm_auto._config_fingerprint() != ntm_off._config_fingerprint()
@@ -276,7 +276,7 @@ def test_guard_support_equals_prior_support_no_recompute(monkeypatch):
     # monkeypatch the model-side schur_delta_wls (the prior path's copy) to
     # raise; activation's own reachability schur (physical_charts' copy) is
     # untouched, so the box is still computed there.
-    ntm = NonLinearTimingModel(
+    ntm = TimingSpec(
         engines="jug",
         inference=TimingInference.groups(delta_flat=["Offset", "PB"]),
         binary_chart="auto",
@@ -422,7 +422,7 @@ def test_pint_prior_demotion_end_to_end():
     # with the pint_prior_on_kepler_axis warning, the plan keeps engine names,
     # and the resolved prior block honors the PINT ECC prior (source "pint").
     model = _FakePINT(ECC=_Param(value=8e-4, prior=_Prior(0.0, 0.02)))
-    ntm = NonLinearTimingModel(
+    ntm = TimingSpec(
         engines="jug",
         inference=TimingInference.sample_all(),
         binary_chart="auto",
@@ -437,7 +437,7 @@ def test_pint_prior_demotion_end_to_end():
     assert ecc_axis.prior.family == "uniform"
     assert ctx.binary_chart_records[0]["reason"] == "pint_prior_on_kepler_axis"
     # 'on' raises.
-    ntm_on = NonLinearTimingModel(
+    ntm_on = TimingSpec(
         engines="jug",
         inference=TimingInference.sample_all(),
         binary_chart="on",

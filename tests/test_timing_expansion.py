@@ -16,7 +16,7 @@ from nltiming import (
 from nltiming import priors as P
 from _engine_stubs import JaxLinearTestEngine
 from nltiming.engine_support import LinearModel
-from nltiming.nonlinear_timing_model import NonLinearTimingModel
+from nltiming.nonlinear_timing_model import TimingSpec
 
 
 class _Pulsar:
@@ -86,7 +86,7 @@ class _Pulsar:
 
 
 def _model(**kw):
-    return NonLinearTimingModel(
+    return TimingSpec(
         engines="jug", inference=TimingInference.sample_all(), name="timing", **kw
     )
 
@@ -208,7 +208,7 @@ def test_engine_reference_admits_signed_pbdot_and_stigma_above_one():
     # negative PBDOT and STIGMA>1. PX/H3 remain non-negative domains.
     # identically_linear=[] forces the uniform cheat-box path (LinearTimingEngine
     # otherwise declares every axis identically linear → unbounded Gaussians).
-    model = NonLinearTimingModel(
+    model = TimingSpec(
         engines="jug",
         inference=TimingInference.sample_all(),
         identically_linear=[],

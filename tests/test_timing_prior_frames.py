@@ -4,7 +4,7 @@ import pytest
 
 from nltiming import TimingInference
 from nltiming.bijectors import AxisPrior
-from nltiming.nonlinear_timing_model import NonLinearTimingModel
+from nltiming.nonlinear_timing_model import TimingSpec
 from _planhelp import plan_for
 from nltiming.priors import (
     PriorBuildContext,
@@ -126,7 +126,7 @@ class _FakePulsar:
 def test_ntm_resolve_prior_overrides(composite_binary_ctx):
     pulsar = _FakePulsar(dict(composite_binary_ctx.refs))
     engine = pulsar.timing_engine({})
-    ntm = NonLinearTimingModel(inference=TimingInference.sample_all())
+    ntm = TimingSpec(inference=TimingInference.sample_all())
     ntm.set_prior(
         "TASC_epta",
         "uniform",

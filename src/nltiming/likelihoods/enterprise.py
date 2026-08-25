@@ -1,6 +1,6 @@
 """Enterprise likelihood interface for nonlinear timing.
 
-This module wires ``NonLinearTimingModel`` into Enterprise's signal graph:
+This module wires ``TimingSpec`` into Enterprise's signal graph:
 a deterministic nonlinear delay for numerically sampled fit parameters and an optional
 ``TimingModel`` GP basis for analytically marginalized linear nuisances.
 
@@ -367,15 +367,15 @@ def enterprise_signal(
     Parameters
     ----------
     ctx_fn
-        Callable ``pulsar -> TimingContext`` (typically
-        ``NonLinearTimingModel.for_pulsar``). All pulsar-bound state — parameter
+        Callable ``pulsar -> TimingSignal`` (typically
+        ``TimingSpec.for_pulsar``). All pulsar-bound state — parameter
         space, partition, timing engine, design matrix — comes from the
         ctx, so the Enterprise likelihood shares the exact engine
         configuration used by the Discovery likelihood interface and the run products.
     name
         Enterprise signal / component name prefix.
     static_layer
-        ``NonLinearTimingModel`` static layer: ``"identity"`` or ``"whitening"``
+        ``TimingSpec`` static layer: ``"identity"`` or ``"whitening"``
         or ``"whitening"``. Selects the Enterprise sampling coordinate
         (``z`` under the identity layer, or joint ``x`` under whitening).
 

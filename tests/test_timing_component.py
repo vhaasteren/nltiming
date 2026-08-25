@@ -1,4 +1,4 @@
-"""Slice-5 tests for NonLinearTimingModel component behavior."""
+"""Slice-5 tests for TimingSpec component behavior."""
 
 import numpy as np
 import pytest
@@ -10,7 +10,7 @@ from numpyro import handlers
 from nltiming import TimingInference, WhiteningConfig
 from _engine_stubs import JaxLinearTestEngine, LinearTestEngine
 from nltiming.engine_support import LinearModel
-from nltiming.nonlinear_timing_model import NonLinearTimingModel
+from nltiming.nonlinear_timing_model import TimingSpec
 from nltiming.whitening import normalized_basis
 from nltiming.sampling.numpyro import _sample_timing_coord, sample_timing
 from _planhelp import plan_for
@@ -146,7 +146,7 @@ def _z_space_fisher(space, delta_fisher):
 def test_component_config_only_build_and_with_engines():
     from nltiming.metric import WhiteningConfig
 
-    ntm = NonLinearTimingModel(
+    ntm = TimingSpec(
         engines="jug",
         whitening=WhiteningConfig(),
         inference=TimingInference.groups(delta_flat=["Offset", "F0"]),
@@ -164,7 +164,7 @@ def test_component_config_only_build_and_with_engines():
 
 
 def test_space_cached_and_invalidated_by_state_id(pulsar):
-    ntm = NonLinearTimingModel(
+    ntm = TimingSpec(
         engines="jug",
         whitening=WhiteningConfig(),
         inference=TimingInference.groups(delta_flat=["Offset", "F0", "DM"]),
@@ -183,12 +183,12 @@ def test_whitening_config_roundtrip_and_space_shape(pulsar):
     """WhiteningConfig is the serializable config; dict whitening_config is gone."""
     from nltiming.metric import WhiteningConfig
 
-    ntm_default = NonLinearTimingModel(
+    ntm_default = TimingSpec(
         engines="jug",
         whitening=WhiteningConfig(),
         inference=TimingInference.groups(delta_flat=["Offset", "F0", "DM"]),
     )
-    ntm_toa = NonLinearTimingModel(
+    ntm_toa = TimingSpec(
         engines="jug",
         inference=TimingInference.groups(delta_flat=["Offset", "F0", "DM"]),
         whitening=WhiteningConfig(reference_noise="toa_errors"),
@@ -205,7 +205,7 @@ def test_whitening_config_roundtrip_and_space_shape(pulsar):
 
 def test_whitening_builders_condition_fisher_to_unit_scale(pulsar):
     analytically_marginalize_cfg = None
-    ntm_default = NonLinearTimingModel(
+    ntm_default = TimingSpec(
         engines="jug",
         whitening=WhiteningConfig(),
         inference=TimingInference.sample_all(),
@@ -236,7 +236,7 @@ def test_autodiff_design_matrix_method_feeds_whitening(pulsar):
     pulsar._jug_backend.residual_jacobian = lambda: -np.asarray(
         autodiff_matrix, dtype=float
     )
-    ntm = NonLinearTimingModel(
+    ntm = TimingSpec(
         engines="jug",
         derivative_method="autodiff",
         whitening=WhiteningConfig(),
@@ -267,7 +267,7 @@ def test_autodiff_design_matrix_method_feeds_whitening(pulsar):
 
 
 def test_cheat_wls_prior_is_wide_uniform_box(pulsar):
-    ntm = NonLinearTimingModel(
+    ntm = TimingSpec(
         engines="jug",
         whitening=WhiteningConfig(),
         inference=TimingInference.sample_all(),
@@ -303,7 +303,7 @@ def test_autodiff_design_matrix_method_feeds_cheat_prior_widths(pulsar):
     pulsar._jug_backend.residual_jacobian = lambda: -np.asarray(
         autodiff_matrix, dtype=float
     )
-    ntm = NonLinearTimingModel(
+    ntm = TimingSpec(
         engines="jug",
         derivative_method="autodiff",
         whitening=WhiteningConfig(),
@@ -349,7 +349,7 @@ def test_cheat_prior_box_clipped_to_physical_bounds():
             self._jug_backend = JaxLinearTestEngine.from_linear_model(model)
 
     bounded = _BoundedHost()
-    ntm = NonLinearTimingModel(
+    ntm = TimingSpec(
         engines="jug",
         whitening=WhiteningConfig(),
         inference=TimingInference.groups(delta_flat=["Offset", "F1", "DM"]),
@@ -374,7 +374,7 @@ def test_cheat_prior_box_clipped_to_physical_bounds():
 
 
 def test_discovery_signals_delta_only_and_jax_gate(pulsar):
-    ntm = NonLinearTimingModel(
+    ntm = TimingSpec(
         engines="jug",
         whitening=WhiteningConfig(),
         inference=TimingInference.groups(delta_flat=["Offset", "F0", "DM"]),
@@ -388,7 +388,7 @@ def test_discovery_signals_delta_only_and_jax_gate(pulsar):
     )
     np.testing.assert_allclose(output, expected)
 
-    ntm_nonjax = NonLinearTimingModel(
+    ntm_nonjax = TimingSpec(
         engines={"tempo2": "jug", "pint": "pint"},
         inference=TimingInference.groups(delta_flat=["Offset", "F0", "DM"]),
         name="timing",
@@ -411,7 +411,7 @@ def test_autodiff_design_matrix_method_feeds_discovery_gp_basis(pulsar, monkeypa
         return "gp"
 
     monkeypatch.setattr("discovery.signals.makegp_improper", fake_makegp_improper)
-    ntm = NonLinearTimingModel(
+    ntm = TimingSpec(
         engines="jug",
         derivative_method="autodiff",
         whitening=WhiteningConfig(),
@@ -430,7 +430,7 @@ def test_autodiff_design_matrix_method_feeds_discovery_gp_basis(pulsar, monkeypa
 
 
 def test_all_analytically_marginalized_paths(pulsar):
-    ntm = NonLinearTimingModel(
+    ntm = TimingSpec(
         engines={"tempo2": "jug", "pint": "pint"},
         inference=TimingInference.groups(delta_flat=["Offset", "F0", "F1", "DM"]),
         name="timing",
@@ -443,7 +443,7 @@ def test_all_analytically_marginalized_paths(pulsar):
 
 
 def test_non_timing_params_and_timing_param_keys_are_plain_set_subtraction(pulsar):
-    ntm = NonLinearTimingModel(
+    ntm = TimingSpec(
         engines="jug",
         whitening=WhiteningConfig(),
         inference=TimingInference.groups(delta_flat=["Offset", "F0", "DM"]),
@@ -459,7 +459,7 @@ def test_non_timing_params_and_timing_param_keys_are_plain_set_subtraction(pulsa
         "log10_A",
     )
 
-    ntm_all_marg = NonLinearTimingModel(
+    ntm_all_marg = TimingSpec(
         engines="jug",
         inference=TimingInference.groups(delta_flat=["Offset", "F0", "F1", "DM"]),
         name="timing",
@@ -472,7 +472,7 @@ def test_non_timing_params_and_timing_param_keys_are_plain_set_subtraction(pulsa
 def test_sample_timing_x_site_samples_and_injects_delta_deterministic(
     pulsar, monkeypatch
 ):
-    ntm = NonLinearTimingModel(
+    ntm = TimingSpec(
         engines="jug",
         whitening=WhiteningConfig(),
         inference=TimingInference.groups(delta_flat=["Offset", "F0", "DM"]),
@@ -497,7 +497,7 @@ def test_sample_timing_x_site_samples_and_injects_delta_deterministic(
 
 
 def test_sample_timing_noop_when_no_sampled(pulsar, monkeypatch):
-    ntm = NonLinearTimingModel(
+    ntm = TimingSpec(
         engines="jug",
         inference=TimingInference.groups(delta_flat=["Offset", "F0", "F1", "DM"]),
         name="timing",
@@ -511,7 +511,7 @@ def test_sample_timing_noop_when_no_sampled(pulsar, monkeypatch):
 
 
 def test_set_prior_validated_against_sampled_partition(pulsar):
-    ntm = NonLinearTimingModel(
+    ntm = TimingSpec(
         engines="jug",
         inference=TimingInference.groups(delta_flat=["Offset", "F0", "DM"]),
         prior_override_policy="strict",
@@ -524,7 +524,7 @@ def test_set_prior_validated_against_sampled_partition(pulsar):
 
 
 def test_set_prior_unknown_name_raises(pulsar):
-    ntm = NonLinearTimingModel(
+    ntm = TimingSpec(
         engines="jug",
         inference=TimingInference.groups(delta_flat=["Offset", "F0", "DM"]),
         prior_override_policy="strict",
@@ -536,7 +536,7 @@ def test_set_prior_unknown_name_raises(pulsar):
 
 
 def test_enterprise_signal_forwards_engines(pulsar):
-    ntm = NonLinearTimingModel(
+    ntm = TimingSpec(
         engines="jug",
         inference=TimingInference.groups(delta_flat=["Offset", "F0", "DM"]),
         name="timing",
@@ -556,7 +556,7 @@ def test_autodiff_design_matrix_method_feeds_enterprise_gp_basis(pulsar):
     pulsar._jug_backend.residual_jacobian = lambda: -np.asarray(
         autodiff_matrix, dtype=float
     )
-    ntm = NonLinearTimingModel(
+    ntm = TimingSpec(
         engines="jug",
         derivative_method="autodiff",
         inference=TimingInference.groups(delta_flat=["Offset", "F0", "DM"]),
@@ -573,7 +573,7 @@ def test_autodiff_design_matrix_method_feeds_enterprise_gp_basis(pulsar):
 
 
 def test_sample_timing_x_site_has_vector_event_shape(pulsar):
-    ntm = NonLinearTimingModel(
+    ntm = TimingSpec(
         engines="jug",
         whitening=WhiteningConfig(),
         inference=TimingInference.groups(delta_flat=["Offset", "F0", "DM"]),
@@ -599,7 +599,7 @@ def test_timing_coord_distribution_log_prob_matches_logprior_coord(pulsar):
     across diagonal standardization and non-diagonal whitening."""
     cases = [(WhiteningConfig(), "x"), (None, "z")]
     for whitening, coord in cases:
-        ntm = NonLinearTimingModel(
+        ntm = TimingSpec(
             engines="jug",
             whitening=whitening,
             inference=TimingInference.groups(delta_flat=["DM"]),
@@ -622,7 +622,7 @@ def test_timing_coord_distribution_log_prob_matches_logprior_coord(pulsar):
 
 def test_timing_coord_x_and_z_add_no_extra_prior_factor(pulsar, monkeypatch):
     for whitening, coord in [(WhiteningConfig(), "x"), (None, "z")]:
-        ntm = NonLinearTimingModel(
+        ntm = TimingSpec(
             engines="jug",
             whitening=whitening,
             inference=TimingInference.groups(delta_flat=["DM"]),
@@ -638,7 +638,7 @@ def _enterprise_pta(pulsar, *, whitening, analytically_marginalize):
 
     efac = parameter.Uniform(0.1, 5.0)
     white = white_signals.MeasurementNoise(efac=efac)
-    ntm = NonLinearTimingModel(
+    ntm = TimingSpec(
         engines="jug",
         whitening=whitening,
         inference=TimingInference.groups(delta_flat=analytically_marginalize),
@@ -677,7 +677,7 @@ def test_enterprise_parameters_sample_and_evaluate_full_pta(
 
 
 def test_scalar_timing_parameter_prior_draw_mode_is_component(pulsar):
-    ntm = NonLinearTimingModel(
+    ntm = TimingSpec(
         engines="jug",
         inference=TimingInference.groups(delta_flat=["DM"]),
         name="timing",
@@ -694,7 +694,7 @@ def test_whitening_vector_parameter_is_joint_and_size_one_stays_a_vector(pulsar)
     """A one-dimensional full-whitening block remains a vector end to end
     (acceptance criterion #5): size, sample(), and prior_draw_mode all agree
     it is a length-1 array, not a bare scalar."""
-    ntm = NonLinearTimingModel(
+    ntm = TimingSpec(
         engines="jug",
         whitening=WhiteningConfig(),
         inference=TimingInference.groups(delta_flat=["Offset", "F0", "DM"]),
@@ -724,7 +724,7 @@ def test_whitening_vector_sample_and_ppf_describe_the_same_distribution(
     actually draws and assert ``sample() == get_ppf(u)`` bit-for-bit; that is
     exactly the composition the docstring claims.
     """
-    ntm = NonLinearTimingModel(
+    ntm = TimingSpec(
         engines="jug",
         whitening=WhiteningConfig(),
         inference=TimingInference.groups(delta_flat=["Offset", "DM"]),
