@@ -289,6 +289,37 @@ def test_samples_to_frame_missing_pandas_raises_actionable_error(pulsar, monkeyp
         nlt_numpyro.samples_to_frame({site: np.zeros((1, 1))}, ctx)
 
 
+def test_posterior_returns_short_physical_variables_with_chains(pulsar):
+    pytest.importorskip("arviz")
+    ctx = _binding(whitening=None).for_pulsar(pulsar)
+    delta = np.array([0.01, 0.02, 0.03])
+
+    class _FakeMCMC:
+        def get_samples(self, *, group_by_chain):
+            assert group_by_chain is True
+            return {f"{ctx.name_stem}_F1_delta": delta[None, :]}
+
+    post = nlt_numpyro.posterior(_FakeMCMC(), ctx)
+    expected = ctx.space.to_physical(delta[:, None], units="display", coord="delta")
+
+    assert list(post.posterior.data_vars) == ["F1"]
+    assert post.posterior["F1"].dims == ("chain", "draw")
+    np.testing.assert_allclose(post.posterior["F1"][0], expected["F1"])
+
+
+def test_posterior_requires_recorded_timing_deltas(pulsar):
+    pytest.importorskip("arviz")
+    ctx = _binding(whitening=None).for_pulsar(pulsar)
+
+    class _FakeMCMC:
+        def get_samples(self, *, group_by_chain):
+            assert group_by_chain is True
+            return {}
+
+    with pytest.raises(KeyError, match="timing deterministics"):
+        nlt_numpyro.posterior(_FakeMCMC(), ctx)
+
+
 def test_model_to_df_delegates_to_samples_to_frame(pulsar):
     pytest.importorskip("pandas")
     ctx = _binding(whitening=WhiteningConfig()).for_pulsar(pulsar)
@@ -580,7 +611,9 @@ def test_dense_mass_auto_resolves_to_hyper_block():
 
 
 def test_dense_mass_auto_single_or_no_hyper_is_false():
-    assert nlt_numpyro.resolve_dense_mass(_model_with_sites(("log10_A",)), "auto") is False
+    assert (
+        nlt_numpyro.resolve_dense_mass(_model_with_sites(("log10_A",)), "auto") is False
+    )
 
     def bare():
         pass

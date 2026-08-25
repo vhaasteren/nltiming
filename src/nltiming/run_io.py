@@ -201,6 +201,34 @@ def derived_fw10_columns(samples, manifest_fw10_chart):
     return out
 
 
+def physical_posterior(
+    space: ParameterSpace,
+    draws: np.ndarray,
+    *,
+    units: str = "display",
+    coord: str | None = None,
+    binary_chart: Mapping[str, Any] | None = None,
+    fw10_absorbed_chart: Mapping[str, Any] | None = None,
+) -> dict[str, np.ndarray]:
+    """Decode draws to short, physical timing-parameter columns.
+
+    This is the canonical in-memory decoder used by sampler adapters and run
+    I/O. ``draws`` may use any coordinate accepted by ``ParameterSpace``;
+    dynamic samplers should pass their recorded timing deltas with
+    ``coord="delta"`` rather than attempting to decode their latent ``xi``.
+    """
+    kwargs = {} if coord is None else {"coord": coord}
+    physical = {
+        name: np.asarray(values, dtype=float)
+        for name, values in space.to_physical(
+            np.asarray(draws, dtype=float), units=units, **kwargs
+        ).items()
+    }
+    physical.update(derived_kepler_columns(physical, binary_chart))
+    physical.update(derived_fw10_columns(physical, fw10_absorbed_chart))
+    return physical
+
+
 def decode_physical(
     space: ParameterSpace,
     x: np.ndarray,
@@ -212,7 +240,7 @@ def decode_physical(
     x = np.asarray(x, dtype=float)
     out: dict[str, np.ndarray] = {}
     for unit_mode in units:
-        phys = space.to_physical(x, units=unit_mode)
+        phys = physical_posterior(space, x, units=unit_mode)
         for name, arr in phys.items():
             out[derived_param_name(name_stem, name, unit_mode)] = np.asarray(
                 arr, dtype=float
@@ -880,12 +908,13 @@ class RunResults:
         and physical views stay consistent.
         """
         x = self.latent(burn=burn, thin=thin)
-        phys = self.space.to_physical(x, units=units)
-        phys.update(derived_kepler_columns(phys, self.run_meta.get("binary_chart")))
-        phys.update(
-            derived_fw10_columns(phys, self.run_meta.get("fw10_absorbed_chart"))
+        return physical_posterior(
+            self.space,
+            x,
+            units=units,
+            binary_chart=self.run_meta.get("binary_chart"),
+            fw10_absorbed_chart=self.run_meta.get("fw10_absorbed_chart"),
         )
-        return phys
 
     def truths(self, *, units: str = "display") -> dict[str, float]:
         """Par-file reference values (zero delta) for overlay markers.

@@ -206,9 +206,13 @@ def record_physical_postprocess(
         coord_explicit=coord_was_explicit,
     )
     name_stem = ctx.name_stem
-    theta_native = ctx.space.to_physical(delta[None, :], units="native", coord="delta")
-    theta_display = ctx.space.to_physical(
-        delta[None, :], units="display", coord="delta"
+    from ..run_io import physical_posterior
+
+    theta_native = physical_posterior(
+        ctx.space, delta[None, :], units="native", coord="delta"
+    )
+    theta_display = physical_posterior(
+        ctx.space, delta[None, :], units="display", coord="delta"
     )
     out: dict[str, Any] = {}
     for name in sampled:
@@ -223,6 +227,57 @@ def _flatten_chain_major(arr: np.ndarray, *, grouped: bool, n_rows: int) -> np.n
     if grouped:
         return arr.reshape((n_rows,) + arr.shape[2:])
     return arr
+
+
+def posterior(mcmc, ctx, *, units: str = "display"):
+    """Return live NumPyro timing draws as physical ArviZ posterior data.
+
+    Dynamic transports are decoded from the per-parameter ``delta``
+    deterministics recorded by nltiming, never from their context-dependent
+    latent ``xi``. Variables use the short sampled timing names and retain the
+    NumPyro chain/draw dimensions for standard ArviZ and corner plots.
+    """
+    try:
+        import arviz as az
+    except ImportError as exc:
+        raise ImportError(
+            "posterior requires arviz; install arviz (it is also a dependency "
+            "of the corner plotting package)"
+        ) from exc
+
+    names = tuple(ctx.sampled_all)
+    samples = mcmc.get_samples(group_by_chain=True)
+    delta_keys = [f"{ctx.name_stem}_{name}_delta" for name in names]
+    missing = [key for key in delta_keys if key not in samples]
+    if missing:
+        raise KeyError(
+            "NumPyro samples are missing nltiming timing deterministics: " f"{missing}"
+        )
+    delta = np.stack(
+        [np.asarray(samples[key], dtype=float) for key in delta_keys], axis=-1
+    )
+    if delta.ndim != 3:
+        raise ValueError(
+            "expected chain-preserving timing deterministics with shape "
+            f"(chain, draw, parameter), got {delta.shape}"
+        )
+
+    from ..run_io import physical_posterior
+
+    physical = physical_posterior(
+        ctx.space,
+        delta.reshape((-1, delta.shape[-1])),
+        units=units,
+        coord="delta",
+        binary_chart=ctx.binary_chart_manifest(),
+        fw10_absorbed_chart=ctx.fw10_absorbed_chart_manifest(),
+    )
+    shape = delta.shape[:2]
+    return az.from_dict(
+        posterior={
+            name: np.asarray(values).reshape(shape) for name, values in physical.items()
+        }
+    )
 
 
 def samples_to_frame(samples: Mapping[str, Any], ctx):
@@ -292,8 +347,10 @@ def samples_to_frame(samples: Mapping[str, Any], ctx):
         for i, key in enumerate(delta_keys):
             columns[key] = delta[:, i]
 
-    theta_native = ctx.space.to_physical(delta, units="native", coord="delta")
-    theta_display = ctx.space.to_physical(delta, units="display", coord="delta")
+    from ..run_io import physical_posterior
+
+    theta_native = physical_posterior(ctx.space, delta, units="native", coord="delta")
+    theta_display = physical_posterior(ctx.space, delta, units="display", coord="delta")
     for name in ctx.sampled:
         columns[f"{ctx.name_stem}_{name}_theta_native"] = theta_native[name]
         columns[f"{ctx.name_stem}_{name}_theta_display"] = theta_display[name]
@@ -943,8 +1000,10 @@ def joint_samples_to_frame(samples: Mapping[str, Any], ctx):
                 columns[f"{name}[{i}]"] = flat[:, i]
 
     delta = np.stack([columns[k] for k in delta_keys], axis=1)
-    theta_native = ctx.space.to_physical(delta, units="native", coord="delta")
-    theta_display = ctx.space.to_physical(delta, units="display", coord="delta")
+    from ..run_io import physical_posterior
+
+    theta_native = physical_posterior(ctx.space, delta, units="native", coord="delta")
+    theta_display = physical_posterior(ctx.space, delta, units="display", coord="delta")
     for name in ctx.sampled_all:
         columns[f"{name_stem}_{name}_theta_native"] = theta_native[name]
         columns[f"{name_stem}_{name}_theta_display"] = theta_display[name]
