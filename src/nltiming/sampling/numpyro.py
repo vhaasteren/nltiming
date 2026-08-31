@@ -496,6 +496,35 @@ def _resolve_reference_noise(reference_noise, pulsar):
     )
 
 
+def class_tracking_reference(
+    likelihood, params0, *, sigma_bin_dex=0.2, dense_threshold=16, validate=True
+):
+    """White-noise-tracking reference for :func:`joint_model` /
+    :func:`joint_model_multi` (one call per pulsar).
+
+    The joint transport's Gram then follows the sampled white-noise parameters
+    (EFAC exactly, ECORR exactly, EQUAD to the spread of TOA errors inside
+    0.2-dex classes) instead of staying frozen at a reference. ``likelihood``
+    is the per-pulsar discovery ``PulsarLikelihood`` the joint model is built
+    from -- its white noise, whether ``makenoise_measurement(..., ecorr=True)``
+    or measurement noise plus a fixed ``makegp_ecorr`` component, is
+    canonicalized by ``PulsarLikelihood.white_noise_kernel``; ``params0`` is a
+    noise dictionary pinning every white-noise parameter (the empirical-Bayes /
+    flexfit point, never ``toaerrs``). Returns a ``discovery.transport``
+    reference-noise object accepted by ``reference_noise=``.
+    """
+    from discovery import transport as dst
+
+    return dst.class_tracking(
+        likelihood.white_noise_kernel,
+        params0,
+        toaerrs=likelihood.measurement_toaerrs,
+        sigma_bin_dex=sigma_bin_dex,
+        dense_threshold=dense_threshold,
+        validate=validate,
+    )
+
+
 def build_joint_transport(
     likelihood,
     ctx,
@@ -820,7 +849,7 @@ def joint_model_multi(
     likelihoods,
     ctxs,
     *,
-    reference_noise: str = "toa_errors",
+    reference_noise="toa_errors",
     center: bool = True,
     softclip_zmax: float | None = None,
     global_gp=None,
@@ -829,6 +858,11 @@ def joint_model_multi(
     fixed: Mapping[str, float] | None = None,
 ) -> Callable[[], None]:
     """Joint full-basis model over several pulsars (§6.4, §7).
+
+    ``reference_noise`` is either a single value broadcast to every pulsar
+    (``"toa_errors"``, or a frozen solve shared by construction) or a sequence
+    with one entry per pulsar; a :func:`class_tracking_reference` is per pulsar
+    and must be given as a sequence.
 
     One :class:`discovery.transport.Transport` and one ``xi`` site per pulsar —
     per-pulsar timing widths differ (ragged is expected) and the joint path never
@@ -873,11 +907,31 @@ def joint_model_multi(
             f"got {len(center_extsignals)}"
         )
 
+    # A class-tracking reference carries ONE pulsar's kernel, toaerrs and
+    # class layout; it is never broadcast. Plain string references are.
+    from discovery.transport import _ClassTracking
+
+    if isinstance(reference_noise, (list, tuple)):
+        refs = list(reference_noise)
+        if len(refs) != npsr:
+            raise ValueError(
+                f"reference_noise sequence must have one entry per pulsar "
+                f"({npsr}); got {len(refs)}"
+            )
+    elif isinstance(reference_noise, _ClassTracking) and npsr > 1:
+        raise TypeError(
+            "a class_tracking reference is per pulsar and cannot be broadcast; "
+            "pass a sequence, e.g. [class_tracking_reference(lk, params0) for "
+            "lk in likelihoods]"
+        )
+    else:
+        refs = [reference_noise] * npsr
+
     entries = [
         _joint_pulsar_entry(
             lk,
             ctx,
-            reference_noise=reference_noise,
+            reference_noise=refs[i],
             center=center,
             softclip_zmax=softclip_zmax,
             global_gp=global_gp,
