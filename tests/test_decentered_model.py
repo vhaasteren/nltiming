@@ -36,7 +36,7 @@ from numpyro.infer.util import log_density  # noqa: E402
 from nltiming import TimingInference, WhiteningConfig  # noqa: E402
 from nltiming.metric import OneAffineLayerError  # noqa: E402
 from nltiming.nonlinear_timing_model import TimingSpec  # noqa: E402
-from nltiming.sampling import numpyro as N  # noqa: E402
+import nltiming.sampling as nlts  # noqa: E402
 from nltiming import (  # noqa: E402
     GeometryThresholds,
     certify_decentered_geometry,
@@ -95,7 +95,7 @@ def _decentered_setup(*, center=True, inference=None, priors=None):
     """Build (ntm, ctx, marginalized likelihood, decentered model)."""
     priors = priors if priors is not None else _PRIORS
     ntm, ctx, likelihood = _ctx_and_likelihood(inference=inference)
-    model = N.decentered_model(
+    model = nlts.numpyro.decentered_model(
         likelihood, ctx, center=center, priors=priors, fixed=_NOISE
     )
     return ntm, ctx, likelihood, model
@@ -209,7 +209,7 @@ def test_decentered_requires_identity_static_layer():
         N = None
 
     with pytest.raises(OneAffineLayerError):
-        N.decentered_model(_FakeLikelihood(), ctx)
+        nlts.numpyro.decentered_model(_FakeLikelihood(), ctx)
 
 
 # ---------------------------------------------------------------------------
@@ -235,7 +235,7 @@ def test_decentered_accounting_and_binding(monkeypatch):
 
     monkeypatch.setattr(type(lin), "transport_effective_residual", _spy)
 
-    model = N.decentered_model(likelihood, ctx, priors=_PRIORS, fixed=_NOISE)
+    model = nlts.numpyro.decentered_model(likelihood, ctx, priors=_PRIORS, fixed=_NOISE)
 
     # xi site name is the decentered-specific site.
     assert model.xi_site == f"{ctx.name_stem}_timing_xi"
@@ -264,7 +264,7 @@ def test_decentered_accounting_and_binding(monkeypatch):
     # fixed cannot pin a model-owned timing (delay) key.
     delay_key = ctx.delay_keys[0]
     with pytest.raises(ValueError, match="cannot pin"):
-        N.decentered_model(likelihood, ctx, fixed={delay_key: 0.0})
+        nlts.numpyro.decentered_model(likelihood, ctx, fixed={delay_key: 0.0})
 
     # Empty plan.sampled (everything marginalized) raises.
     ntm2 = TimingSpec(
@@ -281,7 +281,7 @@ def test_decentered_accounting_and_binding(monkeypatch):
         N = None
 
     with pytest.raises(ValueError, match="sampled"):
-        N.decentered_model(_FakeLikelihood(), ctx2)
+        nlts.numpyro.decentered_model(_FakeLikelihood(), ctx2)
 
 
 def test_decentered_model_fingerprint_is_stable_and_scoped():
@@ -299,7 +299,7 @@ def test_decentered_init_values_zeroes_the_xi_site():
     """T-N3 (init): decentered_init_values keys the xi site with a zero vector of
     the transport dimension."""
     _, ctx, _, model = _decentered_setup()
-    init = N.decentered_init_values(ctx, model.transport)
+    init = nlts.numpyro.decentered_init_values(ctx, model.transport)
     assert set(init) == {model.xi_site}
     vec = np.asarray(init[model.xi_site])
     assert vec.shape == (int(model.transport.dimension),)

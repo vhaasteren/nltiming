@@ -441,11 +441,11 @@ def test_standalone_report_atomic_write_refuses_overwrite_by_default(tmp_path):
 def test_geometry_diagnostic_is_never_called_by_nuts():
     import inspect
 
-    from nltiming.sampling import numpyro as nlt_numpyro
+    import nltiming.sampling as nlts
 
-    sig = inspect.signature(nlt_numpyro.nuts)
+    sig = inspect.signature(nlts.numpyro.nuts)
     assert not any("geometry" in p or "report" in p for p in sig.parameters)
-    src = inspect.getsource(nlt_numpyro)
+    src = inspect.getsource(nlts.numpyro)
     assert "certify_joint_geometry" not in src
     assert "write_geometry_report" not in src
 

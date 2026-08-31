@@ -25,7 +25,7 @@ from nltiming import TimingInference
 from _engine_stubs import JaxLinearTestEngine, LinearTestEngine
 from nltiming.engine_support import LinearModel
 from nltiming.nonlinear_timing_model import TimingSpec
-from nltiming.sampling import numpyro as nlt_numpyro
+import nltiming.sampling as nlts
 
 pytest.importorskip("discovery")
 pytest.importorskip("enterprise")
@@ -147,7 +147,7 @@ def test_discovery_and_enterprise_log_density_differences_agree(pulsar, layer):
             *ctx.discovery_signals(),
         ]
     )
-    numpyro_model = nlt_numpyro.model(likelihood, ctx, fixed=noisedict)
+    numpyro_model = nlts.numpyro.model(likelihood, ctx, fixed=noisedict)
     site = ctx.latent_name_for_coord()
 
     q1 = jnp.zeros(ndim)
@@ -217,7 +217,7 @@ def test_discovery_nuts_and_enterprise_ptmcmc_recover_the_same_posterior(
     )
     ctx = ntm.for_pulsar(pulsar)
 
-    nlt_numpyro.ensure_x64()
+    nlts.numpyro.ensure_x64()
     likelihood = ds.PulsarLikelihood(
         [
             pulsar.residuals,
@@ -225,8 +225,8 @@ def test_discovery_nuts_and_enterprise_ptmcmc_recover_the_same_posterior(
             *ctx.discovery_signals(),
         ]
     )
-    numpyro_model = nlt_numpyro.model(likelihood, ctx, fixed=noisedict)
-    mcmc = nlt_numpyro.nuts(
+    numpyro_model = nlts.numpyro.model(likelihood, ctx, fixed=noisedict)
+    mcmc = nlts.numpyro.nuts(
         numpyro_model,
         ctx,
         num_warmup=500,
@@ -235,7 +235,7 @@ def test_discovery_nuts_and_enterprise_ptmcmc_recover_the_same_posterior(
         progress_bar=False,
     )
     mcmc.run(jax.random.PRNGKey(0))
-    disc_samples = nlt_numpyro.timing_draws(mcmc.get_samples(), ctx)
+    disc_samples = nlts.numpyro.timing_draws(mcmc.get_samples(), ctx)
 
     white = white_signals.MeasurementNoise(
         efac=parameter.Constant(1.0)

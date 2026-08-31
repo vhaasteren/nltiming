@@ -9,8 +9,7 @@ from nltiming import TimingInference
 from _engine_stubs import JaxLinearTestEngine
 from nltiming.engine_support import LinearModel
 from nltiming.nonlinear_timing_model import TimingSpec
-from nltiming.sampling import numpyro as nlt_numpyro
-from nltiming.sampling import ptmcmc as nlt_ptmcmc
+import nltiming.sampling as nlts
 
 
 class _Pulsar:
@@ -117,7 +116,7 @@ def test_model_traces_timing_site_and_ll_factor(pulsar):
     ctx = _binding().for_pulsar(pulsar)
     # Discovery consumes the derived delay keys, never the joint latent site.
     likelihood = _FakeLikelihood([*ctx.delay_keys, "efac"])
-    model_fn = nlt_numpyro.model(likelihood, ctx, fixed={"efac": 1.0})
+    model_fn = nlts.numpyro.model(likelihood, ctx, fixed={"efac": 1.0})
 
     trace = _trace_model(model_fn, ctx)
 
@@ -136,7 +135,7 @@ def test_model_free_params_use_priordict_bounds(pulsar):
     pytest.importorskip("discovery")
     ctx = _binding().for_pulsar(pulsar)
     likelihood = _FakeLikelihood([*ctx.delay_keys, "J1111+1111_efac"])
-    model_fn = nlt_numpyro.model(
+    model_fn = nlts.numpyro.model(
         likelihood,
         ctx,
         priors={"J1111+1111_efac": [0.5, 1.5]},
@@ -153,40 +152,40 @@ def test_model_rejects_latent_site_in_likelihood_params(pulsar):
     ctx = _binding().for_pulsar(pulsar)
     likelihood = _FakeLikelihood([ctx.latent_name_for_coord(), *ctx.delay_keys])
     with pytest.raises(ValueError, match="joint latent timing site"):
-        nlt_numpyro.model(likelihood, ctx)
+        nlts.numpyro.model(likelihood, ctx)
 
 
 def test_model_rejects_missing_delay_keys(pulsar):
     ctx = _binding().for_pulsar(pulsar)
     likelihood = _FakeLikelihood(["efac"])  # missing ctx.delay_keys entirely
     with pytest.raises(ValueError, match="missing delay keys"):
-        nlt_numpyro.model(likelihood, ctx)
+        nlts.numpyro.model(likelihood, ctx)
 
 
 def test_model_rejects_duplicate_likelihood_param_names(pulsar):
     ctx = _binding().for_pulsar(pulsar)
     likelihood = _FakeLikelihood([*ctx.delay_keys, "efac", "efac"])
     with pytest.raises(ValueError, match="duplicate likelihood parameter names"):
-        nlt_numpyro.model(likelihood, ctx)
+        nlts.numpyro.model(likelihood, ctx)
 
 
 def test_model_rejects_fixed_timing_parameter(pulsar):
     ctx = _binding().for_pulsar(pulsar)
     likelihood = _FakeLikelihood([*ctx.delay_keys, "efac"])
     with pytest.raises(ValueError, match="cannot pin timing parameters"):
-        nlt_numpyro.model(likelihood, ctx, fixed={ctx.latent_name_for_coord(): 0.0})
+        nlts.numpyro.model(likelihood, ctx, fixed={ctx.latent_name_for_coord(): 0.0})
 
 
 def test_model_rejects_non_numeric_fixed_value(pulsar):
     ctx = _binding().for_pulsar(pulsar)
     likelihood = _FakeLikelihood([*ctx.delay_keys, "efac"])
     with pytest.raises(TypeError, match="efac.*must be numeric"):
-        nlt_numpyro.model(likelihood, ctx, fixed={"efac": "not-a-number"})
+        nlts.numpyro.model(likelihood, ctx, fixed={"efac": "not-a-number"})
 
 
 def test_timing_init_values_zero_at_reference(pulsar):
     ctx = _binding().for_pulsar(pulsar)
-    init = nlt_numpyro.timing_init_values(ctx)
+    init = nlts.numpyro.timing_init_values(ctx)
     assert set(init) == {ctx.latent_name_for_coord()}
     np.testing.assert_array_equal(
         np.asarray(init[ctx.latent_name_for_coord()]),
@@ -198,9 +197,9 @@ def test_timing_draws_flattens_chains(pulsar):
     ctx = _binding().for_pulsar(pulsar)
     site = ctx.latent_name_for_coord()
     ndim = len(ctx.sampled)
-    flat = nlt_numpyro.timing_draws({site: np.zeros((7, ndim))}, ctx)
+    flat = nlts.numpyro.timing_draws({site: np.zeros((7, ndim))}, ctx)
     assert flat.shape == (7, ndim)
-    stacked = nlt_numpyro.timing_draws({site: np.zeros((2, 7, ndim))}, ctx)
+    stacked = nlts.numpyro.timing_draws({site: np.zeros((2, 7, ndim))}, ctx)
     assert stacked.shape == (14, ndim)
 
 
@@ -219,7 +218,7 @@ def test_samples_to_frame_ungrouped_columns_and_naming(pulsar):
         "red_noise_log10_rho": np.stack([np.array([1.0, 2.0])] * n),
     }
 
-    df = nlt_numpyro.samples_to_frame(samples, ctx)
+    df = nlts.numpyro.samples_to_frame(samples, ctx)
 
     assert len(df) == n
     assert f"{site}[0]" in df.columns
@@ -238,7 +237,7 @@ def test_samples_to_frame_flattens_grouped_chain_major(pulsar):
     x = np.arange(n_chains * n_draws, dtype=float).reshape(n_chains, n_draws, 1)
     samples = {site: x, f"{ctx.name_stem}_F1_delta": x[..., 0]}
 
-    df = nlt_numpyro.samples_to_frame(samples, ctx)
+    df = nlts.numpyro.samples_to_frame(samples, ctx)
 
     assert len(df) == n_chains * n_draws
     np.testing.assert_allclose(df[f"{site}[0]"].to_numpy(), x.reshape(-1))
@@ -250,7 +249,7 @@ def test_samples_to_frame_recomputes_delta_when_absent(pulsar):
     q = np.array([[0.2]])
     samples = {site: q}
 
-    df = nlt_numpyro.samples_to_frame(samples, ctx)
+    df = nlts.numpyro.samples_to_frame(samples, ctx)
 
     expected_delta = np.asarray(ctx.space.delta_from_coord(q[0], np, coord="x"))
     np.testing.assert_allclose(
@@ -267,7 +266,7 @@ def test_samples_to_frame_recomputes_theta_ignoring_stray_values(pulsar):
         f"{ctx.name_stem}_F1_theta_native": np.array([999999.0]),
     }
 
-    df = nlt_numpyro.samples_to_frame(samples, ctx)
+    df = nlts.numpyro.samples_to_frame(samples, ctx)
 
     # The identity static layer samples the prior-normal z coordinate.
     delta = np.asarray(ctx.space.delta_from_coord(q[0], np, coord=ctx.coord))
@@ -286,7 +285,7 @@ def test_samples_to_frame_missing_pandas_raises_actionable_error(pulsar, monkeyp
     monkeypatch.setitem(sys.modules, "pandas", None)
     site = ctx.latent_name_for_coord()
     with pytest.raises(ImportError, match="discovery"):
-        nlt_numpyro.samples_to_frame({site: np.zeros((1, 1))}, ctx)
+        nlts.numpyro.samples_to_frame({site: np.zeros((1, 1))}, ctx)
 
 
 def test_posterior_returns_short_physical_variables_with_chains(pulsar):
@@ -299,7 +298,7 @@ def test_posterior_returns_short_physical_variables_with_chains(pulsar):
             assert group_by_chain is True
             return {f"{ctx.name_stem}_F1_delta": delta[None, :]}
 
-    post = nlt_numpyro.posterior(_FakeMCMC(), ctx)
+    post = nlts.numpyro.posterior(_FakeMCMC(), ctx)
     expected = ctx.space.to_physical(delta[:, None], units="display", coord="delta")
 
     assert list(post.posterior.data_vars) == ["F1"]
@@ -317,14 +316,14 @@ def test_posterior_requires_recorded_timing_deltas(pulsar):
             return {}
 
     with pytest.raises(KeyError, match="timing deterministics"):
-        nlt_numpyro.posterior(_FakeMCMC(), ctx)
+        nlts.numpyro.posterior(_FakeMCMC(), ctx)
 
 
 def test_model_to_df_delegates_to_samples_to_frame(pulsar):
     pytest.importorskip("pandas")
     ctx = _binding(whitening=WhiteningConfig()).for_pulsar(pulsar)
     likelihood = _FakeLikelihood([*ctx.delay_keys, "efac"])
-    model_fn = nlt_numpyro.model(likelihood, ctx, fixed={"efac": 1.0})
+    model_fn = nlts.numpyro.model(likelihood, ctx, fixed={"efac": 1.0})
     assert hasattr(model_fn, "to_df")
 
     site = ctx.latent_name_for_coord()
@@ -370,7 +369,7 @@ def test_nuts_defaults_pass_expected_kernel_and_mcmc_settings(pulsar, monkeypatc
     def model_fn():
         pass
 
-    nlt_numpyro.nuts(model_fn, ctx)
+    nlts.numpyro.nuts(model_fn, ctx)
 
     assert captured["target_accept_prob"] == 0.8
     assert captured["max_tree_depth"] == 10
@@ -407,7 +406,7 @@ def test_nuts_explicit_init_strategy_wins(pulsar, monkeypatch):
     def model_fn():
         pass
 
-    nlt_numpyro.nuts(model_fn, ctx, init_strategy=sentinel)
+    nlts.numpyro.nuts(model_fn, ctx, init_strategy=sentinel)
 
     assert captured["init_strategy"] is sentinel
 
@@ -436,7 +435,7 @@ def test_nuts_attaches_to_df_when_model_has_it(pulsar, monkeypatch):
 
     model_fn.to_df = _to_df
 
-    mcmc = nlt_numpyro.nuts(model_fn, ctx)
+    mcmc = nlts.numpyro.nuts(model_fn, ctx)
 
     assert mcmc.to_df() == "a-dataframe"
     assert calls == [{"marker": "samples"}]
@@ -456,7 +455,7 @@ def test_nuts_no_to_df_when_model_lacks_it(pulsar, monkeypatch):
     def model_fn():
         pass
 
-    mcmc = nlt_numpyro.nuts(model_fn, ctx)
+    mcmc = nlts.numpyro.nuts(model_fn, ctx)
 
     assert not hasattr(mcmc, "to_df")
 
@@ -483,7 +482,7 @@ def test_save_samples_wraps_timing_draws_and_checkpoint(tmp_path, pulsar, monkey
         run_io_mod, "save_discovery_checkpoint", fake_save_discovery_checkpoint
     )
 
-    result = nlt_numpyro.save_samples(
+    result = nlts.numpyro.save_samples(
         tmp_path, samples, ctx, manifest="fake-manifest", final=True, n_target=5
     )
 
@@ -495,7 +494,7 @@ def test_save_samples_wraps_timing_draws_and_checkpoint(tmp_path, pulsar, monkey
 
 
 def test_ensure_x64_enables_float64():
-    nlt_numpyro.ensure_x64()
+    nlts.numpyro.ensure_x64()
     import jax.numpy as jnp
 
     assert jnp.zeros(1).dtype == jnp.float64
@@ -508,7 +507,7 @@ def test_ensure_x64_enables_float64():
 def test_eval_params_whitening_uses_joint_site(pulsar):
     ctx = _binding(whitening=WhiteningConfig()).for_pulsar(pulsar)
     vec = np.array([0.25])
-    params = nlt_ptmcmc.eval_params(ctx, vec, fixed={"efac": 1.0})
+    params = nlts.ptmcmc.eval_params(ctx, vec, fixed={"efac": 1.0})
     assert params["efac"] == 1.0
     np.testing.assert_array_equal(params[ctx.latent_name_for_coord()], vec)
 
@@ -516,26 +515,26 @@ def test_eval_params_whitening_uses_joint_site(pulsar):
 def test_eval_params_identity_uses_scalar_delay_keys(pulsar):
     ctx = _binding(whitening=None).for_pulsar(pulsar)
     vec = np.array([0.25])
-    params = nlt_ptmcmc.eval_params(ctx, vec)
+    params = nlts.ptmcmc.eval_params(ctx, vec)
     assert params == {ctx.delay_keys[0]: 0.25}
 
 
 def test_eval_params_rejects_wrong_length(pulsar):
     ctx = _binding().for_pulsar(pulsar)
     with pytest.raises(ValueError, match="expected vector of length 1"):
-        nlt_ptmcmc.eval_params(ctx, np.zeros(3))
+        nlts.ptmcmc.eval_params(ctx, np.zeros(3))
 
 
 def test_initial_point_is_zero_reference(pulsar):
     ctx = _binding().for_pulsar(pulsar)
     np.testing.assert_array_equal(
-        nlt_ptmcmc.initial_point(ctx), np.zeros(len(ctx.sampled))
+        nlts.ptmcmc.initial_point(ctx), np.zeros(len(ctx.sampled))
     )
 
 
 def test_initial_cov_matches_wls_in_sampling_coords(pulsar):
     ctx = _binding(whitening=WhiteningConfig()).for_pulsar(pulsar)
-    cov = nlt_ptmcmc.initial_cov(ctx, nsamples=4000, seed=1)
+    cov = nlts.ptmcmc.initial_cov(ctx, nsamples=4000, seed=1)
     assert cov.shape == (1, 1)
     # positive definite
     assert np.all(np.linalg.eigvalsh(cov) > 0)
@@ -547,23 +546,23 @@ def test_initial_cov_matches_wls_in_sampling_coords(pulsar):
 def test_timing_param_names_layouts(pulsar):
     whitening = _binding(whitening=WhiteningConfig()).for_pulsar(pulsar)
     site = whitening.latent_name_for_coord()
-    assert nlt_ptmcmc.timing_param_names(whitening) == (f"{site}_0",)
+    assert nlts.ptmcmc.timing_param_names(whitening) == (f"{site}_0",)
 
     identity = _binding(whitening=None).for_pulsar(pulsar)
-    assert nlt_ptmcmc.timing_param_names(identity) == identity.delay_keys
+    assert nlts.ptmcmc.timing_param_names(identity) == identity.delay_keys
 
 
 def test_chain_layout_locates_timing_columns(pulsar):
     ctx = _binding(whitening=WhiteningConfig()).for_pulsar(pulsar)
-    names = ["noise_param", *nlt_ptmcmc.timing_param_names(ctx)]
-    layout = nlt_ptmcmc.chain_layout(ctx, names)
+    names = ["noise_param", *nlts.ptmcmc.timing_param_names(ctx)]
+    layout = nlts.ptmcmc.chain_layout(ctx, names)
     assert layout == {"kind": "ptmcmc", "file": "chain_1.txt", "columns": [1]}
 
 
 def test_chain_layout_missing_key_raises(pulsar):
     ctx = _binding().for_pulsar(pulsar)
     with pytest.raises(ValueError, match="not found in sampler param names"):
-        nlt_ptmcmc.chain_layout(ctx, ["something_else"])
+        nlts.ptmcmc.chain_layout(ctx, ["something_else"])
 
 
 @pytest.mark.parametrize("whitening", [None, WhiteningConfig()])
@@ -584,9 +583,9 @@ def test_chain_layout_locates_columns_in_real_enterprise_pta(pulsar, whitening):
     ctx = ntm.for_pulsar(pulsar)
     pta = signal_base.PTA([(white + ntm.enterprise_signal())(pulsar)])
 
-    layout = nlt_ptmcmc.chain_layout(ctx, pta.param_names)
+    layout = nlts.ptmcmc.chain_layout(ctx, pta.param_names)
 
-    expected_names = nlt_ptmcmc.timing_param_names(ctx)
+    expected_names = nlts.ptmcmc.timing_param_names(ctx)
     assert len(layout["columns"]) == len(expected_names)
     for name, col in zip(expected_names, layout["columns"]):
         assert pta.param_names[col] == name
@@ -607,33 +606,33 @@ def _model_with_sites(hyper_sites, xi_site="timing_joint_xi"):
 
 def test_dense_mass_auto_resolves_to_hyper_block():
     model_fn = _model_with_sites(("log10_A", "gamma"))
-    assert nlt_numpyro.resolve_dense_mass(model_fn, "auto") == [("log10_A", "gamma")]
+    assert nlts.numpyro.resolve_dense_mass(model_fn, "auto") == [("log10_A", "gamma")]
 
 
 def test_dense_mass_auto_single_or_no_hyper_is_false():
     assert (
-        nlt_numpyro.resolve_dense_mass(_model_with_sites(("log10_A",)), "auto") is False
+        nlts.numpyro.resolve_dense_mass(_model_with_sites(("log10_A",)), "auto") is False
     )
 
     def bare():
         pass
 
-    assert nlt_numpyro.resolve_dense_mass(bare, "auto") is False
+    assert nlts.numpyro.resolve_dense_mass(bare, "auto") is False
 
 
 def test_dense_mass_auto_never_includes_xi():
     model_fn = _model_with_sites(("a", "b"), xi_site="the_xi_vector")
-    resolved = nlt_numpyro.resolve_dense_mass(model_fn, "auto")
+    resolved = nlts.numpyro.resolve_dense_mass(model_fn, "auto")
     flat = [site for group in resolved for site in group]
     assert "the_xi_vector" not in flat
 
 
 def test_dense_mass_explicit_is_forwarded_unchanged():
     model_fn = _model_with_sites(("a", "b"))
-    assert nlt_numpyro.resolve_dense_mass(model_fn, True) is True
-    assert nlt_numpyro.resolve_dense_mass(model_fn, False) is False
+    assert nlts.numpyro.resolve_dense_mass(model_fn, True) is True
+    assert nlts.numpyro.resolve_dense_mass(model_fn, False) is False
     explicit = [("a",)]
-    assert nlt_numpyro.resolve_dense_mass(model_fn, explicit) is explicit
+    assert nlts.numpyro.resolve_dense_mass(model_fn, explicit) is explicit
 
 
 def test_nuts_passes_resolved_auto_block_mass_to_kernel(pulsar):
@@ -644,7 +643,7 @@ def test_nuts_passes_resolved_auto_block_mass_to_kernel(pulsar):
 
     model_fn.hyper_sites = ("log10_A", "gamma")
     model_fn.xi_site = ctx.latent_name_for_coord()
-    mcmc = nlt_numpyro.nuts(model_fn, ctx)
+    mcmc = nlts.numpyro.nuts(model_fn, ctx)
     assert mcmc.sampler._dense_mass == [("log10_A", "gamma")]
 
 
@@ -654,7 +653,7 @@ def test_nuts_does_not_override_requested_warmup(pulsar):
     def model_fn():
         pass
 
-    mcmc = nlt_numpyro.nuts(model_fn, ctx, num_warmup=2000, num_samples=5000)
+    mcmc = nlts.numpyro.nuts(model_fn, ctx, num_warmup=2000, num_samples=5000)
     assert mcmc.num_warmup == 2000
     assert mcmc.num_samples == 5000
 
@@ -662,9 +661,9 @@ def test_nuts_does_not_override_requested_warmup(pulsar):
 def test_tree_depth_saturation_fraction():
     # Depth-10 cap is 2**10 - 1 = 1023 leapfrog steps.
     num_steps = np.array([[1, 3, 1023], [7, 1023, 1023]])
-    frac = nlt_numpyro.tree_depth_saturation_fraction(num_steps, max_tree_depth=10)
+    frac = nlts.numpyro.tree_depth_saturation_fraction(num_steps, max_tree_depth=10)
     assert frac == pytest.approx(3 / 6)
-    assert nlt_numpyro.tree_depth_saturation_fraction(np.array([]), 10) == 0.0
+    assert nlts.numpyro.tree_depth_saturation_fraction(np.array([]), 10) == 0.0
 
 
 def test_chain_diagnostics_group_by_chain_and_extra_fields():
@@ -686,11 +685,11 @@ def test_chain_diagnostics_group_by_chain_and_extra_fields():
         chain_method="sequential",
         progress_bar=False,
     )
-    mcmc.run(jax.random.PRNGKey(0), extra_fields=nlt_numpyro.NUTS_EXTRA_FIELDS)
+    mcmc.run(jax.random.PRNGKey(0), extra_fields=nlts.numpyro.NUTS_EXTRA_FIELDS)
 
-    diag = nlt_numpyro.chain_diagnostics(mcmc, max_tree_depth=10)
+    diag = nlts.numpyro.chain_diagnostics(mcmc, max_tree_depth=10)
     # Chains are preserved, never pooled: shape is (n_chains, n_samples, ...).
-    for field in nlt_numpyro.NUTS_EXTRA_FIELDS:
+    for field in nlts.numpyro.NUTS_EXTRA_FIELDS:
         assert diag[field].shape == (2, 15)
     assert diag["samples"]["a"].shape == (2, 15)
     assert diag["samples"]["xi"].shape == (2, 15, 3)
@@ -711,7 +710,7 @@ def test_chain_diagnostics_requires_extra_fields():
     mcmc = MCMC(NUTS(model), num_warmup=10, num_samples=10, progress_bar=False)
     mcmc.run(jax.random.PRNGKey(0))  # no extra_fields collected
     with pytest.raises(ValueError, match="extra_fields"):
-        nlt_numpyro.chain_diagnostics(mcmc)
+        nlts.numpyro.chain_diagnostics(mcmc)
 
 
 def test_save_chain_diagnostics_roundtrip_preserves_chains(tmp_path):
@@ -732,14 +731,14 @@ def test_save_chain_diagnostics_roundtrip_preserves_chains(tmp_path):
         chain_method="sequential",
         progress_bar=False,
     )
-    mcmc.run(jax.random.PRNGKey(0), extra_fields=nlt_numpyro.NUTS_EXTRA_FIELDS)
+    mcmc.run(jax.random.PRNGKey(0), extra_fields=nlts.numpyro.NUTS_EXTRA_FIELDS)
 
-    out = nlt_numpyro.save_chain_diagnostics(tmp_path / "diag", mcmc)
+    out = nlts.numpyro.save_chain_diagnostics(tmp_path / "diag", mcmc)
     assert out.suffix == ".npz"
     loaded = np.load(out)
     # Samples keep chains; extra fields present.
     assert loaded["sample__a"].shape == (2, 15)
     assert loaded["sample__xi"].shape == (2, 15, 2)
-    for field in nlt_numpyro.NUTS_EXTRA_FIELDS:
+    for field in nlts.numpyro.NUTS_EXTRA_FIELDS:
         assert loaded[field].shape == (2, 15)
     assert int(loaded["max_tree_depth"]) == 10

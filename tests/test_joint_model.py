@@ -372,7 +372,7 @@ def test_joint_model_requires_identity_static_layer():
     """joint_model rejects a conditioned (non-identity) whitening layer before
     it touches the likelihood (the one-affine-layer invariant, §5.5)."""
     from nltiming.metric import OneAffineLayerError
-    from nltiming.sampling import numpyro as N
+    import nltiming.sampling as nlts
 
     ntm = TimingSpec(
         engines="jug",
@@ -389,4 +389,4 @@ def test_joint_model_requires_identity_static_layer():
             params: list = []
 
     with pytest.raises(OneAffineLayerError):
-        N.joint_model(_FakeLikelihood(), ctx)
+        nlts.numpyro.joint_model(_FakeLikelihood(), ctx)
