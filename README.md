@@ -82,7 +82,7 @@ model before) live in [`examples/notebooks/`](examples/notebooks/):
 2. `02_charts_and_binary.ipynb` — per-axis charts and Kepler↔Laplace binary coordinates
 3. `03_decentering_and_full_basis.ipynb` — default decentered sampling vs `inference="all"`
 4. `04_geometry.ipynb` — certify geometry; `identically_linear`
-5. `05_vela_discovery_sim.ipynb` — independent Vela.jl vs nltiming/Discovery overlay on a simulated ELL1 pulsar
+5. `05_vela_discovery_sim.ipynb` — three-way overlay on a simulated ELL1 pulsar: native Vela/emcee, Discovery/JUG/NUTS, and Discovery/Vela/PTMCMC
 
 See [`examples/notebooks/README.md`](examples/notebooks/README.md) for setup
 (MetaPulsar + JUG environment) and suggested order.

@@ -29,7 +29,7 @@ package editable-installed).
 | 2 | `02_charts_and_binary.ipynb` | J1022+1001 | Per-axis charts and Kepler↔Laplace (`EPS1/EPS2/TASC` on a DDH engine) |
 | 3 | `03_decentering_and_full_basis.ipynb` | J1022+1001 | Default decentered sampling vs `inference="all"` |
 | 4 | `04_geometry.ipynb` | J1022+1001 | Certify geometry; `identically_linear` |
-| 5 | `05_vela_discovery_sim.ipynb` | J1909-3744-sim | Independent Vela.jl vs nltiming/Discovery overlay on a simulated ELL1 pulsar (two separate analyses; Vela-inside-Discovery is the derivative-free `discovery_target` path, not this notebook) |
+| 5 | `05_vela_discovery_sim.ipynb` | J1909-3744-sim | Three-way overlay on a simulated ELL1 pulsar: native Vela/emcee, nltiming Discovery/JUG/NUTS, and Discovery/Vela/`discovery_target` PTMCMC |
 
 Data lives in [`examples/data/`](../data/): AEI-DR2 combined
 `par-optimized` pars and INCLUDE `.tim` trees, plus the barycentric ELL1
