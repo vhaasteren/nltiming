@@ -909,7 +909,7 @@ def joint_model_multi(
 
     # A class-tracking reference carries ONE pulsar's kernel, toaerrs and
     # class layout; it is never broadcast. Plain string references are.
-    from discovery.transport import _ClassTracking
+    from discovery.transport import ClassTracking
 
     if isinstance(reference_noise, (list, tuple)):
         refs = list(reference_noise)
@@ -918,7 +918,7 @@ def joint_model_multi(
                 f"reference_noise sequence must have one entry per pulsar "
                 f"({npsr}); got {len(refs)}"
             )
-    elif isinstance(reference_noise, _ClassTracking) and npsr > 1:
+    elif isinstance(reference_noise, ClassTracking) and npsr > 1:
         raise TypeError(
             "a class_tracking reference is per pulsar and cannot be broadcast; "
             "pass a sequence, e.g. [class_tracking_reference(lk, params0) for "

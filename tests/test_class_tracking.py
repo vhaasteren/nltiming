@@ -140,3 +140,63 @@ def test_joint_model_multi_requires_one_tracker_per_pulsar():
         nlts.numpyro.joint_model_multi(
             [like1, like2], [ctx1, ctx2], reference_noise=[ref], priors=_PRIORS
         )
+
+
+class _SecondPulsar(_DiscoveryPulsar):
+    """Same duck, distinct name (per-pulsar xi sites must not collide)."""
+
+    def __init__(self):
+        super().__init__()
+        self.name = "J0000+0001"
+
+
+def test_joint_model_multi_with_per_pulsar_trackers_builds_and_evaluates():
+    import jax.random as jr
+    from numpyro.infer import init_to_value
+    from numpyro.infer.util import initialize_model
+
+    ntm = TimingSpec(
+        engines="jug", inference=TimingInference.sample_all(), name="timing"
+    )
+    ctxs, likes, refs_t, refs_f = [], [], [], []
+    from discovery import transport as dst
+
+    for duck in (_DiscoveryPulsar(), _SecondPulsar()):
+        ctx = ntm.for_pulsar(duck)
+        psr = ctx.pulsar
+        params0 = {f"{psr.name}_demo_efac": 1.2, f"{psr.name}_demo_log10_t2equad": -7.0}
+        like = ds.PulsarLikelihood(
+            [
+                psr.residuals,
+                ds.makenoise_measurement(psr, {}),
+                ds.makegp_fourier(psr, ds.powerlaw, _COMPONENTS, name="red_noise"),
+                *ctx.discovery_signals(joint=True),
+            ]
+        )
+        ctxs.append(ctx)
+        likes.append(like)
+        refs_t.append(nlts.numpyro.class_tracking_reference(like, params0))
+        refs_f.append(
+            dst.reference_noise_frozen(like.white_noise_kernel, params0=params0)
+        )
+
+    tracked = nlts.numpyro.joint_model_multi(
+        likes, ctxs, reference_noise=refs_t, priors=_PRIORS
+    )
+    frozen = nlts.numpyro.joint_model_multi(
+        likes, ctxs, reference_noise=refs_f, priors=_PRIORS
+    )
+    assert len(tracked.transports) == 2
+    for t_t, t_f in zip(tracked.transports, frozen.transports):
+        assert "tracking" in t_t.diagnostics() and "tracking" not in t_f.diagnostics()
+        assert t_t.fingerprint() != t_f.fingerprint()
+    assert tracked.transports[0].fingerprint() != tracked.transports[1].fingerprint()
+
+    init = {
+        f"{ctx.name_stem}_joint_xi": jnp.zeros(tr.dimension)
+        for ctx, tr in zip(ctxs, tracked.transports)
+    }
+    mi = initialize_model(
+        jr.PRNGKey(0), tracked, init_strategy=init_to_value(values=init)
+    )
+    assert np.isfinite(float(mi.potential_fn(mi.param_info.z)))
