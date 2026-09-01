@@ -194,6 +194,45 @@ def test_discovery_and_enterprise_log_density_differences_agree(pulsar, layer):
     np.testing.assert_allclose(disc_prior_diff, ent_prior_diff, rtol=1e-6, atol=1e-10)
 
 
+@pytest.mark.parametrize(
+    "layer", [None, WhiteningConfig()], ids=["identity", "whitening"]
+)
+def test_host_discovery_and_enterprise_log_density_differences_agree(pulsar, layer):
+    noisedict = {f"{pulsar.name}_efac": 1.0, f"{pulsar.name}_log10_t2equad": -8.0}
+    ntm = TimingSpec(
+        engines={"tempo2": "jug", "pint": "pint"},
+        whitening=layer,
+        inference=TimingInference.groups(delta_flat=["DM"]),
+        name="timing",
+    )
+    ctx = ntm.for_pulsar(pulsar)
+    ndim = len(ctx.sampled)
+    offset = _OFFSETS["identity" if layer is None else "whitening"]
+
+    likelihood = ds.PulsarLikelihood(
+        [
+            pulsar.residuals,
+            ds.makenoise_measurement_simple(pulsar, noisedict),
+            *ctx.discovery_signals(),
+        ]
+    )
+    target = nlts.ptmcmc.discovery_target(likelihood, ctx, fixed=noisedict)
+    q1 = np.zeros(ndim)
+    q2 = np.full(ndim, offset)
+    disc_ll_diff = target.loglikelihood(q2) - target.loglikelihood(q1)
+    disc_prior_diff = target.logprior(q2) - target.logprior(q1)
+
+    white = white_signals.MeasurementNoise(
+        efac=parameter.Constant(1.0)
+    ) + white_signals.TNEquadNoise(log10_tnequad=parameter.Constant(-8.0))
+    pta = signal_base.PTA([(white + ntm.enterprise_signal())(pulsar)])
+    ent_ll_diff = pta.get_lnlikelihood(q2) - pta.get_lnlikelihood(q1)
+    ent_prior_diff = pta.get_lnprior(q2) - pta.get_lnprior(q1)
+
+    np.testing.assert_allclose(disc_ll_diff, ent_ll_diff, rtol=1e-6, atol=1e-10)
+    np.testing.assert_allclose(disc_prior_diff, ent_prior_diff, rtol=1e-6, atol=1e-10)
+
+
 @pytest.mark.slow
 @pytest.mark.requires_enterprise
 def test_discovery_nuts_and_enterprise_ptmcmc_recover_the_same_posterior(
@@ -284,9 +323,12 @@ def test_affine_normal_z_prior_marginalization_is_expansion_independent(pulsar):
 
     def _logL_at(ctx, values):
         like = ds.PulsarLikelihood(
-            [pulsar.residuals,
-             ds.makenoise_measurement_simple(pulsar, noisedict),
-             *ctx.discovery_signals()])
+            [
+                pulsar.residuals,
+                ds.makenoise_measurement_simple(pulsar, noisedict),
+                *ctx.discovery_signals(),
+            ]
+        )
         params = dict(noisedict)
         for key, v in zip(ctx.delay_keys, values):
             params[key] = float(v)
@@ -294,7 +336,8 @@ def test_affine_normal_z_prior_marginalization_is_expansion_independent(pulsar):
 
     base = ntm.for_pulsar(pulsar, condition=False)
     shifted = base.with_expansion(
-        delta={"Offset": 0.0, "F1": 0.0, "DM": 5.0e-4}, source="explicit_delta")
+        delta={"Offset": 0.0, "F1": 0.0, "DM": 5.0e-4}, source="explicit_delta"
+    )
 
     # Offset/F1 sampled point (engine-native delta); DM is analytically marginalized.
     values = [1.0e-13, 2.0e-21]

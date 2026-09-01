@@ -611,7 +611,8 @@ def test_dense_mass_auto_resolves_to_hyper_block():
 
 def test_dense_mass_auto_single_or_no_hyper_is_false():
     assert (
-        nlts.numpyro.resolve_dense_mass(_model_with_sites(("log10_A",)), "auto") is False
+        nlts.numpyro.resolve_dense_mass(_model_with_sites(("log10_A",)), "auto")
+        is False
     )
 
     def bare():
@@ -742,3 +743,150 @@ def test_save_chain_diagnostics_roundtrip_preserves_chains(tmp_path):
     for field in nlts.numpyro.NUTS_EXTRA_FIELDS:
         assert loaded[field].shape == (2, 15)
     assert int(loaded["max_tree_depth"]) == 10
+
+
+# ---------------------------------------------------------------------------
+# DiscoveryTarget (derivative-free Discovery / PTMCMC)
+
+
+def _discovery_likelihood(pulsar, ctx, noisedict, *, add_equad=False):
+    ds = pytest.importorskip("discovery")
+    return ds.PulsarLikelihood(
+        [
+            pulsar.residuals,
+            ds.makenoise_measurement_simple(pulsar, noisedict, add_equad=add_equad),
+            *ctx.discovery_signals(),
+        ]
+    )
+
+
+@pytest.mark.parametrize(
+    "whitening", [None, WhiteningConfig()], ids=["identity", "whitening"]
+)
+def test_discovery_target_writes_delta_not_sampler_coord(pulsar, whitening):
+    nlts.numpyro.ensure_x64()
+    noisedict = {f"{pulsar.name}_efac": 1.0}
+    ctx = _binding(whitening=whitening).for_pulsar(pulsar)
+    likelihood = _discovery_likelihood(pulsar, ctx, noisedict)
+    target = nlts.ptmcmc.discovery_target(likelihood, ctx, fixed=noisedict)
+    q = np.array([0.4])
+    delta = np.asarray(ctx.space.delta_from_coord(q, np, coord=ctx.coord), dtype=float)
+    params = {**noisedict, ctx.delay_keys[0]: float(delta[0])}
+    np.testing.assert_allclose(
+        target.loglikelihood(q),
+        float(likelihood.logL(params)),
+        rtol=1e-10,
+    )
+    np.testing.assert_allclose(
+        target.logprior(q),
+        float(ctx.space.logprior_coord(q, np, coord=ctx.coord)),
+        rtol=1e-12,
+    )
+
+
+def test_discovery_target_hyper_bounds_and_prior(pulsar):
+    nlts.numpyro.ensure_x64()
+    ctx = _binding(whitening=None).for_pulsar(pulsar)
+    likelihood = _discovery_likelihood(pulsar, ctx, {})
+    efac = f"{pulsar.name}_efac"
+    target = nlts.ptmcmc.discovery_target(likelihood, ctx, fixed={})
+    assert target.hyperparameter_names == (efac,)
+    assert target.dimension == 2
+    layout = target.chain_layout()
+    assert layout["hyperparameter_names"] == [efac]
+    assert layout["hyper_columns"] == [1]
+    assert layout["parameter_names"] == list(target.parameter_names)
+    assert layout["coord"] == ctx.coord
+    lo, hi = 0.1, 10.0
+    logwidth = float(np.log(hi - lo))
+    q = np.array([0.0, 1.0])
+    np.testing.assert_allclose(
+        target.logprior(q),
+        float(ctx.space.logprior_coord(q[:1], np, coord=ctx.coord)) - logwidth,
+        rtol=1e-12,
+    )
+    assert target.logprior(np.array([0.0, 0.05])) == -np.inf
+    assert target.loglikelihood(np.array([0.0, 0.05])) == -np.inf
+    p0 = target.initial_point({efac: 1.0})
+    np.testing.assert_array_equal(p0, np.array([0.0, 1.0]))
+    with pytest.raises(ValueError, match="exactly the free"):
+        target.initial_point()
+    with pytest.raises(ValueError, match="exactly the free"):
+        target.initial_point({efac: 1.0, "extra": 0.0})
+
+
+def test_discovery_target_rejects_fixed_timing_and_bad_shape(pulsar):
+    nlts.numpyro.ensure_x64()
+    noisedict = {f"{pulsar.name}_efac": 1.0}
+    ctx = _binding().for_pulsar(pulsar)
+    likelihood = _discovery_likelihood(pulsar, ctx, noisedict)
+    with pytest.raises(ValueError, match="nltiming-owned"):
+        nlts.ptmcmc.discovery_target(
+            likelihood, ctx, fixed={**noisedict, ctx.delay_keys[0]: 0.0}
+        )
+    target = nlts.ptmcmc.discovery_target(likelihood, ctx, fixed=noisedict)
+    with pytest.raises(ValueError, match="expected vector shape"):
+        target.loglikelihood(np.zeros(3))
+    layout = target.chain_layout()
+    assert layout["columns"] == [0]
+    assert layout["parameter_names"] == list(target.parameter_names)
+    assert layout["timing_parameter_names"] == list(target.timing_parameter_names)
+    assert layout["hyperparameter_names"] == []
+    assert layout["hyper_columns"] == []
+    assert layout["coord"] == ctx.coord
+
+
+def test_discovery_target_jit_matches_eager(pulsar):
+    nlts.numpyro.ensure_x64()
+    noisedict = {f"{pulsar.name}_efac": 1.0}
+    ctx = _binding(whitening=None).for_pulsar(pulsar)
+    likelihood = _discovery_likelihood(pulsar, ctx, noisedict)
+    compiled = nlts.ptmcmc.discovery_target(likelihood, ctx, fixed=noisedict)
+    eager = nlts.ptmcmc.discovery_target(likelihood, ctx, fixed=noisedict, jit=False)
+    for q in (np.zeros(1), np.array([0.3]), np.array([-0.2])):
+        np.testing.assert_allclose(
+            compiled.loglikelihood(q),
+            eager.loglikelihood(q),
+            rtol=1e-10,
+            atol=1e-12,
+        )
+
+
+def test_discovery_sampler_covariance_guards(pulsar, tmp_path):
+    nlts.numpyro.ensure_x64()
+    noisedict = {f"{pulsar.name}_efac": 1.0}
+    ctx = _binding().for_pulsar(pulsar)
+    likelihood = _discovery_likelihood(pulsar, ctx, {})
+    free = nlts.ptmcmc.discovery_target(likelihood, ctx, fixed={})
+    with pytest.raises(ValueError, match="covariance is required"):
+        nlts.ptmcmc.discovery_sampler(free, tmp_path)
+    pinned = nlts.ptmcmc.discovery_target(likelihood, ctx, fixed=noisedict)
+    with pytest.raises(ValueError, match="covariance has shape"):
+        nlts.ptmcmc.discovery_sampler(pinned, tmp_path, covariance=np.eye(3))
+
+
+def test_discovery_target_requires_conditioned_context(pulsar):
+    nlts.numpyro.ensure_x64()
+    noisedict = {f"{pulsar.name}_efac": 1.0}
+    ctx = _binding().for_pulsar(pulsar, condition=False)
+    likelihood = _discovery_likelihood(pulsar, ctx, noisedict)
+    with pytest.raises(ValueError, match="requires a conditioned TimingSignal"):
+        nlts.ptmcmc.discovery_target(likelihood, ctx, fixed=noisedict)
+
+
+def test_discovery_target_rejects_latent_site(pulsar):
+    nlts.numpyro.ensure_x64()
+    ctx = _binding().for_pulsar(pulsar)
+    likelihood = _FakeLikelihood([ctx.latent_name_for_coord(), *ctx.delay_keys])
+    with pytest.raises(ValueError, match="joint latent timing site"):
+        nlts.ptmcmc.discovery_target(likelihood, ctx)
+
+
+def test_discovery_target_calls_ensure_x64(pulsar, monkeypatch):
+    calls = []
+    monkeypatch.setattr(nlts.numpyro, "ensure_x64", lambda: calls.append(True))
+    noisedict = {f"{pulsar.name}_efac": 1.0}
+    ctx = _binding().for_pulsar(pulsar)
+    likelihood = _discovery_likelihood(pulsar, ctx, noisedict)
+    nlts.ptmcmc.discovery_target(likelihood, ctx, fixed=noisedict)
+    assert calls == [True]

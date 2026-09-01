@@ -21,6 +21,23 @@ from typing import Any, Callable, Mapping
 import numpy as np
 
 
+def _require_differentiable_timing(ctx, *, caller: str) -> None:
+    """Reject a sampled host timing delay on a gradient-based path."""
+    from nltiming.protocols import JaxTimingEngine
+
+    # No sampled timing parameters means there is no nonlinear delay callback.
+    if not ctx.plan.sampled:
+        return
+    if isinstance(ctx.engine, JaxTimingEngine):
+        return
+    raise ValueError(
+        f"{caller} requires a JAX-differentiable timing engine when timing "
+        f"parameters are sampled; got {type(ctx.engine).__name__}. "
+        "Use likelihood.logL with "
+        "nltiming.sampling.ptmcmc.discovery_target for Vela/PINT host engines."
+    )
+
+
 def ensure_x64() -> None:
     """Enable JAX float64 and fail loudly if it cannot take effect.
 
@@ -387,6 +404,7 @@ def model(
             timing parameter (owned by the ctx, not the caller).
         TypeError: a ``fixed`` value is not numeric.
     """
+    _require_differentiable_timing(ctx, caller="sampling.numpyro.model")
     import numpyro
     from numpyro import distributions as dist
 
@@ -458,6 +476,9 @@ def conditional_timing_potential(likelihood, ctx, *, fixed):
     intended scalar conditional density; a residual-form joint ``clogL`` (which
     takes explicit GP coefficients) is not the right object here.
     """
+    _require_differentiable_timing(
+        ctx, caller="sampling.numpyro.conditional_timing_potential"
+    )
     import jax.numpy as jnp
 
     space = ctx.proper_space
@@ -690,6 +711,7 @@ def joint_model(
     identity static affine layer): the dynamic transport is the ONE affine layer
     (§5.5). The existing static :func:`model` builder is untouched.
     """
+    _require_differentiable_timing(ctx, caller="sampling.numpyro.joint_model")
     import jax.numpy as jnp
     import numpyro
     from numpyro import distributions as dist
@@ -789,6 +811,9 @@ def _joint_pulsar_entry(
     center_extsignals=None,
 ):
     """Resolve one pulsar's joint pieces: transport, owned keys, clogL params."""
+    _require_differentiable_timing(
+        ctx, caller=f"sampling.numpyro.joint_model_multi ({ctx.pulsar.name})"
+    )
     from ..metric import assert_static_layer_identity
 
     if not ctx.sampled:
@@ -1152,6 +1177,7 @@ def decentered_model(
             r"(.*_)?red_noise_gamma.*": [1.0, 7.0],
         }
     """
+    _require_differentiable_timing(ctx, caller="sampling.numpyro.decentered_model")
     import jax.numpy as jnp
     import numpyro
     from numpyro import distributions as dist
@@ -1343,6 +1369,7 @@ def nuts(
     likelihood, not just before calling this function — JAX arrays already
     created as float32 stay float32.
     """
+    _require_differentiable_timing(ctx, caller="sampling.numpyro.nuts")
     ensure_x64()
     from numpyro.infer import MCMC, NUTS, init_to_value
 

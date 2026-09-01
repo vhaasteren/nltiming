@@ -402,6 +402,67 @@ helper (`ds_numpyro.makemodel(likelihood.logL)`): it samples every
 `logL.params` entry as an independent `Uniform`, which cannot recover the
 chart, static layer, or joint dynamic transport.
 
+### Derivative-free Discovery with Vela or PINT
+
+Host timing engines (Vela, PINT) have no JAX derivatives. They can still
+drive Discovery's **marginal** `logL`: `discovery_signals()` emits a
+value-only delay through `jax.pure_callback`, the GP/Woodbury algebra
+stays JIT-compiled, and a derivative-free sampler walks the result.
+The supported sampler is **PTMCMCSampler** via `discovery_target` /
+`discovery_sampler`. `DiscoveryTarget` is a transformed-density pair
+`(loglikelihood, logprior)` on `[q_timing | eta]` — `q` is `ctx.coord`
+(`z` or `x`), `eta` is the sorted free hyperparameters, and delay keys
+inside `logL` are engine-native **delta**. `q = 0` is the engine
+expansion (same convention as Enterprise `initial_point` and NumPyro
+`timing_init_values`). There is no unit-cube prior transform; other
+derivative-free samplers may call the same density pair if they walk
+that coordinate themselves.
+
+Discovery must use its default JAX numerical backend.
+`derivative_method="analytic"` is required (the default). Do **not** pass
+this context to `sampling.numpyro.nuts`, `model`, `joint_model`, or
+`decentered_model`. Call `ensure_x64()` before constructing the
+likelihood. Delay keys are engine-native delta; do not reuse Enterprise
+`eval_params`.
+
+```python
+from nltiming import TimingSpec, sampling
+import discovery as ds
+
+sampling.numpyro.ensure_x64()
+
+spec = TimingSpec(
+    engines={"pint": "vela"},
+    derivative_method="analytic",
+    inference="default",
+)
+ctx = spec.for_pulsar(pulsar)  # conditioned context (the default)
+
+fixed = {f"{pulsar.name}_efac": 1.0}
+likelihood = ds.PulsarLikelihood([
+    pulsar.residuals,
+    ds.makenoise_measurement_simple(pulsar, fixed, add_equad=False),
+    *ctx.discovery_signals(),
+])
+
+target = sampling.ptmcmc.discovery_target(likelihood, ctx, fixed=fixed)
+ctx.write(
+    "chains/vela-discovery",
+    likelihood="discovery",
+    sampler="ptmcmc",
+    chain_layout=target.chain_layout(),
+)
+sampler = sampling.ptmcmc.discovery_sampler(target, outdir="chains/vela-discovery")
+# timing block is q=0 (engine reference); pin free hypers if any
+sampler.sample(target.initial_point(), Niter=200_000)
+```
+
+For free noise hyperparameters, pass `priors=` (the same
+`discovery.prior.getprior_uniform` patterns as the NumPyro path) and
+supply both `target.initial_point({name: value, ...})` and an explicit
+`covariance=` block. The first likelihood call includes JIT compilation;
+each later PTMCMC step pays one host callback for the timing residual.
+
 ### 1. `sampling.numpyro.nuts` — shortest path (no checkpointing)
 
 Opinionated convenience: builds a NumPyro `MCMC` with init-at-reference and

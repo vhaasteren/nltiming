@@ -13,6 +13,7 @@ from nltiming.engine_support import LinearModel
 from nltiming.nonlinear_timing_model import TimingSpec
 from nltiming.whitening import normalized_basis
 from nltiming.sampling.numpyro import _sample_timing_coord, sample_timing
+import nltiming.sampling as nlts
 from _planhelp import plan_for
 from nltiming.whitening import schur_delta_wls
 
@@ -265,7 +266,6 @@ def test_autodiff_design_matrix_method_feeds_whitening(pulsar):
     )
 
 
-
 def test_cheat_wls_prior_is_wide_uniform_box(pulsar):
     ntm = TimingSpec(
         engines="jug",
@@ -373,28 +373,86 @@ def test_cheat_prior_box_clipped_to_physical_bounds():
     np.testing.assert_allclose(ecc_prior.upper, half, rtol=1e-6)
 
 
-def test_discovery_signals_delta_only_and_jax_gate(pulsar):
+def test_discovery_signals_selects_jax_or_host_delay(pulsar):
     ntm = TimingSpec(
         engines="jug",
         whitening=WhiteningConfig(),
         inference=TimingInference.groups(delta_flat=["Offset", "F0", "DM"]),
         name="timing",
     )
-    signals = ntm.for_pulsar(pulsar).discovery_signals()
-    delay = signals[-1]
-    output = np.asarray(delay({f"{pulsar.name}_timing_F1": 0.25}), dtype=float)
-    expected = -pulsar._jug_backend.residual_delta(
-        np.array([0.0, 0.0, 0.25, 0.0])
-    )
+    jax_delay = ntm.for_pulsar(pulsar).discovery_signals()[-1]
+    assert jax_delay.nltiming_execution == "jax"
+    assert jax_delay.nltiming_differentiable is True
+    output = np.asarray(jax_delay({f"{pulsar.name}_timing_F1": 0.25}), dtype=float)
+    expected = -pulsar._jug_backend.residual_delta(np.array([0.0, 0.0, 0.25, 0.0]))
     np.testing.assert_allclose(output, expected)
 
-    ntm_nonjax = TimingSpec(
+    ntm_host = TimingSpec(
         engines={"tempo2": "jug", "pint": "pint"},
         inference=TimingInference.groups(delta_flat=["Offset", "F0", "DM"]),
         name="timing",
     )
-    with pytest.raises(ValueError, match="JAX-capable engine"):
-        ntm_nonjax.for_pulsar(pulsar).discovery_signals()
+    host_delay = ntm_host.for_pulsar(pulsar).discovery_signals()[-1]
+    assert host_delay.nltiming_execution == "host_callback"
+    assert host_delay.nltiming_differentiable is False
+    host_out = np.asarray(host_delay({f"{pulsar.name}_timing_F1": 0.25}), dtype=float)
+    expected_host = -pulsar._pint_backend.residual_delta(
+        np.array([0.0, 0.0, 0.25, 0.0])
+    )
+    np.testing.assert_allclose(host_out, expected_host)
+    np.testing.assert_allclose(host_out, output)
+
+
+def _host_ctx(pulsar, *, inference=None):
+    ntm = TimingSpec(
+        engines={"tempo2": "jug", "pint": "pint"},
+        inference=inference
+        or TimingInference.groups(delta_flat=["Offset", "F0", "DM"]),
+        name="timing",
+    )
+    return ntm.for_pulsar(pulsar)
+
+
+class _DummyLikelihood:
+    class logL:
+        params = []
+
+
+def test_numpyro_helpers_refuse_sampled_host_delay(pulsar):
+    ctx = _host_ctx(pulsar)
+    dummy = _DummyLikelihood()
+    dummy.logL.params = list(ctx.delay_keys)
+    match = "discovery_target"
+    with pytest.raises(ValueError, match=match):
+        nlts.numpyro.model(dummy, ctx)
+    with pytest.raises(ValueError, match=match):
+        nlts.numpyro.conditional_timing_potential(dummy, ctx, fixed={})
+    with pytest.raises(ValueError, match=match):
+        nlts.numpyro.joint_model(dummy, ctx)
+    with pytest.raises(ValueError, match=match):
+        nlts.numpyro.joint_model_multi([dummy], [ctx])
+    with pytest.raises(ValueError, match=match):
+        nlts.numpyro.decentered_model(dummy, ctx)
+    with pytest.raises(ValueError, match=match):
+        nlts.numpyro.nuts(lambda: None, ctx)
+
+
+def test_numpyro_model_allows_fully_marginalized_host_engine(pulsar):
+    ctx = _host_ctx(
+        pulsar,
+        inference=TimingInference.groups(delta_flat=["Offset", "F0", "F1", "DM"]),
+    )
+    assert ctx.sampled == ()
+    dummy = _DummyLikelihood()
+    dummy.logL.params = [f"{pulsar.name}_efac"]
+    model = nlts.numpyro.model(dummy, ctx, fixed={f"{pulsar.name}_efac": 1.0})
+    assert callable(model)
+
+
+def test_discovery_signals_joint_rejects_host_engine(pulsar):
+    ctx = _host_ctx(pulsar, inference="all")
+    with pytest.raises(ValueError, match="JAX-capable timing"):
+        ctx.discovery_signals(joint=True)
 
 
 def test_autodiff_design_matrix_method_feeds_discovery_gp_basis(pulsar, monkeypatch):
@@ -493,7 +551,6 @@ def test_sample_timing_x_site_samples_and_injects_delta_deterministic(
     np.testing.assert_allclose(
         calls["deterministic"][0][1], out[f"{pulsar.name}_timing_F1"]
     )
-
 
 
 def test_sample_timing_noop_when_no_sampled(pulsar, monkeypatch):

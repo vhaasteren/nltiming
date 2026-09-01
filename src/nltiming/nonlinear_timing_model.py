@@ -810,6 +810,7 @@ class TimingSignal:
 
     def discovery_signals(self, *, joint: bool = False) -> list:
         from .likelihoods.discovery import discovery_signals
+        from .protocols import JaxTimingEngine
 
         if joint and (self.plan.marginalized_delta or self.plan.marginalized_z):
             raise ValueError(
@@ -818,6 +819,13 @@ class TimingSignal:
                 "every timing direction and integrates none. Got marginalized_delta="
                 f"{list(self.plan.marginalized_delta)}, marginalized_z="
                 f"{list(self.plan.marginalized_z)}."
+            )
+        if joint and self.plan.sampled and not isinstance(self.engine, JaxTimingEngine):
+            raise ValueError(
+                "discovery_signals(joint=True) requires a JAX-capable timing "
+                f"engine; got {type(self.engine).__name__}. Host timing engines "
+                "support the marginalized Discovery logL with derivative-free "
+                "samplers only."
             )
         return discovery_signals(
             pulsar=self.pulsar,

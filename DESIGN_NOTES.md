@@ -190,6 +190,10 @@ and optional; not a blocker.
 `VelaEngine`, `engines={"pint": "vela"}`) via pyvela's existing
 `time_residuals` / `unscale_params` / `param_offsets`; no upstream change was
 required. It is cross-validated against the JUG JAX path (binary params agree
-to ~1e-11 s). Note it enters through the black-box juliacall boundary, so it is
-not JAX-differentiable — usable for evaluation and cross-validation, not as an
-autodiff engine.
+to ~1e-11 s). It enters through the black-box juliacall boundary, so it is
+not JAX-differentiable. Vela is usable through Enterprise/PTMCMC and through
+Discovery's marginal `logL` with PTMCMCSampler: the Discovery path uses
+`jax.pure_callback` plus `sampling.ptmcmc.discovery_target`, preserving JIT
+compilation of the GP likelihood but providing no timing derivative. It is
+not valid for NUTS, joint/decentered NumPyro models, geometry certification,
+or JAX expansion refinement.

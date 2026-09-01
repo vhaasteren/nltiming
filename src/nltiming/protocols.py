@@ -196,7 +196,13 @@ class JacobianTimingEngine(TimingEngine, Protocol):
 
 @runtime_checkable
 class JaxTimingEngine(TimingEngine, Protocol):
-    """JAX-capable timing engine for traced residuals on the NumPyro NUTS tier."""
+    """Timing engine with traced residuals and valid JAX derivatives.
+
+    Required for NUTS, joint/decentered NumPyro models, expansion refinement,
+    and geometry certification. Plain ``TimingEngine`` implementations may still
+    drive a Discovery marginal ``logL`` through the derivative-free host-callback
+    path.
+    """
 
     def residual_delta_jax(self, delta_theta: Any) -> Any: ...
 

@@ -1,4 +1,4 @@
-"""Sampler-neutral PTMCMC helpers, plus one optional timing-only recipe.
+"""Sampler-neutral PTMCMC helpers, plus optional timing-only recipes.
 
 ``timing_param_names`` and ``chain_layout`` are sampler-neutral: they map the
 timing block's coordinate layout (whitening joint site vs standardized scalar
@@ -10,12 +10,23 @@ and samples only the timing coordinates; they are not the standard Enterprise
 workflow, where a normal ``enterprise_extensions.sampler.setup_sampler``
 samples the complete PTA using the native Enterprise parameters from
 ``ntm.enterprise_signal()`` (see the package README).
+
+Discovery delay keys are engine-native **delta**. Use
+:func:`discovery_target` / :func:`discovery_sampler` with
+``PulsarLikelihood.logL``, never :func:`eval_params`. Those helpers support
+JAX engines and host engines (Vela, PINT) behind a value-only callback.
+
+:class:`DiscoveryTarget` is a transformed-density pair
+``(loglikelihood, logprior)`` for **PTMCMCSampler**. Other derivative-free
+samplers may call the same callables, but this module does not expose a
+unit-cube prior transform.
 """
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Mapping, Sequence
+from typing import Any, Callable, Mapping, Sequence
 
 import numpy as np
 
@@ -355,3 +366,288 @@ def decentered_sampler(
         verbose=verbose,
         **ptmcmc_kwargs,
     )
+
+
+@dataclass(frozen=True)
+class DiscoveryTarget:
+    """Derivative-free PTMCMC target over ``[q_timing | eta]``.
+
+    ``q_timing`` is the context sampling coordinate (``ctx.coord``, ``z`` or
+    ``x``). ``eta`` is the sorted tuple of free non-timing hyperparameters.
+    ``loglikelihood`` is Discovery's marginal ``logL`` after mapping ``q`` to
+    engine-native **delta**. ``logprior`` is the transformed timing density
+    ``space.logprior_coord`` plus a uniform density on the hyper bounds — the
+    Jacobian of the timing charts is already inside ``logprior_coord``.
+    """
+
+    loglikelihood: Callable[[np.ndarray], float]
+    logprior: Callable[[np.ndarray], float]
+    parameter_names: tuple[str, ...]
+    timing_parameter_names: tuple[str, ...]
+    hyperparameter_names: tuple[str, ...]
+    timing_dimension: int
+    dimension: int
+    context: Any
+
+    def initial_point(
+        self,
+        hyperparameters: Mapping[str, float] | None = None,
+    ) -> np.ndarray:
+        """Reference start: timing block at ``q = 0`` (engine expansion).
+
+        Zero in sampling coordinates is the same convention as
+        :func:`initial_point` and NumPyro ``timing_init_values``. Free
+        hyperparameters must be supplied exactly when any are present.
+        """
+        values = dict(hyperparameters or {})
+        missing = sorted(set(self.hyperparameter_names) - set(values))
+        extra = sorted(set(values) - set(self.hyperparameter_names))
+        if missing or extra:
+            raise ValueError(
+                "initial hyperparameters must cover exactly the free "
+                f"hyperparameters; missing={missing}, unexpected={extra}"
+            )
+        return np.concatenate(
+            [
+                np.zeros(self.timing_dimension, dtype=float),
+                np.asarray(
+                    [values[name] for name in self.hyperparameter_names],
+                    dtype=float,
+                ),
+            ]
+        )
+
+    def chain_layout(
+        self,
+        *,
+        chain_file: str = CHAIN_FILENAME,
+    ) -> dict[str, Any]:
+        """PTMCMC run-metadata layout for this target.
+
+        ``columns`` remains the timing-block indices so the run-metadata
+        decoder still loads physical timing parameters. Hyperparameter names
+        and columns are recorded alongside for the full sampler vector.
+        """
+        return {
+            "kind": "ptmcmc",
+            "file": chain_file,
+            "columns": list(range(self.timing_dimension)),
+            "parameter_names": list(self.parameter_names),
+            "timing_parameter_names": list(self.timing_parameter_names),
+            "hyperparameter_names": list(self.hyperparameter_names),
+            "hyper_columns": list(range(self.timing_dimension, self.dimension)),
+            "coord": self.context.coord,
+        }
+
+
+def discovery_target(
+    likelihood,
+    ctx,
+    *,
+    priors: Mapping[str, Any] | None = None,
+    fixed: Mapping[str, float] | None = None,
+    jit: bool = True,
+) -> DiscoveryTarget:
+    """Build a derivative-free PTMCMC target around Discovery's marginal ``logL``.
+
+    The sampled vector is ``[q_timing | eta]``, where ``q_timing`` is in
+    ``ctx.coord`` (``z`` under the identity layer, ``x`` under static
+    whitening) and ``eta`` contains alphabetically sorted free non-timing
+    likelihood parameters. Delay keys written into ``logL`` are engine-native
+    **delta**, not the sampler coordinate. ``q = 0`` is the engine expansion
+    point.
+
+    ``ctx`` must already be conditioned (``TimingSpec.for_pulsar()`` does
+    this by default). Call :func:`nltiming.sampling.numpyro.ensure_x64`
+    before building the Discovery likelihood; this function also calls it
+    as a safety net.
+
+    Raises
+    ------
+    ValueError
+        Unconditioned context; duplicate ``logL`` names; missing delay keys;
+        latent site present in ``logL.params``; ``fixed`` pins a timing
+        parameter; empty parameter space; or non-finite / inverted hyper
+        bounds.
+    TypeError
+        A ``fixed`` value is not numeric.
+    """
+    import jax
+    import jax.numpy as jnp
+    from discovery import prior as discovery_prior
+
+    from .numpyro import ensure_x64
+
+    ctx._require_conditioned("discovery_target")
+    ensure_x64()
+
+    logl_names = list(likelihood.logL.params)
+    seen: set[str] = set()
+    duplicates = sorted({name for name in logl_names if name in seen or seen.add(name)})
+    if duplicates:
+        raise ValueError(f"duplicate likelihood parameter names: {duplicates}")
+
+    site_name = ctx.latent_name_for_coord()
+    if site_name in logl_names:
+        raise ValueError(
+            f"{site_name!r} is the joint latent timing site and must not "
+            "appear in likelihood.logL.params; Discovery consumes the "
+            "derived delay keys, not the latent coordinate"
+        )
+
+    missing_delay = [key for key in ctx.delay_keys if key not in logl_names]
+    if missing_delay:
+        raise ValueError(
+            "ctx and likelihood were not assembled together: missing "
+            f"delay keys in likelihood.logL.params: {missing_delay}"
+        )
+
+    timing_owned = set(ctx.timing_param_keys())
+    fixed_values: dict[str, float] = {}
+    for name, value in dict(fixed or {}).items():
+        if name in timing_owned:
+            raise ValueError(f"fixed cannot pin nltiming-owned parameter {name!r}")
+        if not isinstance(value, (int, float)):
+            raise TypeError(
+                f"fixed[{name!r}] must be numeric, got {type(value).__name__}"
+            )
+        fixed_values[name] = float(value)
+
+    free = tuple(
+        sorted(
+            name
+            for name in ctx.non_timing_params(logl_names)
+            if name not in fixed_values
+        )
+    )
+
+    prior_overrides = dict(priors or {})
+    bounds = {
+        name: tuple(
+            float(value)
+            for value in discovery_prior.getprior_uniform(name, prior_overrides)
+        )
+        for name in free
+    }
+    lower = np.asarray([bounds[name][0] for name in free], dtype=float)
+    upper = np.asarray([bounds[name][1] for name in free], dtype=float)
+    if np.any(~np.isfinite(lower)) or np.any(~np.isfinite(upper)):
+        raise ValueError("Discovery PTMCMC bounds must be finite")
+    if np.any(lower >= upper):
+        raise ValueError("Discovery PTMCMC bounds must satisfy lower < upper")
+
+    k = len(ctx.plan.sampled)
+    dimension = k + len(free)
+    if dimension == 0:
+        raise ValueError("Discovery target has no parameters to sample")
+
+    timing_names = tuple(f"{ctx.latent_name_for_coord()}_{i}" for i in range(k))
+    parameter_names = timing_names + free
+
+    def vector_to_params_jax(vector):
+        vector = jnp.asarray(vector, dtype=jnp.float64)
+        q_timing = vector[:k]
+        eta = vector[k:]
+        params = dict(fixed_values)
+        for index, name in enumerate(free):
+            params[name] = eta[index]
+        if k:
+            delta = ctx.space.delta_from_coord(q_timing, jnp, coord=ctx.coord)
+            for index, key in enumerate(ctx.delay_keys):
+                params[key] = delta[index]
+        return params
+
+    def jax_loglikelihood(vector):
+        return likelihood.logL(vector_to_params_jax(vector))
+
+    compiled = jax.jit(jax_loglikelihood) if jit else jax_loglikelihood
+
+    def validate_vector(vector):
+        vector = np.asarray(vector, dtype=float).reshape(-1)
+        if vector.shape != (dimension,):
+            raise ValueError(
+                f"expected vector shape {(dimension,)}, got {vector.shape}"
+            )
+        return vector
+
+    def hyper_in_bounds(vector):
+        if not free:
+            return True
+        eta = vector[k:]
+        return bool(np.all(eta >= lower) and np.all(eta <= upper))
+
+    def loglikelihood(vector):
+        vector = validate_vector(vector)
+        if not hyper_in_bounds(vector):
+            return -np.inf
+        return float(compiled(jnp.asarray(vector, dtype=jnp.float64)))
+
+    hyper_log_normalization = float(np.sum(np.log(upper - lower))) if free else 0.0
+
+    def logprior(vector):
+        vector = validate_vector(vector)
+        if not hyper_in_bounds(vector):
+            return -np.inf
+        timing_logprior = 0.0
+        if k:
+            timing_logprior = float(
+                ctx.space.logprior_coord(vector[:k], np, coord=ctx.coord)
+            )
+        return timing_logprior - hyper_log_normalization
+
+    return DiscoveryTarget(
+        loglikelihood=loglikelihood,
+        logprior=logprior,
+        parameter_names=parameter_names,
+        timing_parameter_names=timing_names,
+        hyperparameter_names=free,
+        timing_dimension=k,
+        dimension=dimension,
+        context=ctx,
+    )
+
+
+def discovery_sampler(
+    target: DiscoveryTarget,
+    outdir: str | Path,
+    *,
+    covariance: np.ndarray | None = None,
+    verbose: bool = True,
+    **ptmcmc_kwargs: Any,
+):
+    """Construct ``PTSampler`` for a :class:`DiscoveryTarget`.
+
+    Write run metadata with ``ctx.write(..., chain_layout=target.chain_layout())``
+    **before** ``sampler.sample(...)``. Start the chain at
+    ``target.initial_point(...)`` (timing block ``q = 0``).
+    """
+    from PTMCMCSampler.PTMCMCSampler import PTSampler
+
+    if covariance is None:
+        if target.hyperparameter_names:
+            raise ValueError(
+                "covariance is required when free non-timing "
+                "hyperparameters are present"
+            )
+        covariance = initial_cov(target.context)
+
+    covariance = np.asarray(covariance, dtype=float)
+    expected = (target.dimension, target.dimension)
+    if covariance.shape != expected:
+        raise ValueError(
+            f"covariance has shape {covariance.shape}, expected {expected}"
+        )
+
+    outdir = Path(outdir)
+    outdir.mkdir(parents=True, exist_ok=True)
+    sampler = PTSampler(
+        target.dimension,
+        target.loglikelihood,
+        target.logprior,
+        covariance,
+        outDir=str(outdir),
+        verbose=verbose,
+        **ptmcmc_kwargs,
+    )
+    sampler.nltiming_target = target
+    return sampler
