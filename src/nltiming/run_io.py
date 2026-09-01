@@ -46,9 +46,21 @@ def _run_meta_tempo2_native(ntm) -> str | dict[str, Any] | None:
     return str(value)
 
 
-def _run_meta_nonlinear_params(ntm) -> str | None:
-    """Record residual-linearization mode (``None`` = native path)."""
-    value = getattr(ntm, "nonlinear_params", None)
+def _run_meta_nonlinear_params(ctx) -> str | None:
+    """Record the residual-linearization mode the engine *executes*.
+
+    Read from ``ctx.engine`` (``None`` = native path), not from the spec: the
+    manifest must describe the likelihood that ran. ``TimingSpec.for_pulsar``
+    already refuses an engine whose mode differs from the requested one, so a
+    context object is required here; a bare spec is rejected.
+    """
+    engine = getattr(ctx, "engine", None)
+    if engine is None:
+        raise TypeError(
+            "_run_meta_nonlinear_params expects a resolved TimingSignal "
+            "(context with .engine), not a bare TimingSpec"
+        )
+    value = getattr(engine, "nonlinear_params", None)
     if value is None:
         return None
     return str(value)
@@ -465,7 +477,7 @@ def build_run_manifest(
         raise RunIOError(f"pulsar {pulsar.name!r} has no sampled timing parameters")
     pint_model = pulsar.pint_model()
     tempo2_native = _run_meta_tempo2_native(ntm)
-    nonlinear_params = _run_meta_nonlinear_params(ntm)
+    nonlinear_params = _run_meta_nonlinear_params(ctx)
     metric_source = ctx.metric.provenance() if ctx.metric is not None else None
     transport = None
     if dynamic_transport is not None:

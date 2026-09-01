@@ -85,18 +85,47 @@ def _normalize_derivative_method(method: str) -> str:
     return normalized
 
 
+# Closed hybrid residual-linearization modes (mirrors
+# ``jug.fitting.nonlinear_params``; every engine family executes them — see
+# README "Hybrid residual linearization"). Kept local so a libstempo/Vela
+# configuration does not need JUG importable to name the mode.
+_NONLINEAR_PARAMS_MODES = frozenset({"binary", "binary+"})
+
+
 def _validate_nonlinear_params(value: str | None) -> str | None:
-    """Validate hybrid residual-linearization mode (closed set; jug owns rules)."""
+    """Validate the hybrid residual-linearization mode (closed set)."""
     if value is None:
         return None
-    try:
-        from jug.fitting.nonlinear_params import validate_nonlinear_params
-    except ImportError as exc:  # pragma: no cover - exercised when jug absent
-        raise ImportError(
-            "nonlinear_params requires jug; install jug to use hybrid "
-            "residual linearization"
-        ) from exc
-    return validate_nonlinear_params(value)
+    if not isinstance(value, str):
+        raise ValueError(
+            f"Unknown nonlinear_params={value!r}; expected None or one of "
+            f"{', '.join(repr(s) for s in sorted(_NONLINEAR_PARAMS_MODES))}"
+        )
+    normalized = value.strip().lower()
+    if normalized not in _NONLINEAR_PARAMS_MODES:
+        raise ValueError(
+            f"Unknown nonlinear_params={value!r}; expected None or one of "
+            f"{', '.join(repr(s) for s in sorted(_NONLINEAR_PARAMS_MODES))}"
+        )
+    return normalized
+
+
+def _check_engine_nonlinear_params(engine, requested: str | None) -> None:
+    """Refuse an engine that did not execute the requested hybrid mode.
+
+    The mode is a residual-formula choice the host engine executes; a
+    silently dropped mode would make two runs with different manifests the
+    same likelihood. Engines that expose no ``nonlinear_params`` attribute
+    (test doubles) are accepted only for the native (``None``) request.
+    """
+    executed = getattr(engine, "nonlinear_params", None)
+    if executed != requested:
+        raise ValueError(
+            f"timing engine executes nonlinear_params={executed!r} but "
+            f"{requested!r} was requested; every contribution's engine must "
+            "honour the hybrid residual mode (MetaPulsar.timing_engine does "
+            "for jug/libstempo/vela/pint)"
+        )
 
 
 def _probe_conversion_metadata(pulsar):
@@ -1060,11 +1089,12 @@ class TimingSpec:
             )
 
     def _uses_jug(self) -> bool:
+        # ``nonlinear_params`` deliberately does not count: the hybrid mode is
+        # executed by every engine family, not only JUG.
         return (
             "jug" in self.engines.values()
             or self.tempo2_native is not None
             or self._tempo2_jug_options_raw is not None
-            or self.nonlinear_params is not None
         )
 
     @property
@@ -1218,11 +1248,13 @@ class TimingSpec:
         }
 
     def _engine_for_pulsar(self, pulsar):
-        return pulsar.timing_engine(
+        engine = pulsar.timing_engine(
             self.engines,
             derivative_method=self.derivative_method,
             **self._timing_engine_kwargs(),
         )
+        _check_engine_nonlinear_params(engine, self.nonlinear_params)
+        return engine
 
     def _resolve_linearity(self, pulsar, engine) -> LinearityResolution:
         return resolve_linearity(

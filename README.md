@@ -15,9 +15,24 @@ The old `waveform_jacobian` noun is deleted. Design notes:
 
 **Hybrid residual linearization.** `TimingSpec(nonlinear_params=...)`
 forwards a closed mode (`None` | `"binary"` | `"binary+"`) into
-`MetaPulsar.timing_engine` → JUG session export. JUG executes the matching
-residual formula; nltiming does not choose a mode from the inference plan.
-See [`feature_hybrid_linear_binary.md`](../jug/feature_hybrid_linear_binary.md).
+`MetaPulsar.timing_engine`, and **every engine family executes it**: `None`
+is the full native residual at the sampled point; `"binary"` keeps only the
+binary axes nonlinear and evaluates every other fitpar (spin, astrometry,
+DM, …) through its design-matrix column, `−M[:, lin] δ_lin`, with
+astrometry frozen at the par-file reference inside the binary delay;
+`"binary+"` additionally keeps `PX` nonlinear. JUG runs the formula inside
+its residual graph; the libstempo / Vela / PINT adapters realise the same
+model with their native/exact-linear split, using JUG's parameter registry
+for the binary partition. nltiming does not choose a mode from the
+inference plan; it refuses an engine that did not execute the requested
+mode, and the run manifest records the mode the engine *executed*. Under a
+hybrid mode the linearized axes are reported as identically linear by every
+family, on the leaf engines and on the composite alike.
+
+A linear-vs-nonlinear contrast is therefore a deliberate choice of mode
+(`None` vs `"binary"` / `"binary+"`) by the caller: two runs that both pass
+`nonlinear_params=None` are the same residual on any engine. See
+[`feature_hybrid_linear_binary.md`](../jug/feature_hybrid_linear_binary.md).
 
 Instead of holding every timing parameter fixed at its par-file value (or
 only analytically marginalizing a linear timing model), `nltiming` lets you

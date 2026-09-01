@@ -339,15 +339,13 @@ def test_model_inference_string_and_enum_presets(pulsar):
         .plan.fingerprint()
         == default_ctx.plan.fingerprint()
     )
-    all_ctx = TimingSpec(
-        engines="jug", inference="all", name="timing"
-    ).for_pulsar(pulsar)
+    all_ctx = TimingSpec(engines="jug", inference="all", name="timing").for_pulsar(
+        pulsar
+    )
     assert all_ctx.sampled == tuple(pulsar.fitpars)
     assert all_ctx.plan.marginalized_delta == ()
     assert (
-        TimingSpec(
-            engines="jug", inference=InferencePreset.ALL, name="timing"
-        )
+        TimingSpec(engines="jug", inference=InferencePreset.ALL, name="timing")
         .for_pulsar(pulsar)
         .plan.fingerprint()
         == all_ctx.plan.fingerprint()
@@ -421,18 +419,14 @@ def test_omitted_tempo2_native_resolves_to_fixed_state_stripped():
 
 
 def test_explicit_tempo2_native_is_an_explicit_choice():
-    ntm = TimingSpec(
-        engines="jug", tempo2_native="fixed_state", name="timing"
-    )
+    ntm = TimingSpec(engines="jug", tempo2_native="fixed_state", name="timing")
     assert ntm.resolved_tempo2_native == "fixed_state"
     assert ntm._timing_engine_kwargs()["tempo2_native"] == "fixed_state"
 
 
 def test_resolved_tempo2_native_is_fingerprinted():
     default = TimingSpec(engines="jug", name="timing")
-    explicit = TimingSpec(
-        engines="jug", tempo2_native="fixed_state", name="timing"
-    )
+    explicit = TimingSpec(engines="jug", tempo2_native="fixed_state", name="timing")
     # The resolved mode enters the config fingerprint, so a non-default mode
     # produces a distinct fingerprint from the resolved default.
     assert default._tempo2_native_fingerprint() == "fixed_state_stripped"
@@ -453,9 +447,7 @@ def test_omitted_nonlinear_params_stays_none():
 
 def test_explicit_nonlinear_params_forwarded_and_fingerprinted():
     native = TimingSpec(engines="jug", name="timing")
-    hybrid = TimingSpec(
-        engines="jug", nonlinear_params="binary", name="timing"
-    )
+    hybrid = TimingSpec(engines="jug", nonlinear_params="binary", name="timing")
     assert hybrid.nonlinear_params == "binary"
     assert hybrid._timing_engine_kwargs()["nonlinear_params"] == "binary"
     assert hybrid._nonlinear_params_fingerprint() == "binary"
@@ -471,23 +463,115 @@ def test_nonlinear_params_rejects_unknown_mode():
         TimingSpec(engines="jug", nonlinear_params="all", name="timing")
 
 
-def test_nonlinear_params_implies_jug_use():
-    # Hybrid mode requires jug even if engines omit it in the sense that
-    # _uses_jug is true whenever nonlinear_params is set.
+def test_nonlinear_params_does_not_imply_jug_use():
+    # The hybrid mode is executed by every engine family (libstempo/Vela/PINT
+    # route the non-binary axes through the design matrix), so it must not
+    # drag JUG-only option resolution into a JUG-free configuration.
     ntm = TimingSpec(
         engines={"pint": "pint", "tempo2": "libstempo"},
         nonlinear_params="binary+",
         name="timing",
     )
-    assert ntm._uses_jug() is True
+    assert ntm._uses_jug() is False
+    assert ntm.tempo2_jug_options is None
+    assert ntm._timing_engine_kwargs()["nonlinear_params"] == "binary+"
 
 
-def test_run_meta_records_nonlinear_params():
+def test_nonlinear_params_validation_is_local_and_normalizing():
+    assert TimingSpec(engines="jug", nonlinear_params=" Binary+ ").nonlinear_params == (
+        "binary+"
+    )
+    import pytest
+
+    with pytest.raises(ValueError, match="nonlinear_params"):
+        TimingSpec(engines="jug", nonlinear_params=3)
+
+
+def test_run_meta_records_engine_executed_nonlinear_params():
+    from types import SimpleNamespace
+
     from nltiming.run_io import _run_meta_nonlinear_params
 
-    omitted = TimingSpec(engines="jug", name="timing")
-    hybrid = TimingSpec(
-        engines="jug", nonlinear_params="binary", name="timing"
-    )
-    assert _run_meta_nonlinear_params(omitted) is None
+    native = SimpleNamespace(engine=SimpleNamespace(nonlinear_params=None))
+    hybrid = SimpleNamespace(engine=SimpleNamespace(nonlinear_params="binary"))
+    bare = SimpleNamespace(engine=SimpleNamespace())
+    assert _run_meta_nonlinear_params(native) is None
     assert _run_meta_nonlinear_params(hybrid) == "binary"
+    assert _run_meta_nonlinear_params(bare) is None
+    import pytest
+
+    with pytest.raises(TypeError, match="TimingSignal"):
+        _run_meta_nonlinear_params(TimingSpec(engines="jug", name="timing"))
+
+
+def _hybrid_probe_pulsar(engine_mode):
+    """Pulsar whose engine reports ``engine_mode`` regardless of the request."""
+    import numpy as np
+
+    from _engine_stubs import LinearTestEngine
+    from nltiming.engine_support import LinearModel
+
+    names = ("Offset", "F0", "F1")  # Offset: the gauge column the seam requires
+    design = np.array(
+        [[1.0, 0.1, 0.0], [1.0, 0.2, 0.5], [1.0, 0.3, -0.5], [1.0, 0.4, 1.0]]
+    )
+    backend = LinearTestEngine.from_linear_model(
+        LinearModel.from_design(
+            fitpars=names,
+            design=design,
+            theta_exact={"Offset": "0.0", "F0": "10.0", "F1": "0.0"},
+        )
+    )
+    if engine_mode is not None:
+        backend.nonlinear_params = engine_mode
+
+    class _Pulsar:
+        name = "J0000+0000"
+        fitpars = list(names)
+        toas = np.array([1.0, 2.0, 3.0, 4.0]) * 86400.0
+        residuals = np.zeros(4)
+        toaerrs = np.full(4, 1e-6)
+        freqs = np.full(4, 1400.0)
+        Mmat = design
+        flags = {"pta": np.array(["x"] * 4)}
+        backend_flags = np.array(["x"] * 4)
+
+        def state_id(self):
+            return "probe"
+
+        def pint_model(self):
+            return None
+
+        def timing_engine(self, engines="jug", **kwargs):
+            return backend
+
+        def can_use_engines(self, engines="jug", **kwargs):
+            return True
+
+    return _Pulsar()
+
+
+def test_for_pulsar_refuses_engine_that_did_not_execute_requested_mode():
+    import pytest
+
+    from nltiming.inference import TimingInference
+
+    hybrid = TimingSpec(
+        engines={"pint": "pint", "tempo2": "libstempo"},
+        nonlinear_params="binary",
+        inference=TimingInference.sample_all(),  # no pint_model on the probe
+        name="timing",
+    )
+    with pytest.raises(ValueError, match="executes nonlinear_params=None"):
+        hybrid.for_pulsar(_hybrid_probe_pulsar(None))
+    # an engine that executed the mode is accepted, and the manifest records it
+    from nltiming.run_io import _run_meta_nonlinear_params
+
+    ctx = hybrid.for_pulsar(_hybrid_probe_pulsar("binary"))
+    assert _run_meta_nonlinear_params(ctx) == "binary"
+    # the reverse mismatch is refused too: a native request must not run hybrid
+    native = TimingSpec(
+        engines="jug", inference=TimingInference.sample_all(), name="timing"
+    )
+    with pytest.raises(ValueError, match="executes nonlinear_params='binary'"):
+        native.for_pulsar(_hybrid_probe_pulsar("binary"))
