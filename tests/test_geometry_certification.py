@@ -20,7 +20,18 @@ pytest.importorskip("discovery")
 numpyro = pytest.importorskip("numpyro")
 import numpyro.distributions as dist  # noqa: E402
 
+import discovery as ds  # noqa: E402
 from discovery import transport as tr  # noqa: E402
+
+
+@pytest.fixture(autouse=True)
+def _metamath():
+    """Transport is metamath-only; Discovery's default is still ``matrix``.
+
+    Sibling modules (``test_decentered_model``, ``test_class_tracking``) already
+    opt in this way. Leave the mode set — do not reset to ``matrix``.
+    """
+    ds.config(kernels="metamath")
 
 from nltiming import (  # noqa: E402
     GeometryCertificationError,
