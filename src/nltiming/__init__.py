@@ -1,6 +1,6 @@
 """Nonlinear timing transforms, engine support, and likelihood interfaces."""
 
-from . import sampling
+from . import hybrid, sampling
 from .run_io import (
     RunIOError,
     RunManifest,
@@ -100,6 +100,7 @@ from .decentering import (
 SUPPORTS_CONVERSION_METADATA = True
 
 __all__ = [
+    "hybrid",
     "SUPPORTS_CONVERSION_METADATA",
     "TimingSpec",
     "TimingSignal",

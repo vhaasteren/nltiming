@@ -31,6 +31,10 @@ dependencies = [
     "astropy>=5.0",
     "pint-pulsar>=0.9.7",
     "loguru>=0.7",
+    # The pulsar record and its feather schema. Unconditional, not an extra:
+    # an nltiming that cannot read the file is not a consumer of it, and
+    # `LinearTimingEngine.from_feather` is the file-only T0 path.
+    "psrdata @ git+https://github.com/vhaasteren/psrdata.git@main",
 ]
 
 [project.optional-dependencies]

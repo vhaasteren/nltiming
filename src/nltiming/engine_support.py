@@ -167,6 +167,41 @@ class LinearTimingEngine:
         self.fitpars = model.fitpars
         self.native_units = dict(model.native_units)
 
+    @classmethod
+    def from_pulsar_data(cls, record) -> "LinearTimingEngine":
+        """A frozen linear engine from a psrdata record.
+
+        The file-only T0 path: fitpars, ``Mmat``, the exact reference strings,
+        the units and the gauge provenance all travel in the record, so a
+        frozen linear timing analysis can be rebuilt with **no timing package
+        installed**. That is the rule this project already enforces for run
+        manifests -- a valid read requires only on-disk products -- extended
+        one file to the left.
+
+        A composite record carries one gauge provenance per leg and is refused
+        here; ``MetaPulsar.timing_engine(linearized=True)`` is the composite's
+        own T0 object.
+        """
+        if record.timing_package == "composite":
+            raise ValueError(
+                "a composite record carries one gauge provenance per leg; use "
+                "MetaPulsar.timing_engine(linearized=True) for its T0 object"
+            )
+        model = LinearModel.from_design(
+            fitpars=tuple(record.fitpars),
+            design=np.asarray(record.Mmat, dtype=float),
+            theta_exact=dict(record.reference_theta_exact),
+            native_units=dict(record.native_units),
+        )
+        return cls(model, gauge_provenance=GaugeProvenance(**record.gauge))
+
+    @classmethod
+    def from_feather(cls, path) -> "LinearTimingEngine":
+        """The same, from a schema-v1 feather file and nothing else."""
+        from psrdata import PulsarData
+
+        return cls.from_pulsar_data(PulsarData.from_feather(path))
+
     def reference_theta(self) -> np.ndarray:
         return self._model.reference_theta()
 

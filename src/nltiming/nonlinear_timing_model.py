@@ -85,29 +85,11 @@ def _normalize_derivative_method(method: str) -> str:
     return normalized
 
 
-# Closed hybrid residual-linearization modes (mirrors
-# ``jug.fitting.nonlinear_params``; every engine family executes them — see
-# README "Hybrid residual linearization"). Kept local so a libstempo/Vela
-# configuration does not need JUG importable to name the mode.
-_NONLINEAR_PARAMS_MODES = frozenset({"binary", "binary+"})
-
-
-def _validate_nonlinear_params(value: str | None) -> str | None:
-    """Validate the hybrid residual-linearization mode (closed set)."""
-    if value is None:
-        return None
-    if not isinstance(value, str):
-        raise ValueError(
-            f"Unknown nonlinear_params={value!r}; expected None or one of "
-            f"{', '.join(repr(s) for s in sorted(_NONLINEAR_PARAMS_MODES))}"
-        )
-    normalized = value.strip().lower()
-    if normalized not in _NONLINEAR_PARAMS_MODES:
-        raise ValueError(
-            f"Unknown nonlinear_params={value!r}; expected None or one of "
-            f"{', '.join(repr(s) for s in sorted(_NONLINEAR_PARAMS_MODES))}"
-        )
-    return normalized
+# The hybrid vocabulary lives in `nltiming.hybrid`, which owns both the closed
+# mode set and what counts as a binary axis. It used to be JUG's, which meant
+# running a *vela-jax* leg through MetaPulsar imported JUG to ask what a binary
+# parameter is.
+from .hybrid import validate_nonlinear_params as _validate_nonlinear_params
 
 
 def _check_engine_nonlinear_params(engine, requested: str | None) -> None:
@@ -310,13 +292,46 @@ def _svd_left_basis(A: np.ndarray) -> np.ndarray:
     return u[:, :rank]
 
 
-def assert_gauge_column_present(pulsar, engine, basis: np.ndarray) -> None:
-    """Every contribution's rows must span the constant direction in ``basis``.
+def gauge_direction(leaf, n_rows: int) -> np.ndarray:
+    """The residual direction an unmeasurable phase offset moves, per row.
 
-    Gauge-free engines return residuals defined only modulo span(1) per
-    contribution. Raises GaugeColumnMissingError naming the offending
-    contribution and which check failed: structural (no named gauge column),
-    local numeric, or joint numeric.
+    Host engines (PINT, tempo2, JUG) form the timing residual as a phase
+    residual over the *constant* ``F0``, so a phase offset moves every
+    residual by the same amount and the direction is the constant vector --
+    which is what this module has always assumed.
+
+    A Vela-frame engine divides by the doppler-shifted *instantaneous* spin
+    frequency instead, so the same gauge freedom moves residual ``i`` by
+    ``1/F_i``. That is the constant direction to a part in 1e4 on a real MSP
+    and to 7e-2 on a fixture with a large ``F1`` -- either way not to the 1e-8
+    this check lives at. An engine that knows the difference declares it
+    through the optional ``gauge_direction()`` capability, and the check then
+    tests the thing that is actually true rather than an artefact of the
+    fitter frame. Anything that does not declare one keeps the constant, so
+    no existing engine's guard is loosened.
+    """
+    getter = getattr(leaf, "gauge_direction", None)
+    if getter is None:
+        return np.ones(n_rows, dtype=float)
+    direction = np.asarray(getter(), dtype=float).reshape(-1)
+    if direction.shape != (n_rows,) or not np.all(np.isfinite(direction)):
+        raise ValueError(
+            f"{type(leaf).__name__}.gauge_direction() must return a finite "
+            f"({n_rows},) array; got shape {direction.shape}"
+        )
+    if not np.any(direction):
+        raise ValueError(f"{type(leaf).__name__}.gauge_direction() is all zero")
+    return direction
+
+
+def assert_gauge_column_present(pulsar, engine, basis: np.ndarray) -> None:
+    """Every contribution's rows must span its gauge direction in ``basis``.
+
+    Gauge-free engines return residuals defined only modulo that direction per
+    contribution -- span(1) for a host engine, :func:`gauge_direction` for one
+    that declares otherwise. Raises GaugeColumnMissingError naming the
+    offending contribution and which check failed: structural (no named gauge
+    column), local numeric, or joint numeric.
     """
     basis = np.asarray(basis, dtype=float)
     fitpars = tuple(pulsar.fitpars)
@@ -354,7 +369,7 @@ def assert_gauge_column_present(pulsar, engine, basis: np.ndarray) -> None:
                 f"(leaf gauge_applied={gauge_applied})."
             )
         A_k = basis[np.ix_(rows, local_gauge)]
-        ones = np.ones(len(rows), dtype=float)
+        ones = gauge_direction(contribution.engine, len(rows))
         Q = _svd_left_basis(A_k)
         if Q.shape[1] == 0:
             proj_err = 1.0
@@ -387,7 +402,7 @@ def assert_gauge_column_present(pulsar, engine, basis: np.ndarray) -> None:
                 f"(leaf gauge_applied={gauge_applied}).{extra}"
             )
         indicator = np.zeros(n_toa, dtype=float)
-        indicator[rows] = 1.0
+        indicator[rows] = ones
         block_indicators.append(indicator)
         gauge_col_indices.update(local_gauge)
 
