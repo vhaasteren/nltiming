@@ -30,10 +30,10 @@ from nltiming.space import ParameterSpace
 class _FakeTransport:
     """Structural stub matching the discovery Transport diagnostics contract."""
 
-    def __init__(self, *, names=("rednoise", "dm"), dim=4, center=True):
+    def __init__(self, *, names=("rednoise", "dm"), dim=4, origin="conditional_mode"):
         self._names = names
         self._dim = dim
-        self._center = center
+        self._origin = origin
 
     def diagnostics(self, params=None, noise_solve=None):
         k = self._dim // len(self._names)
@@ -49,7 +49,7 @@ class _FakeTransport:
                 for n in self._names
             ],
             "dimension": self._dim,
-            "center": self._center,
+            "origin": self._origin,
             "reference_noise": "toaerrs diagonal (FAKE)",
         }
 
@@ -129,7 +129,7 @@ def test_dynamic_transport_record_captures_structure_and_digest():
     assert record.kind == "dynamic_transport"
     assert record.latent_decodable is False
     assert record.dimension == 4
-    assert record.centering == "centered"
+    assert record.origin == "conditional_mode"
     assert record.parameter_dependencies == (
         "dm_gamma",
         "dm_log10_A",

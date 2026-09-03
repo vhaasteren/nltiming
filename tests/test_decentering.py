@@ -117,7 +117,7 @@ _ETAS = [
 
 def test_te2_matches_dense_oracle():
     """T-E2: A = G + I and the centering mu = A^-1 b match the independent
-    Woodbury oracle to rtol=1e-8 at 5 eta draws, center on and off."""
+    Woodbury oracle to rtol=1e-8 at 5 eta draws, for both origins."""
     rng = np.random.default_rng(20260720)
     toy = _toy(rng)
     products = _products_fn(toy)
@@ -127,29 +127,29 @@ def test_te2_matches_dense_oracle():
         dimension=toy["k"],
         key="timing",
         params=("gamma", "log10_A"),
-        center=True,
+        origin="conditional_mode",
     )
     tr0 = NumpyMarginalTransport(
         products,
         dimension=toy["k"],
         key="timing",
         params=("gamma", "log10_A"),
-        center=False,
+        origin="zero",
     )
     for eta in _ETAS:
         A_oracle, mu_oracle = _oracle(toy, eta)
         L, _ = tr._factor(eta)
         np.testing.assert_allclose(L @ L.T, A_oracle, rtol=1e-8)
-        # center=True at xi=0 gives the GLS centering mu.
+        # origin="conditional_mode" at xi=0 gives the GLS mode mu.
         z, _ = tr.apply(eta, np.zeros(toy["k"]))
         np.testing.assert_allclose(z, mu_oracle, rtol=1e-8)
-        # center=False at xi=0 gives 0 (same A factor).
+        # origin="zero" at xi=0 gives 0 (same A factor).
         z0, _ = tr0.apply(eta, np.zeros(toy["k"]))
         np.testing.assert_allclose(z0, 0.0, atol=1e-12)
 
 
-@pytest.mark.parametrize("center", [True, False])
-def test_te3_jacobian_finite_difference(center):
+@pytest.mark.parametrize("origin", ["conditional_mode", "zero"])
+def test_te3_jacobian_finite_difference(origin):
     """T-E3: central-FD Jacobian of xi -> z has slogdet == returned ldJ to
     rtol=1e-8 (pins the trans=1 / L^-T orientation)."""
     rng = np.random.default_rng(7)
@@ -159,7 +159,7 @@ def test_te3_jacobian_finite_difference(center):
         dimension=toy["k"],
         key="timing",
         params=("gamma", "log10_A"),
-        center=center,
+        origin=origin,
     )
     eta = {"log10_A": -14.0, "gamma": 3.0}
     xi0 = rng.standard_normal(toy["k"])

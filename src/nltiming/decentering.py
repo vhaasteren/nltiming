@@ -10,7 +10,7 @@ downstream code consumes (feature §5, S11), so
 Nothing in the transport may depend on ``xi`` or on the current ``z`` (D-INV,
 marginalized D19): ``W_s`` and ``y_t`` are the sealed geometry-plan arrays, baked
 into ``products_fn`` at build time. There are no clamps, floors, or translation
-modifiers (E12); ``center`` is the only knob.
+modifiers (E12); ``origin`` is the only knob.
 """
 
 from __future__ import annotations
@@ -34,13 +34,13 @@ class NumpyMarginalTransport:
 
     ``z = mu(eta) + L(eta)^-T xi``,
     ``A(eta) = G(eta) + diag(prior_precision)``,  ``A = L L^T``,
-    ``mu = A^-1 b`` (``center=True``) or ``0``,
+    ``mu = A^-1 b`` (``origin="conditional_mode"``) or ``0`` (``origin="zero"``),
     ``ldJ = -sum(log diag L)``.
 
     ``products_fn(params) -> MarginalProducts`` supplies ``G`` and ``b`` computed
     from the sealed geometry-plan arrays (``W_s``, ``y_t``). Nothing here may
     depend on ``xi`` or ``z`` (D-INV). There are no clamps, floors, or
-    translation modifiers; ``center`` is the only knob (E12).
+    translation modifiers; ``origin`` is the only knob (E12).
     """
 
     def __init__(
@@ -51,7 +51,7 @@ class NumpyMarginalTransport:
         key,
         params,
         prior_precision=1.0,
-        center=True,
+        origin="conditional_mode",
         description="live_kernel_numpy",
     ):
         k = int(dimension)
@@ -66,7 +66,7 @@ class NumpyMarginalTransport:
             )
         self.dimension = k
         self.index = {str(key): slice(0, k)}
-        self.center = bool(center)
+        self.origin = str(origin)
         self.params = tuple(params)
         self._products_fn = products_fn
         self._pinv = p
@@ -82,7 +82,7 @@ class NumpyMarginalTransport:
         L, b = self._factor(params)
         z = sl.solve_triangular(L, np.asarray(xi, dtype=float), lower=True, trans=1)
         ldJ = -float(np.sum(np.log(np.diag(L))))
-        if self.center:
+        if self.origin == "conditional_mode":
             z = z + sl.cho_solve((L, True), b)
         return z, ldJ
 
@@ -107,7 +107,7 @@ class NumpyMarginalTransport:
                 }
             ],
             "dimension": self.dimension,
-            "center": self.center,
+            "origin": self.origin,
             "reference_noise": self._description,
         }
         if params is not None:

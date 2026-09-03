@@ -551,12 +551,12 @@ def build_joint_transport(
     ctx,
     *,
     reference_noise="toa_errors",
-    center=True,
+    origin="conditional_mode",
     softclip_zmax=None,
     global_gp=None,
     psr_slot=None,
     npsr=None,
-    center_extsignals=None,
+    origin_extsignals=None,
 ):
     """Build the per-pulsar dynamic :class:`discovery.transport.Transport` for a
     joint full-basis run (§6.4, §7).
@@ -609,14 +609,14 @@ def build_joint_transport(
             ctx.linearization.transport_effective_residual(ctx.pulsar.residuals),
             dtype=float,
         ),
-        center=center,
+        origin=origin,
         softclip=(
             {"timing": float(softclip_zmax)}
-            if (center and softclip_zmax is not None)
+            if (origin == "conditional_mode" and softclip_zmax is not None)
             else None
         ),
-        center_extsignals=center_extsignals,
-        psr_slot=(psr_slot if center_extsignals else None),
+        origin_extsignals=origin_extsignals,
+        psr_slot=(psr_slot if origin_extsignals else None),
     )
 
 
@@ -687,9 +687,9 @@ def joint_model(
     ctx,
     *,
     reference_noise: str = "toa_errors",
-    center: bool = True,
+    origin: str = "conditional_mode",
     softclip_zmax: float | None = None,
-    center_extsignals=None,
+    origin_extsignals=None,
     priors: Mapping[str, Any] | None = None,
     fixed: Mapping[str, float] | None = None,
 ) -> Callable[[], None]:
@@ -703,7 +703,7 @@ def joint_model(
     ``-½‖z‖²``, the transport log-Jacobian, and the ``N(0, I)`` base-measure
     cancellation are all added explicitly (§4.5).
 
-    ``center_extsignals`` is an optional list of deterministic ExtSignals (e.g. a
+    ``origin_extsignals`` is an optional list of deterministic ExtSignals (e.g. a
     CW model) used for template-subtracted centering (§4.4); the same ExtSignal
     must also be subtracted from the residual in ``likelihood``.
 
@@ -726,10 +726,10 @@ def joint_model(
         likelihood,
         ctx,
         reference_noise=reference_noise,
-        center=center,
+        origin=origin,
         softclip_zmax=softclip_zmax,
-        center_extsignals=center_extsignals,
-        psr_slot=0 if center_extsignals else None,
+        origin_extsignals=origin_extsignals,
+        psr_slot=0 if origin_extsignals else None,
     )
 
     clogL_params = list(likelihood.clogL.params)
@@ -803,12 +803,12 @@ def _joint_pulsar_entry(
     ctx,
     *,
     reference_noise,
-    center,
+    origin,
     softclip_zmax,
     global_gp=None,
     psr_slot=None,
     npsr=None,
-    center_extsignals=None,
+    origin_extsignals=None,
 ):
     """Resolve one pulsar's joint pieces: transport, owned keys, clogL params."""
     _require_differentiable_timing(
@@ -828,12 +828,12 @@ def _joint_pulsar_entry(
         likelihood,
         ctx,
         reference_noise=reference_noise,
-        center=center,
+        origin=origin,
         softclip_zmax=softclip_zmax,
         global_gp=global_gp,
         psr_slot=psr_slot,
         npsr=npsr,
-        center_extsignals=center_extsignals,
+        origin_extsignals=origin_extsignals,
     )
     clogL_params = list(likelihood.clogL.params)
     coeff_keys = [k for k in transport.index if k != ctx.joint_site]
@@ -875,10 +875,10 @@ def joint_model_multi(
     ctxs,
     *,
     reference_noise="toa_errors",
-    center: bool = True,
+    origin: str = "conditional_mode",
     softclip_zmax: float | None = None,
     global_gp=None,
-    center_extsignals=None,
+    origin_extsignals=None,
     priors: Mapping[str, Any] | None = None,
     fixed: Mapping[str, float] | None = None,
 ) -> Callable[[], None]:
@@ -905,7 +905,7 @@ def joint_model_multi(
     coefficient prior is added once via :func:`global_gp_logprior`. Its pulsar
     order must match ``likelihoods``/``ctxs``.
 
-    ``center_extsignals`` is an optional per-pulsar sequence (one entry per
+    ``origin_extsignals`` is an optional per-pulsar sequence (one entry per
     pulsar; ``None`` to skip that pulsar) of deterministic ExtSignals used for
     template-subtracted centering (§4.4). The same ExtSignal must also be
     subtracted from that pulsar's residual in its ``PulsarLikelihood``.
@@ -926,10 +926,10 @@ def joint_model_multi(
             f"global_gp spans {len(global_gp.index)} pulsars but "
             f"{npsr} likelihoods were given"
         )
-    if center_extsignals is not None and len(center_extsignals) != npsr:
+    if origin_extsignals is not None and len(origin_extsignals) != npsr:
         raise ValueError(
-            f"center_extsignals must have one entry per pulsar ({npsr}); "
-            f"got {len(center_extsignals)}"
+            f"origin_extsignals must have one entry per pulsar ({npsr}); "
+            f"got {len(origin_extsignals)}"
         )
 
     # A class-tracking reference carries ONE pulsar's kernel, toaerrs and
@@ -957,13 +957,13 @@ def joint_model_multi(
             lk,
             ctx,
             reference_noise=refs[i],
-            center=center,
+            origin=origin,
             softclip_zmax=softclip_zmax,
             global_gp=global_gp,
             psr_slot=(i if global_gp is not None else None),
             npsr=(npsr if global_gp is not None else None),
-            center_extsignals=(
-                center_extsignals[i] if center_extsignals is not None else None
+            origin_extsignals=(
+                origin_extsignals[i] if origin_extsignals is not None else None
             ),
         )
         for i, (lk, ctx) in enumerate(zip(likelihoods, ctxs))
@@ -1110,23 +1110,23 @@ def joint_run_manifest(ctx, transport, **kwargs):
     )
 
 
-def _decentered_model_fingerprint(ctx, transport, free, center) -> str:
+def _decentered_model_fingerprint(ctx, transport, free, origin) -> str:
     """Structure digest for a built :func:`decentered_model` (§5.2, D17).
 
     Digests the context fingerprint, the marginal-transport fingerprint, the
-    sorted free hyper names, and ``center`` under schema
-    ``"nlt-decentered-model-v1"``.
+    sorted free hyper names, and ``origin`` under schema
+    ``"nlt-decentered-model-v2"``.
     """
     import hashlib
     import json
 
     payload = json.dumps(
         {
-            "schema": "nlt-decentered-model-v1",
+            "schema": "nlt-decentered-model-v2",
             "context_fingerprint": ctx.fingerprint(),
             "transport_fingerprint": transport.fingerprint(),
             "hyper_sites": list(free),
-            "center": bool(center),
+            "origin": str(origin),
         },
         sort_keys=True,
     )
@@ -1137,7 +1137,7 @@ def decentered_model(
     likelihood,
     ctx,
     *,
-    center: bool = True,
+    origin: str = "conditional_mode",
     priors: Mapping[str, Any] | None = None,
     fixed: Mapping[str, float] | None = None,
 ) -> Callable[[], None]:
@@ -1218,7 +1218,7 @@ def decentered_model(
         conditioner_precision=1.0,  # unit-normal prior in every chart
         name="timing",
     )
-    transport = dst.marginal_transport(likelihood.N, y_t, block, center=center)
+    transport = dst.marginal_transport(likelihood.N, y_t, block, origin=origin)
 
     logL_params = list(likelihood.logL.params)
     seen: set[str] = set()
@@ -1277,7 +1277,7 @@ def decentered_model(
     nlt_decentered_model.hyper_sites = tuple(free)  # sorted name order (D20)
     nlt_decentered_model.to_df = lambda s: joint_samples_to_frame(s, ctx)
     nlt_decentered_model.model_fingerprint = lambda: _decentered_model_fingerprint(
-        ctx, transport, free, center
+        ctx, transport, free, origin
     )
     return nlt_decentered_model
 
