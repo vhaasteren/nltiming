@@ -357,7 +357,7 @@ def test_cross_term_sign(monkeypatch):
         conditioner_precision=1.0,
         name="gp",
     )
-    tr = dst.Transport([t_block, g_block], reference_noise=ref, center=False)
+    tr = dst.Transport([t_block, g_block], reference_noise=ref, origin="zero")
 
     G0 = np.asarray(tr._G0)
     k = blk.dimension

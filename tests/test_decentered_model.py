@@ -15,7 +15,7 @@ Gaussian in the sampled timing coordinate ``z`` and
 for every ``(xi, eta)``. Here ``ln p_marg(eta)`` is an INDEPENDENT dense
 Woodbury oracle over the same ``y_t`` and ``W_s`` (it never reuses the joint
 mode's frozen-``N0`` transport-internal formula, which is wrong under live
-``C(eta)``); ``center=True`` fixes ``d(eta) = 0``.
+``C(eta)``); ``origin="conditional_mode"`` fixes ``d(eta) = 0``.
 """
 
 import numpy as np
@@ -91,12 +91,12 @@ def _ctx_and_likelihood(*, inference=None):
     return ntm, ctx, likelihood
 
 
-def _decentered_setup(*, center=True, inference=None, priors=None):
+def _decentered_setup(*, origin="conditional_mode", inference=None, priors=None):
     """Build (ntm, ctx, marginalized likelihood, decentered model)."""
     priors = priors if priors is not None else _PRIORS
     ntm, ctx, likelihood = _ctx_and_likelihood(inference=inference)
     model = nlts.numpyro.decentered_model(
-        likelihood, ctx, center=center, priors=priors, fixed=_NOISE
+        likelihood, ctx, origin=origin, priors=priors, fixed=_NOISE
     )
     return ntm, ctx, likelihood, model
 
@@ -154,8 +154,8 @@ def _log_marginal_oracle(likelihood, transport, y_t):
 
 def test_decentered_exact_identity_linear_duck():
     """T-N1: log_density(xi, eta) + 1/2||xi||^2 - ln p_marg(eta) is constant to
-    1e-8 over 3 eta x 3 xi draws (center=True => d(eta)=0)."""
-    _, ctx, likelihood, model = _decentered_setup(center=True)
+    1e-8 over 3 eta x 3 xi draws (origin="conditional_mode" => d(eta)=0)."""
+    _, ctx, likelihood, model = _decentered_setup(origin="conditional_mode")
     lin = ctx.linearization
     y_t = np.asarray(
         lin.transport_effective_residual(np.asarray(ctx.pulsar.residuals)), dtype=float
@@ -285,13 +285,13 @@ def test_decentered_accounting_and_binding(monkeypatch):
 
 
 def test_decentered_model_fingerprint_is_stable_and_scoped():
-    """model_fingerprint() is deterministic and changes with center."""
-    _, _, _, model = _decentered_setup(center=True)
+    """model_fingerprint() is deterministic and changes with origin."""
+    _, _, _, model = _decentered_setup(origin="conditional_mode")
     fp = model.model_fingerprint()
     assert isinstance(fp, str) and len(fp) == 64
     assert model.model_fingerprint() == fp  # deterministic
 
-    _, _, _, model_uncentered = _decentered_setup(center=False)
+    _, _, _, model_uncentered = _decentered_setup(origin="zero")
     assert model_uncentered.model_fingerprint() != fp
 
 
@@ -330,7 +330,7 @@ def test_certify_decentered_geometry_passes_on_linear_duck(tmp_path):
     # The report binds to the certified context and to the geometry structure
     # digest (xi/hyper/dim/index/linearization). That digest is a DIFFERENT
     # schema from the model's own nlt-decentered-model-v1 fingerprint
-    # (ctx + transport + free hypers + center) — assert both explicitly rather
+    # (ctx + transport + free hypers + origin) — assert both explicitly rather
     # than a tautology.
     from nltiming.geometry import _model_fingerprint as _geom_model_fingerprint
 

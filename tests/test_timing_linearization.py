@@ -158,7 +158,7 @@ def test_joint_transport_uses_expansion_effective_residual(monkeypatch):
     refined = base.with_expansion(
         delta={"Offset": 0.0, "F0": 3e-13, "F1": 0.0, "DM": 5e-3}
     )
-    build_joint_transport(_Likelihood(), refined, center=False)
+    build_joint_transport(_Likelihood(), refined, origin="zero")
 
     y = np.asarray(refined.pulsar.residuals, dtype=float)
     expected = refined.linearization.transport_effective_residual(y)

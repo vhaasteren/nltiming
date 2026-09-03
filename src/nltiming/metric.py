@@ -219,7 +219,7 @@ class DynamicTransportRecord:
     sampled hyperparameters, so ``xi`` alone has no physical meaning and the
     record is **not** latent-decodable. It captures the transport structure
     (block names/dimensions/order, reference-noise description, parameter
-    dependencies, centering policy) plus the transport digest — never an opaque
+    dependencies, origin policy) plus the transport digest — never an opaque
     Python closure. Built from a Discovery ``Transport``'s ``diagnostics()`` and
     ``fingerprint()``.
     """
@@ -228,7 +228,7 @@ class DynamicTransportRecord:
     structure: dict[str, Any]
     dimension: int
     reference_noise: str
-    centering: str
+    origin: str
     parameter_dependencies: tuple[str, ...]
     kind: str = "dynamic_transport"
     latent_decodable: bool = False
@@ -242,7 +242,7 @@ class DynamicTransportRecord:
             "coordinate": self.coordinate,
             "dimension": self.dimension,
             "reference_noise": self.reference_noise,
-            "centering": self.centering,
+            "origin": self.origin,
             "parameter_dependencies": list(self.parameter_dependencies),
             "structure": self.structure,
             "transport_digest": self.transport_digest,
@@ -272,19 +272,19 @@ def dynamic_transport_record(transport) -> DynamicTransportRecord:
     if "blocks" in structure:
         blocks = structure["blocks"]
         reference_noise = str(structure.get("reference_noise", ""))
-        centering = "centered" if structure.get("center") else "uncentered"
+        origin = str(structure.get("origin", ""))
     else:  # ArrayTransport
         per = structure.get("per_pulsar", [])
         blocks = [b for entry in per for b in entry.get("blocks", [])]
         reference_noise = str(per[0].get("reference_noise", "")) if per else ""
-        centering = "centered" if (per and per[0].get("center")) else "uncentered"
+        origin = str(per[0].get("origin", "")) if per else ""
     params = sorted({p for b in blocks for p in b.get("params", [])})
     return DynamicTransportRecord(
         transport_digest=transport.fingerprint(),
         structure=structure,
         dimension=dimension,
         reference_noise=reference_noise,
-        centering=centering,
+        origin=origin,
         parameter_dependencies=tuple(params),
     )
 
