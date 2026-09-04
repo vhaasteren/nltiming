@@ -44,6 +44,7 @@ pulsar host. Today the host is [MetaPulsar](https://github.com/vhaasteren/metapu
 | libstempo / tempo2 | `"libstempo"` | `metapulsar[libstempo]` + system tempo2 | no (PTMCMC, derivative-free) |
 | PINT | `"pint"` | included with MetaPulsar | no |
 | Vela.jl | `"vela"` | `metapulsar[vela]` + Julia | no |
+| vela-jax (Vela's chain in JAX, PINT or tempo2 host) | `"vela_jax"` | `metapulsar[vela_jax]`; the package is not public yet | yes (NUTS) |
 
 ## tempo2 / libstempo
 

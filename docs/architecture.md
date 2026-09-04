@@ -38,7 +38,7 @@ The interactive transformed-space (`z`) timing fit (`fit_z`, `jacobian_z`,
 
 - **Discovery:** build a NumPyro model with `sampling.numpyro.joint_model`
   (full-basis / dynamic transport, `whitening=None`),
-  `sampling.numpyro.decentered_model` (marginalized dynamic decentering — the
+  `sampling.numpyro.decentered_model` (marginalized dynamic decentering, the
   small sampled timing block whitened against the live `C(η)`), or
   `sampling.numpyro.model` (static whitening path). All return an ordinary
   zero-argument NumPyro model with `.to_df` for decoded timing columns. Sample
@@ -47,23 +47,23 @@ The interactive transformed-space (`z`) timing fit (`fit_z`, `jacobian_z`,
 - **Enterprise:** `spec.enterprise_signal()` returns ordinary Enterprise
   `Parameter` objects (per-axis scalars when `whitening=None`, or one joint
   vector under `WhiteningConfig`). Sample the resulting `PTA` exactly like any
-  other Enterprise analysis — `enterprise_extensions.sampler.setup_sampler`
+  other Enterprise analysis, `enterprise_extensions.sampler.setup_sampler`
   needs no `nltiming` import.
 
 The `xi -> z -> delta_theta` chart-and-layer, the physical prior, and the
 Jacobian are model semantics and live only in `nltiming.ParameterSpace`; they are
 never reimplemented in a sampler wrapper. The static-layer choice (`whitening=None`
 vs `WhiteningConfig()`) changes the Enterprise parameter layout (`pta.param_names`)
-and the NumPyro coordinate — never the top-level sampling script.
+and the NumPyro coordinate, never the top-level sampling script.
 
 The pulsar object must satisfy the `TimingPulsar` protocol (also exported under
 the original `TimingPulsar` name): frozen TOA arrays, `pint_model()`,
-`timing_engine()`; single-pulsar and multi-PTA composite pulsars both work —
+`timing_engine()`; single-pulsar and multi-PTA composite pulsars both work , 
 PTA-suffixed parameter names are matched by base name.
 
 **Today, MetaPulsar is required.** The only production `TimingPulsar`
 implementation is
-[MetaPulsar](https://github.com/vhaasteren/metapulsar) — even for a single PTA
+[MetaPulsar](https://github.com/vhaasteren/metapulsar), even for a single PTA
 dataset. Examples and docs therefore build pulsars with `create_metapulsar`.
 Once Discovery and/or Enterprise ship a native `TimingPulsar`, that dependency
 can be dropped; the `nltiming` API does not change.

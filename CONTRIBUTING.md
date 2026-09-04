@@ -23,26 +23,26 @@ environment (devcontainer / conda) and sandbox mode for those.
 
 ## Layout
 
-- `nonlinear_timing_model.py` — `TimingSpec` (configuration) and
+- `nonlinear_timing_model.py`, `TimingSpec` (configuration) and
   `TimingSignal` (`spec.for_pulsar(pulsar)`, all pulsar-bound queries)
-- `inference.py` — `TimingInference` / `InferencePreset` / `Marginalize`, plan
+- `inference.py`, `TimingInference` / `InferencePreset` / `Marginalize`, plan
   resolution and fingerprints
-- `protocols.py` — `PulsarData` / `TimingPulsar` and timing engine interfaces
-- `evaluator.py` — mapping-based evaluation, metadata, scans, Jacobians, and
+- `protocols.py`, `PulsarData` / `TimingPulsar` and timing engine interfaces
+- `evaluator.py`, mapping-based evaluation, metadata, scans, Jacobians, and
   immutable local weighted fits
-- `engine_config.py` — engine-selection vocabulary (`normalize_engines`)
-- `engine_support.py` — `LinearModel`, validators, `LinearTimingEngine`
+- `engine_config.py`, engine-selection vocabulary (`normalize_engines`)
+- `engine_support.py`, `LinearModel`, validators, `LinearTimingEngine`
   (backend adapters live in MetaPulsar's `metapulsar.engines`)
-- `likelihoods/` — Discovery and Enterprise likelihood interfaces
-- `sampling/` — `numpyro.joint_model` / `model` / `nuts`, PTMCMC helpers
+- `likelihoods/`, Discovery and Enterprise likelihood interfaces
+- `sampling/`, `numpyro.joint_model` / `model` / `nuts`, PTMCMC helpers
   (model glue and recipes, not sampler ownership)
-- `space.py`, `bijectors.py`, `whitening.py`, `priors.py`, `units.py` —
+- `space.py`, `bijectors.py`, `whitening.py`, `priors.py`, `units.py` , 
   parameter-space math (charts, static affine layer, priors)
 - `linearity.py`, `coordinates.py`, `linearization.py`, `expansion.py`,
-  `geometry.py` — identical-linearity policy, expansion / linearization
+  `geometry.py`, identical-linearity policy, expansion / linearization
   records, optional geometry certifier
-- `metric.py` — `WhiteningConfig`, `LocalPosteriorMetric`, reference-noise metric
+- `metric.py`, `WhiteningConfig`, `LocalPosteriorMetric`, reference-noise metric
   builders, and the static/dynamic transport records
-- `run_io.py` — the `nlt-run-meta-v4` run-metadata format, `RunResults`,
+- `run_io.py`, the `nlt-run-meta-v4` run-metadata format, `RunResults`,
   and the static/dynamic checkpoint writers
 

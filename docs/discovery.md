@@ -1,12 +1,12 @@
 # Discovery workflows
 
-Enable float64 **before** constructing the Discovery likelihood — JAX arrays
+Enable float64 **before** constructing the Discovery likelihood, JAX arrays
 already created as float32 stay float32.
 
-## Shared setup — joint full-basis (primary path)
+## Shared setup, joint full-basis (primary path)
 
 The usual modern workflow samples every timing axis with the dynamic joint
-transport (`whitening=None`, the default). See notebooks `01`–`03`.
+transport (`whitening=None`, the default). See notebooks `01`-`03`.
 
 ```python
 from pathlib import Path
@@ -55,12 +55,12 @@ and a plan that marginalizes the well-determined axes
 `groups(delta_flat=[...], z_prior=[...])`); assemble the *marginalized*
 `*timing.discovery_signals()` (default `joint=False`) and build with
 `sampling.numpyro.decentered_model(...)`. Only the plan's sampled timing block
-(dimension `k_s`) and the free hyperparameters are sampled — every marginalized
+(dimension `k_s`) and the free hyperparameters are sampled, every marginalized
 timing axis and *all* GP coefficients stay inside `likelihood.logL` and are
 whitened away against the live marginalized covariance `C(η)` by a
 `discovery.transport.MarginalTransport` (the η-dependent generalization of the
 static posterior-metric whitening). The sampled dimension stays at the small
-`k_s` (plan-dependent — e.g. just the 6 nonlinear binary axes on J1640 once the
+`k_s` (plan-dependent, e.g. just the 6 nonlinear binary axes on J1640 once the
 linear axes are marginalized, instead of the full-basis 43) while the target is
 the exact marginal. Certify with `certify_decentered_geometry(...)`
 (same report / thresholds as the joint certifier, measured against live `C(η)`)
@@ -88,7 +88,7 @@ value-only delay through `jax.pure_callback`, the GP/Woodbury algebra
 stays JIT-compiled, and a derivative-free sampler walks the result.
 The supported sampler is **PTMCMCSampler** via `discovery_target` /
 `discovery_sampler`. `DiscoveryTarget` is a transformed-density pair
-`(loglikelihood, logprior)` on `[q_timing | eta]` — `q` is `timing.coord`
+`(loglikelihood, logprior)` on `[q_timing | eta]`, `q` is `timing.coord`
 (`z` or `x`), `eta` is the sorted free hyperparameters, and delay keys
 inside `logL` are engine-native **delta**. `q = 0` is the engine
 expansion (same convention as Enterprise `initial_point` and NumPyro
@@ -141,13 +141,13 @@ supply both `target.initial_point({name: value, ...})` and an explicit
 `covariance=` block. The first likelihood call includes JIT compilation;
 each later PTMCMC step pays one host callback for the timing residual.
 
-## 1. `sampling.numpyro.nuts` — shortest path (no checkpointing)
+## 1. `sampling.numpyro.nuts`, shortest path (no checkpointing)
 
 Opinionated convenience: builds a NumPyro `MCMC` with init-at-reference and
 sensible NUTS defaults. `dense_mass=True` still means “full dense mass” as in
 NumPyro. The `nuts` default is `dense_mass="auto"`, which densifies only
 `model.hyper_sites` (when there are ≥2) and leaves the intended-white `xi` on
-an identity mass — usually what you want for joint full-basis runs.
+an identity mass, usually what you want for joint full-basis runs.
 
 ```python
 mcmc = sampling.numpyro.nuts(
@@ -168,7 +168,7 @@ posterior = mcmc.to_df()   # wired from numpyro_model.to_df
 diag = sampling.numpyro.chain_diagnostics(mcmc)  # per-chain; never pool first
 ```
 
-## 2. Discovery checkpoint runner — recommended Discovery path
+## 2. Discovery checkpoint runner, recommended Discovery path
 
 Use Discovery's own sampler factory and Feather checkpointing. No manual
 `sampler.to_df = ...` boilerplate: `makesampler_nuts` attaches
@@ -206,13 +206,13 @@ posterior = pd.read_feather(outdir / "numpyro-samples.feather")
 
 The Feather file already contains decoded timing columns
 (`{prefix}_{fitpar}_theta_display`, etc.). For nonlinear timing, that is
-usually enough — no NLT run metadata required on the Discovery path.
+usually enough, no NLT run metadata required on the Discovery path.
 
 `sampling.numpyro.timing_init_values(timing)` is the one NLT helper used
 at sampler construction: it initializes the joint timing site at the
 par-file reference (zeros in sampling coordinates).
 
-## 3. Raw `numpyro.infer.NUTS`/`MCMC` — power-user option
+## 3. Raw `numpyro.infer.NUTS`/`MCMC`, power-user option
 
 For nonlinear timing, prefer paths 1 or 2. Use raw NumPyro when you need
 full control over the kernel/MCMC and are **not** using Discovery's
@@ -223,7 +223,7 @@ After `mcmc.run(...)`, NumPyro only gives you latent parameters via
 sites). Paths 1 and 2 attach a convenience `mcmc.to_df()` /
 `sampler.to_df()` that turns those arrays into a DataFrame with physical
 timing columns. A bare `MCMC` does **not** get that method. Call the
-model's decoder instead — same function, same columns:
+model's decoder instead, same function, same columns:
 
 ```python
 posterior = numpyro_model.to_df(mcmc.get_samples())
@@ -256,6 +256,6 @@ posterior = numpyro_model.to_df(mcmc.get_samples())
 
 If you hand a raw `MCMC` to `run_nuts_with_checkpoints`, Discovery will
 attach `sampler.to_df` from `numpyro_model.to_df` automatically when the
-kernel exposes `.model`. Prefer `makesampler_nuts` anyway — it is the
+kernel exposes `.model`. Prefer `makesampler_nuts` anyway, it is the
 supported Discovery construction path.
 

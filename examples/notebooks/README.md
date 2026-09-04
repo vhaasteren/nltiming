@@ -1,4 +1,4 @@
-# Nonlinear timing — introductory notebooks
+# Nonlinear timing, introductory notebooks
 
 These notebooks introduce **numerical sampling of pulsar timing parameters**
 with `nltiming`. They assume you already know tempo2/PINT and can build a PTA
@@ -10,8 +10,8 @@ timing-model parameters before.
 `nltiming` binds a `TimingSpec` to a pulsar through the `TimingPulsar`
 protocol and returns a `TimingSignal`. **Today the only production
 implementation is
-[MetaPulsar](https://github.com/vhaasteren/metapulsar)** — even for a single
-PTA dataset — so every notebook builds the host with `create_metapulsar`.
+[MetaPulsar](https://github.com/vhaasteren/metapulsar)**, even for a single
+PTA dataset, so every notebook builds the host with `create_metapulsar`.
 Once Discovery and/or Enterprise provide a native `TimingPulsar`, that
 dependency can be dropped; the `nltiming` API in these notebooks will not
 change.

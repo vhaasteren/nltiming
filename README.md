@@ -7,35 +7,30 @@
 ![Python](https://img.shields.io/badge/python-3.11%20%7C%203.12-blue)
 ![Status](https://img.shields.io/badge/status-alpha-orange)
 
-`nltiming` adds the timing model to your pulsar-timing-array likelihood as a
-first-class, nonlinear block. For every fit parameter in the par file you
-decide whether it is **numerically sampled** or **analytically marginalized**.
-The same model definition drives both
-[Discovery](https://github.com/nanograv/discovery) (NumPyro / NUTS) and
+`nltiming` puts the timing model into a pulsar-timing-array likelihood as a
+nonlinear block. For every fit parameter in the par file you decide whether it
+is **sampled** or **analytically marginalized**. One model definition drives
+both [Discovery](https://github.com/nanograv/discovery) (NumPyro, NUTS) and
 [Enterprise](https://github.com/nanograv/enterprise) (PTMCMCSampler), and the
-sampler never sees raw par-file units: each sampled axis is mapped to a
-well-conditioned coordinate automatically.
-
-Why you would want this:
+sampler works in well-conditioned coordinates, never in raw par-file units.
 
 - **Correct posteriors for nonlinear timing parameters.** Shapiro delay
-  (`M2`/`SINI`, `H3`/`STIGMA`), Kopeikin terms (`KIN`/`KOM`), parallax, and
-  near-circular binaries are not linear in the residuals. Freezing them at the
-  par-file value, or linearizing them, biases the noise and GW results.
+  (`M2`/`SINI`, `H3`/`STIGMA`), Kopeikin terms (`KIN`/`KOM`), parallax and
+  near-circular binaries are not linear in the residuals. Freezing or
+  linearizing them biases the noise and GW results.
 - **One model, two ecosystems.** Build the timing block once with `TimingSpec`,
-  then hand it to a Discovery likelihood or an Enterprise `PTA`. Chains from
-  either sampler decode to physical parameters with the same tools.
-- **Sampler-friendly by construction.** Prior-normalizing coordinate charts,
-  Kepler-to-Laplace binary reparameterization, posterior whitening, and a
-  geometry certifier that tells you *before* sampling whether NUTS will struggle.
+  hand it to a Discovery likelihood or an Enterprise `PTA`, and decode either
+  chain to physical parameters with the same tools.
+- **Sampler-friendly by construction.** Prior-normalizing coordinate charts, a
+  Kepler-to-Laplace binary chart, posterior whitening, and a geometry certifier
+  that says before sampling whether NUTS will struggle.
 
 The ideas follow [Vela.jl](https://github.com/abhisrkckl/Vela.jl) and
-TempoNest; `nltiming` brings them to the Discovery and Enterprise stacks.
+TempoNest.
 
 ## Install
 
-`nltiming` is alpha software and is not on PyPI yet. Install from git together
-with the pulsar host it needs today,
+Alpha, not on PyPI yet. Install from git together with the pulsar host,
 [MetaPulsar](https://github.com/vhaasteren/metapulsar), and a timing engine:
 
 ```bash
@@ -46,15 +41,15 @@ pip install "nltiming[discovery,numpyro] @ git+https://github.com/vhaasteren/nlt
 pip install "metapulsar[jug] @ git+https://github.com/vhaasteren/metapulsar"
 ```
 
-For Enterprise + PTMCMC add the `enterprise,ptmcmc` extras. Details, the
-tempo2/libstempo path, and the pinned development branches are in
+For Enterprise and PTMCMC add the `enterprise,ptmcmc` extras. The full
+dependency table, the tempo2 path, and the pinned development branches are in
 [`docs/install.md`](docs/install.md).
 
 ## Quickstart
 
-Sample the timing model of one pulsar with Discovery, JUG, and NUTS. This is
-[`examples/scripts/quickstart_discovery.py`](examples/scripts/quickstart_discovery.py)
-and runs in under a minute on the example data shipped with the repository.
+One pulsar, Discovery, the JUG engine, NUTS. This is
+[`examples/scripts/quickstart_discovery.py`](examples/scripts/quickstart_discovery.py);
+it runs in under a minute on the example data in the repository.
 
 ```python
 import os
@@ -103,8 +98,8 @@ mcmc.run(jax.random.PRNGKey(0))
 post = nlts.numpyro.posterior(mcmc, timing)   # corner.corner(post) just works
 ```
 
-The same `TimingSpec` drives Enterprise. Swap the engine, add the signal to
-your model, and sample the `PTA` as you always do:
+The same `TimingSpec` drives Enterprise. Swap the engine, add the signal, and
+sample the `PTA` as usual:
 
 ```python
 import numpy as np
@@ -132,7 +127,7 @@ posterior = run.posterior(burn=0.25)          # dict of physical draws
 
 ## Choose what to sample
 
-The inference plan names what is *marginalized*; every other timing axis is
+The inference plan names what is marginalized; every other timing axis is
 sampled. Priors are per parameter and default to wide boxes scaled by the
 par-file uncertainty.
 
@@ -160,8 +155,8 @@ pulsar. See [`docs/concepts.md`](docs/concepts.md).
 
 ## Notebooks
 
-Ground-up introductions for PTA users who have not sampled a timing model
-before, in [`examples/notebooks/`](examples/notebooks/):
+Introductions for PTA users who have not sampled a timing model before, in
+[`examples/notebooks/`](examples/notebooks/):
 
 | # | Notebook | Focus |
 |---|----------|-------|
@@ -185,22 +180,23 @@ before, in [`examples/notebooks/`](examples/notebooks/):
 
 ## Status
 
-Alpha. The API is settling but may still change between tags. Known
-constraints:
+Alpha; the API may change between tags.
 
-- A `TimingPulsar` host is required and today that means MetaPulsar, even for
-  a single dataset. Discovery and Enterprise native hosts are planned.
+- A `TimingPulsar` host is required. Today that is MetaPulsar (even for one
+  dataset) or a vela-jax `TimingPulsar`. Native Discovery and Enterprise hosts
+  are planned.
 - The `discovery` extra installs a fork branch with a JAX fix; `enterprise`
-  installs the NANOGrav `dev` branch. Both are temporary until upstream releases.
-- The default JUG engine needs Python 3.12. PINT, libstempo, and Vela engines
+  installs the NANOGrav `dev` branch. Both are temporary.
+- The JUG engine needs Python 3.12. PINT, libstempo, Vela and vela-jax engines
   work on 3.11.
-- Out of scope by design: noise bases, spectra, and correlated-noise
+- Out of scope by design: noise bases, spectra and correlated-noise
   likelihoods. Those stay with Discovery and Enterprise.
 
 ## Related projects
 
 [MetaPulsar](https://github.com/vhaasteren/metapulsar) (multi-PTA pulsar
 host), [JUG](https://github.com/MattTMiles/jug) (JAX timing engine),
+vela-jax (Vela.jl's delay chain in JAX, not public yet),
 [Discovery](https://github.com/nanograv/discovery),
 [Enterprise](https://github.com/nanograv/enterprise),
 [Vela.jl](https://github.com/abhisrkckl/Vela.jl),

@@ -67,13 +67,13 @@ path do not:
 | `None` (identity) | one scalar `UserParameter` per sampled fitpar in chart coordinate `z` | `..._timing_<fitpar>` |
 | `WhiteningConfig(...)` | **one joint vector** `UserParameter`, `size=len(sampled)`, correlated prior in whitened `x` | `..._timing_x_0`, `..._timing_x_1`, ... |
 
-(There is no separate `"standardized"` constructor flag — diagonal scaling is
+(There is no separate `"standardized"` constructor flag, diagonal scaling is
 not a public static-layer mode.)
 
 Under `WhiteningConfig`, `Parameter.prior_draw_mode == "joint"` on that vector
 parameter, so `enterprise_extensions.JumpProposal.draw_from_prior` (and the
 other generic prior-draw proposals) replace the whole correlated block
-together rather than one component at a time — the block's log density does
+together rather than one component at a time, the block's log density does
 not factor across components, so a partial update would be invalid. SCAM,
 adaptive-metropolis, and differential-evolution proposals need no special
 case: their acceptance ratio already runs on `pta.get_lnlikelihood` /
@@ -98,7 +98,7 @@ explicitly calls `Parameter.sample()`.
 
 ## Marginalized dynamic decentering (PTMCMC)
 
-The Enterprise/PTMCMC realization of the third sampling mode — the twin of
+The Enterprise/PTMCMC realization of the third sampling mode, the twin of
 `sampling.numpyro.decentered_model`. Marginalize the well-determined timing
 axes and **all** GP coefficients into the live `C(η)`, and sample only the small
 nonlinear timing block `ξ` plus the free hyperparameters `η` with PTMCMC. No
@@ -130,13 +130,13 @@ p0 = ptmcmc.decentered_initial_point(timing, transport, hyper_names, eta_mpe)
 sampler.sample(p0, Niter=200_000)             # default jump groups: [xi block, eta block]
 ```
 
-**Density accounting (E2–E4) — the part you own in the log-prior callable:**
+**Density accounting (E2-E4), the part you own in the log-prior callable:**
 
 - The sampled vector *is* `[ξ | η]`; `decentered_target` builds `lnlike` /
   `lnprior` so PTMCMC samples the exact reparameterized density (no
-  base-measure `+½‖ξ‖²` term — PTMCMC has no sites to cancel).
+  base-measure `+½‖ξ‖²` term, PTMCMC has no sites to cancel).
 - `lnprior` carries the exact timing prior `−½‖z‖²`, the transport
-  log-Jacobian `ldJ(η)`, and the `η` box normalizer — all on the **prior** side,
+  log-Jacobian `ldJ(η)`, and the `η` box normalizer, all on the **prior** side,
   so parallel tempering never scales them (only `lnlike` is tempered by `1/T`).
 - **`pta.get_lnprior` is never called** in this mode: the Enterprise delay
   `UserParameter`s carry physical priors that would double-count the timing prior
@@ -169,6 +169,6 @@ sampler = ee_sampler.setup_sampler(pta, outdir=str(outdir))
 `sampling.ptmcmc.timing_only_sampler` is an **experimental, timing-only**
 recipe: it fixes every non-timing parameter and samples only the timing
 coordinates. It is not the canonical Enterprise workflow and is not
-part of this quick start — see its docstring if you specifically want a
+part of this quick start, see its docstring if you specifically want a
 timing-only PTMCMC run with everything else pinned.
 
