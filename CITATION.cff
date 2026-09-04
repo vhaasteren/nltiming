@@ -1,0 +1,15 @@
+cff-version: 1.2.0
+message: "If you use nltiming in your research, please cite it as below."
+title: "nltiming: nonlinear pulsar-timing likelihood components for Discovery and Enterprise"
+type: software
+authors:
+  - family-names: van Haasteren
+    given-names: Rutger
+    email: rutger@vhaasteren.com
+repository-code: "https://github.com/vhaasteren/nltiming"
+license: MIT
+keywords:
+  - pulsar timing
+  - pulsar timing arrays
+  - gravitational waves
+  - Bayesian inference
