@@ -13,3 +13,9 @@ htmlcov/
 venv/
 .ipynb_checkpoints/
 .DS_Store
+
+# Local implementation plans. Not part of the package; do not distribute.
+feature*.md
+
+# Local design notes. Not part of the package; do not distribute.
+DESIGN_NOTES.md

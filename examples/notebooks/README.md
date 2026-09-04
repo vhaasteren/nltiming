@@ -21,6 +21,10 @@ MetaPulsar, JUG, Discovery, NumPyro, Enterprise, PTMCMCSampler, and (for
 notebook 5) pyvela / Vela.jl (e.g. the MetaPulsar devcontainer with this
 package editable-installed).
 
+Short, non-notebook versions of the first notebook live in
+[`../scripts/`](../scripts/): `quickstart_discovery.py` and
+`quickstart_enterprise.py`.
+
 ## Suggested order
 
 | # | Notebook | Data | Focus |

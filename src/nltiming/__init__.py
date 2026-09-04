@@ -1,5 +1,8 @@
 """Nonlinear timing transforms, engine support, and likelihood interfaces."""
 
+# Importing log_config installs the default loguru sink (WARNING and above;
+# loguru's own default is DEBUG). Keep it the first package import.
+from .log_config import configure_logging
 from . import sampling
 from .run_io import (
     RunIOError,
@@ -100,6 +103,7 @@ from .decentering import (
 SUPPORTS_CONVERSION_METADATA = True
 
 __all__ = [
+    "configure_logging",
     "SUPPORTS_CONVERSION_METADATA",
     "TimingSpec",
     "TimingSignal",

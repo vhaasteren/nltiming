@@ -73,6 +73,8 @@ dev = [
 [project.urls]
 Homepage = "https://github.com/vhaasteren/nltiming"
 Repository = "https://github.com/vhaasteren/nltiming"
+Documentation = "https://github.com/vhaasteren/nltiming/tree/main/docs"
+Changelog = "https://github.com/vhaasteren/nltiming/blob/main/CHANGELOG.md"
 Issues = "https://github.com/vhaasteren/nltiming/issues"
 
 [tool.setuptools.packages.find]
