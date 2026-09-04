@@ -53,10 +53,12 @@ def test_passes_on_per_pta_offset_layout():
         ),
         gauge_provenance=_gf(),
     )
-    engine = CompositeView([
+    engine = CompositeView(
+        [
             TestContribution(name="epta", row_indices=np.arange(3), engine=a),
             TestContribution(name="ppta", row_indices=np.arange(3, 6), engine=b),
-        ])
+        ]
+    )
     pulsar = _Pulsar(fitpars, M)
     assert_gauge_column_present(pulsar, engine, M)
 
@@ -131,8 +133,106 @@ def test_wrong_pta_offset_name_does_not_satisfy():
         ),
         gauge_provenance=_gf(),
     )
-    engine = CompositeView([
+    engine = CompositeView(
+        [
             TestContribution(name="epta", row_indices=np.arange(n), engine=a),
-        ])
+        ]
+    )
     with pytest.raises(GaugeColumnMissingError, match="no named gauge column"):
         assert_gauge_column_present(_Pulsar(fitpars, M), engine, M)
+
+
+# --- the declared gauge direction (optional capability) --------------------
+
+
+class _DeclaringEngine:
+    """A leaf whose phase gauge is not the constant direction.
+
+    A Vela-frame engine divides the phase residual by the doppler-shifted
+    *instantaneous* spin frequency, so an unmeasurable phase offset moves
+    residual ``i`` by ``1/F_i``. That is the constant vector to a part in 1e4
+    on a real MSP -- and this check lives at 1e-8.
+    """
+
+    def __init__(self, direction):
+        self._direction = np.asarray(direction, dtype=float)
+        self.gauge_applied = False
+
+    def gauge_direction(self):
+        return self._direction
+
+
+def test_a_declared_gauge_direction_is_what_gets_tested():
+    n = 8
+    direction = 1.0 / np.linspace(100.0, 107.0, n)  # 1/F_i, 7% of drift
+    M = np.zeros((n, 2), dtype=float)
+    M[:, 0] = np.linspace(1, 2, n)
+    M[:, 1] = direction
+    pulsar = _Pulsar(("F0", "PHOFF"), M)
+    engine = CompositeView(
+        [
+            TestContribution(
+                name="J0000+0000",
+                row_indices=np.arange(n),
+                engine=_DeclaringEngine(direction),
+            )
+        ]
+    )
+    assert_gauge_column_present(pulsar, engine, M)
+
+    # The same matrix fails for an engine that declares nothing, because for
+    # that engine the constant vector *is* the claim being made. Defaulting to
+    # the constant is what keeps every existing engine's guard as strict as it
+    # was.
+    class _Silent:
+        gauge_applied = False
+
+    plain = CompositeView(
+        [
+            TestContribution(
+                name="J0000+0000", row_indices=np.arange(n), engine=_Silent()
+            )
+        ]
+    )
+    with pytest.raises(GaugeColumnMissingError, match="constant direction"):
+        assert_gauge_column_present(pulsar, plain, M)
+
+
+def test_a_constant_column_still_fails_a_declared_direction():
+    """The capability is not an escape hatch: a wrong column is still wrong."""
+    n = 8
+    direction = 1.0 / np.linspace(100.0, 107.0, n)
+    M = np.zeros((n, 2), dtype=float)
+    M[:, 0] = np.linspace(1, 2, n)
+    M[:, 1] = 1.0  # a constant Offset column, which is *not* this gauge
+    pulsar = _Pulsar(("F0", "PHOFF"), M)
+    engine = CompositeView(
+        [
+            TestContribution(
+                name="J0000+0000",
+                row_indices=np.arange(n),
+                engine=_DeclaringEngine(direction),
+            )
+        ]
+    )
+    with pytest.raises(GaugeColumnMissingError, match="constant direction"):
+        assert_gauge_column_present(pulsar, engine, M)
+
+
+def test_a_malformed_declared_direction_raises():
+    n = 8
+    M = np.zeros((n, 2), dtype=float)
+    M[:, 1] = 1.0
+    pulsar = _Pulsar(("F0", "PHOFF"), M)
+    for bad in (np.zeros(n), np.ones(3), np.full(n, np.nan)):
+        engine = CompositeView(
+            [
+                TestContribution(
+                    name="J0000+0000",
+                    row_indices=np.arange(n),
+                    engine=_DeclaringEngine(bad),
+                )
+            ]
+        )
+        with pytest.raises(ValueError):
+            assert_gauge_column_present(pulsar, engine, M)

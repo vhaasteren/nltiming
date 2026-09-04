@@ -3,7 +3,7 @@
 # Importing log_config installs the default loguru sink (WARNING and above;
 # loguru's own default is DEBUG). Keep it the first package import.
 from .log_config import configure_logging
-from . import sampling
+from . import hybrid, sampling
 from .run_io import (
     RunIOError,
     RunManifest,
@@ -104,6 +104,7 @@ SUPPORTS_CONVERSION_METADATA = True
 
 __all__ = [
     "configure_logging",
+    "hybrid",
     "SUPPORTS_CONVERSION_METADATA",
     "TimingSpec",
     "TimingSignal",

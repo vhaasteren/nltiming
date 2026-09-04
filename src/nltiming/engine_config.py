@@ -2,15 +2,27 @@
 
 from __future__ import annotations
 
+# Which implementations may serve each native timing package. The key is the
+# package a leg's files were *written* by; the value set is the implementations
+# able to evaluate them.
+#
+# ``vela_jax`` appears under both because it separates the two concerns: PINT
+# or tempo2 reads the files (``Engine.from_files`` / ``Engine.from_tempo2``)
+# and Vela's ported component chain evaluates the delay either way.
 _ENGINE_CHOICES = {
-    "tempo2": ("libstempo", "jug"),
-    "pint": ("pint", "jug", "vela"),
+    "tempo2": ("libstempo", "jug", "vela_jax"),
+    "pint": ("pint", "jug", "vela", "vela_jax"),
 }
+
+# The physics family an implementation belongs to. ``vela_jax`` is PINT-family
+# even when tempo2 read the file: its residual is Vela's, its design matrix is
+# PINT's, and its units are PINT's.
 _IMPL_FAMILY = {
     "libstempo": "tempo2",
     "pint": "pint",
     "jug": "jug",
     "vela": "vela",
+    "vela_jax": "pint",
 }
 
 
