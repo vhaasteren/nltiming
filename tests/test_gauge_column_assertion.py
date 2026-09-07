@@ -142,16 +142,48 @@ def test_wrong_pta_offset_name_does_not_satisfy():
         assert_gauge_column_present(_Pulsar(fitpars, M), engine, M)
 
 
+def test_without_contributions_each_named_column_is_checked_on_its_support():
+    """The partition is in the matrix: ``Offset_<pta>`` is nonzero on its rows.
+
+    An engine that exposes no contributions -- a composite record read back
+    from a file, say -- is checked one named gauge column at a time on the
+    rows it supports, which asks the per-contribution question from nothing
+    but the matrix and the names.
+    """
+    n = 6
+    M = np.zeros((n, 3), dtype=float)
+    M[:, 0] = np.linspace(1, 2, n)  # F0
+    M[:3, 1] = 1.0  # Offset_epta
+    M[3:, 2] = 1.0  # Offset_ppta
+    fitpars = ("F0", "Offset_epta", "Offset_ppta")
+    eng = JaxLinearTestEngine.from_linear_model(
+        LinearModel.from_design(
+            fitpars=fitpars,
+            design=M,
+            theta_exact={name: "0.0" for name in fitpars},
+        ),
+        gauge_provenance=_gf(),
+    )
+    assert_gauge_column_present(_Pulsar(fitpars, M), eng, M)
+
+    # A per-PTA column that is not constant on its own support still fails.
+    bad = M.copy()
+    bad[:3, 1] = np.linspace(1.0, 1.1, 3)
+    with pytest.raises(GaugeColumnMissingError, match="constant direction"):
+        assert_gauge_column_present(_Pulsar(fitpars, bad), eng, bad)
+
+
 # --- the declared gauge direction (optional capability) --------------------
 
 
 class _DeclaringEngine:
     """A leaf whose phase gauge is not the constant direction.
 
-    A Vela-frame engine divides the phase residual by the doppler-shifted
-    *instantaneous* spin frequency, so an unmeasurable phase offset moves
-    residual ``i`` by ``1/F_i``. That is the constant vector to a part in 1e4
-    on a real MSP -- and this check lives at 1e-8.
+    An engine whose design matrix is ``-J`` of a residual divided by the spin
+    Taylor series ``F(t)`` (vela-jax) has a ``PHOFF`` column of ``1/F(t_i)``,
+    constant to ``F1*T/F0``: a few 1e-8 on a high-F1 MSP, 7% on this fixture.
+    Vela.jl's topocentric divisor moves it by a part in 1e4. Either way this
+    check lives at 1e-8, so the engine has to say.
     """
 
     def __init__(self, direction):

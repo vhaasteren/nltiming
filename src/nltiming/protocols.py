@@ -9,55 +9,14 @@ Stack layering:
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Literal, Mapping, Protocol, runtime_checkable
+from typing import Any, Mapping, Protocol, runtime_checkable
 
 import numpy as np
 
-
-@dataclass(frozen=True)
-class GaugeProvenance:
-    """Serializable gauge facts for one leaf. Manifest data only."""
-
-    export: Literal["none", "applied-unknown"]
-    reference_mode: Literal["none", "mean", "constant", "unknown"]
-    reference_weighted: bool | None = None  # only for reference_mode="mean"
-    reporting_mode: Literal["none", "mean", "constant", "unknown"] = "unknown"
-    reporting_weighted: bool | None = None
-
-    def __post_init__(self) -> None:
-        if self.export not in ("none", "applied-unknown"):
-            raise ValueError(
-                f"GaugeProvenance.export must be 'none' or 'applied-unknown'; "
-                f"got {self.export!r}"
-            )
-        if self.reference_mode not in ("none", "mean", "constant", "unknown"):
-            raise ValueError(
-                f"GaugeProvenance.reference_mode invalid: {self.reference_mode!r}"
-            )
-        if self.reference_mode == "mean":
-            if self.reference_weighted is None:
-                raise ValueError(
-                    "GaugeProvenance(reference_mode='mean') requires "
-                    "reference_weighted"
-                )
-        elif self.reference_weighted is not None:
-            raise ValueError(
-                "reference_weighted is only allowed when reference_mode='mean'"
-            )
-        if self.reporting_mode not in ("none", "mean", "constant", "unknown"):
-            raise ValueError(
-                f"GaugeProvenance.reporting_mode invalid: {self.reporting_mode!r}"
-            )
-        if self.reporting_mode == "mean":
-            if self.reporting_weighted is None:
-                raise ValueError(
-                    "GaugeProvenance(reporting_mode='mean') requires "
-                    "reporting_weighted"
-                )
-        elif self.reporting_weighted is not None:
-            raise ValueError(
-                "reporting_weighted is only allowed when reporting_mode='mean'"
-            )
+# The gauge provenance is serialized in the pulsar record, so its validating
+# type lives with the record (psrdata) and is re-exported here under the name
+# every engine adapter and test has always imported.
+from psrdata import GaugeProvenance
 
 
 @dataclass(frozen=True)

@@ -21,7 +21,8 @@ The interactive transformed-space (`z`) timing fit (`fit_z`, `jacobian_z`,
 | Layer | Owner |
 |-------|-------|
 | Nonlinear-timing math (`ParameterSpace`, bijectors, whitening, priors, inference plan) | **nltiming** |
-| Engine protocols, selection vocabulary (`engine_config`), validators / `LinearModel` (`engine_support`) | **nltiming** |
+| Engine protocols, selection vocabulary (`engine_config`), validators (`engine_support`) | **nltiming** |
+| The pulsar record, its feather schema, `GaugeProvenance`, and the record's own linear engine (`LinearModel`, `LinearTimingEngine`; re-exported by `engine_support`) | **psrdata** |
 | Backend adapters (PINT, libstempo, JUG, Vela) + multi-PTA composite | **MetaPulsar** (`metapulsar.engines`) |
 | Discovery + Enterprise likelihood interfaces, model helpers, sampler recipes, run products | **nltiming** |
 | JAX / nonlinear timing-engine primitives | **JUG** |

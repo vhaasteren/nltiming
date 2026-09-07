@@ -295,20 +295,26 @@ def _svd_left_basis(A: np.ndarray) -> np.ndarray:
 def gauge_direction(leaf, n_rows: int) -> np.ndarray:
     """The residual direction an unmeasurable phase offset moves, per row.
 
-    Host engines (PINT, tempo2, JUG) form the timing residual as a phase
-    residual over the *constant* ``F0``, so a phase offset moves every
-    residual by the same amount and the direction is the constant vector --
-    which is what this module has always assumed.
+    Every engine on the sampled path -- PINT (``Residuals`` default
+    ``calctype="taylor"``), tempo2, JUG and vela-jax -- forms the residual as
+    a phase residual over the *pulsar-frame* spin frequency. Their *design
+    matrices* differ in one detail: PINT's and tempo2's divide the phase
+    derivative by the constant ``F0``, so their ``Offset`` column is exactly
+    the constant vector, which is what this module has always assumed.
+    vela-jax's matrix is ``-J`` of its residual, whose divisor is the spin
+    Taylor series ``F(t)``, so its ``PHOFF`` column is ``1/F(t_i)``. That is
+    the constant vector to ``F1 * T / F0``: about 2e-9 on J0613-0200 and 4e-8
+    on B1937+21 over twenty years, either side of the 1e-8 this check lives
+    at, and 7e-2 on a fixture with a large ``F1``. Physically negligible,
+    numerically not, so an engine that knows its own divisor declares it
+    through the optional ``gauge_direction()`` capability and the check tests
+    the thing that is true of that engine. Anything that does not declare one
+    keeps the constant, so no host engine's guard is loosened.
 
-    A Vela-frame engine divides by the doppler-shifted *instantaneous* spin
-    frequency instead, so the same gauge freedom moves residual ``i`` by
-    ``1/F_i``. That is the constant direction to a part in 1e4 on a real MSP
-    and to 7e-2 on a fixture with a large ``F1`` -- either way not to the 1e-8
-    this check lives at. An engine that knows the difference declares it
-    through the optional ``gauge_direction()`` capability, and the check then
-    tests the thing that is actually true rather than an artefact of the
-    fitter frame. Anything that does not declare one keeps the constant, so
-    no existing engine's guard is loosened.
+    Vela.jl itself divides by the doppler-shifted *topocentric* frequency,
+    which moves the direction by a part in 1e4; that is the pending
+    conversion in MetaPulsar's Vela.jl adapter (nltiming issue 3), and it is
+    not what vela-jax does (its SPEC section 8, decision G2).
     """
     getter = getattr(leaf, "gauge_direction", None)
     if getter is None:
@@ -324,6 +330,82 @@ def gauge_direction(leaf, n_rows: int) -> np.ndarray:
     return direction
 
 
+class _RowBlockLeaf:
+    """What one named gauge column says about the rows it supports."""
+
+    def __init__(self, leaf, direction: np.ndarray):
+        self.gauge_applied = bool(getattr(leaf, "gauge_applied", False))
+        self._direction = np.asarray(direction, dtype=float)
+
+    def gauge_direction(self) -> np.ndarray:
+        return self._direction
+
+
+class _ColumnBlock:
+    """One named gauge column as a contribution: its support is its rows."""
+
+    def __init__(self, name: str, column: int, rows: np.ndarray, leaf) -> None:
+        self.name = name
+        self.gauge_columns = [column]
+        self.row_indices = rows
+        self.engine = leaf
+
+
+def _is_fallback_gauge_column_name(name: str) -> bool:
+    """Named gauge columns when no contribution says whose they are."""
+    return _is_gauge_column_name(name, None) or name.startswith("Offset_")
+
+
+def _column_blocks(pulsar, engine, basis: np.ndarray) -> list:
+    """An engine without contributions: one block per named gauge column.
+
+    The partition is in ``basis`` itself. A per-PTA ``Offset_<pta>`` column
+    is nonzero exactly on that PTA's rows, so testing each named gauge
+    column on its own support asks the same question the per-contribution
+    form asks, from nothing but the matrix and the fitpar names. That is
+    what lets a composite record read back from a feather pass with no
+    row partition declared anywhere. A single-leg engine reduces to the one
+    block this function always produced: its ``Offset`` or ``PHOFF`` column
+    over every row.
+
+    A declared ``gauge_direction()`` on the engine is restricted to each
+    block's rows; an engine that declares nothing keeps the constant.
+    """
+    fitpars = tuple(pulsar.fitpars)
+    n_toa = basis.shape[0]
+    pulsar_name = str(getattr(pulsar, "name", "pulsar"))
+    named = [
+        j for j, name in enumerate(fitpars) if _is_fallback_gauge_column_name(name)
+    ]
+    if not named:
+        gauge_applied = bool(getattr(engine, "gauge_applied", False))
+        raise GaugeColumnMissingError(
+            f"Contribution {pulsar_name!r} has no named gauge column "
+            f"(Offset / Offset_<pta> / PHOFF*); structural check failed "
+            f"(leaf gauge_applied={gauge_applied})."
+        )
+    direction = gauge_direction(engine, n_toa)
+    blocks = []
+    for j in named:
+        rows = np.flatnonzero(basis[:, j])
+        if rows.size == 0:
+            gauge_applied = bool(getattr(engine, "gauge_applied", False))
+            raise GaugeColumnMissingError(
+                f"Contribution {pulsar_name!r} named gauge column "
+                f"{fitpars[j]!r} is numerically zero; local numeric check "
+                f"failed (leaf gauge_applied={gauge_applied})."
+            )
+        blocks.append(
+            _ColumnBlock(
+                f"{pulsar_name}:{fitpars[j]}",
+                j,
+                rows,
+                _RowBlockLeaf(engine, direction[rows]),
+            )
+        )
+    return blocks
+
+
 def assert_gauge_column_present(pulsar, engine, basis: np.ndarray) -> None:
     """Every contribution's rows must span its gauge direction in ``basis``.
 
@@ -332,6 +414,11 @@ def assert_gauge_column_present(pulsar, engine, basis: np.ndarray) -> None:
     that declares otherwise. Raises GaugeColumnMissingError naming the
     offending contribution and which check failed: structural (no named gauge
     column), local numeric, or joint numeric.
+
+    An engine that exposes no ``contributions`` is checked one named gauge
+    column at a time, each on the rows where it is nonzero
+    (:func:`_column_blocks`): the partition a composite would declare is
+    already in the matrix, so a composite read back from a file needs none.
     """
     basis = np.asarray(basis, dtype=float)
     fitpars = tuple(pulsar.fitpars)
@@ -340,26 +427,20 @@ def assert_gauge_column_present(pulsar, engine, basis: np.ndarray) -> None:
         engine, "_contributions", None
     )
     if not contributions:
-        contributions = [
-            type(
-                "C",
-                (),
-                {
-                    "name": str(getattr(pulsar, "name", "pulsar")),
-                    "row_indices": np.arange(n_toa),
-                    "engine": engine,
-                },
-            )()
-        ]
+        contributions = _column_blocks(pulsar, engine, basis)
 
     block_indicators = []
     gauge_col_indices: set[int] = set()
     for contribution in contributions:
         rows = np.asarray(contribution.row_indices, dtype=int)
         cname = str(contribution.name)
-        local_gauge = [
-            j for j, name in enumerate(fitpars) if _is_gauge_column_name(name, cname)
-        ]
+        local_gauge = getattr(contribution, "gauge_columns", None)
+        if local_gauge is None:
+            local_gauge = [
+                j
+                for j, name in enumerate(fitpars)
+                if _is_gauge_column_name(name, cname)
+            ]
         if not local_gauge:
             leaf = contribution.engine
             gauge_applied = bool(getattr(leaf, "gauge_applied", False))

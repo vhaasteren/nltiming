@@ -2,13 +2,9 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from decimal import Decimal, localcontext
-from typing import Mapping
-
 import numpy as np
 
-from nltiming.protocols import EnterprisePulsarLike, GaugeProvenance, TimingEngine
+from nltiming.protocols import EnterprisePulsarLike, TimingEngine
 
 
 def _as_1d_float(arr, *, name: str) -> np.ndarray:
@@ -113,118 +109,26 @@ def validate_engine_against_pulsar(
         )
 
 
-@dataclass(frozen=True)
-class LinearModel:
-    """Simple linearized residual model around reference theta."""
+# The linear engine is the record's own: ``Δr = −Mmat δ`` over the record's
+# matrix, with every optional hook this package reads answered for the linear
+# case. It lives with the record (psrdata) and is re-exported here under the
+# names MetaPulsar's linearized stand-ins and this package's tests import.
+from psrdata.linear import (  # noqa: E402
+    LinearContribution,
+    LinearModel,
+    LinearTimingEngine,
+    RecordLinearTimingEngine,
+)
 
-    fitpars: tuple[str, ...]
-    design: np.ndarray
-    theta_exact: Mapping[str, str]
-    native_units: Mapping[str, str]
-
-    @classmethod
-    def from_design(
-        cls,
-        *,
-        fitpars: tuple[str, ...],
-        design: np.ndarray,
-        theta_exact: Mapping[str, str] | None = None,
-        native_units: Mapping[str, str] | None = None,
-    ) -> "LinearModel":
-        if theta_exact is None:
-            theta_exact = {name: "0.0" for name in fitpars}
-        if native_units is None:
-            native_units = {name: "native" for name in fitpars}
-        return cls(
-            fitpars=fitpars,
-            design=np.asarray(design, dtype=float),
-            theta_exact=dict(theta_exact),
-            native_units=dict(native_units),
-        )
-
-    def reference_theta(self) -> np.ndarray:
-        with localcontext() as ctx:
-            ctx.prec = 50
-            return np.asarray(
-                [float(Decimal(self.theta_exact[name])) for name in self.fitpars],
-                dtype=float,
-            )
-
-    def residual_delta(self, delta_theta: np.ndarray) -> np.ndarray:
-        delta = np.asarray(delta_theta, dtype=float)
-        if delta.shape != (len(self.fitpars),):
-            raise ValueError("delta_theta shape mismatch with fitpars")
-        # Fitter sign: Δr ≈ -M δ
-        return -(self.design @ delta)
-
-
-class LinearTimingEngine:
-    """Concrete TimingEngine wrapper around a LinearModel."""
-
-    def __init__(self, model: LinearModel, *, gauge_provenance: GaugeProvenance):
-        self._model = model
-        self._gauge_provenance = gauge_provenance
-        self.fitpars = model.fitpars
-        self.native_units = dict(model.native_units)
-
-    @classmethod
-    def from_pulsar_data(cls, record) -> "LinearTimingEngine":
-        """A frozen linear engine from a psrdata record.
-
-        The file-only T0 path: fitpars, ``Mmat``, the exact reference strings,
-        the units and the gauge provenance all travel in the record, so a
-        frozen linear timing analysis can be rebuilt with **no timing package
-        installed**. That is the rule this project already enforces for run
-        manifests -- a valid read requires only on-disk products -- extended
-        one file to the left.
-
-        A composite record carries one gauge provenance per leg and is refused
-        here; ``MetaPulsar.timing_engine(linearized=True)`` is the composite's
-        own T0 object.
-        """
-        if record.timing_package == "composite":
-            raise ValueError(
-                "a composite record carries one gauge provenance per leg; use "
-                "MetaPulsar.timing_engine(linearized=True) for its T0 object"
-            )
-        model = LinearModel.from_design(
-            fitpars=tuple(record.fitpars),
-            design=np.asarray(record.Mmat, dtype=float),
-            theta_exact=dict(record.reference_theta_exact),
-            native_units=dict(record.native_units),
-        )
-        return cls(model, gauge_provenance=GaugeProvenance(**record.gauge))
-
-    @classmethod
-    def from_feather(cls, path) -> "LinearTimingEngine":
-        """The same, from a schema-v1 feather file and nothing else."""
-        from psrdata import PulsarData
-
-        return cls.from_pulsar_data(PulsarData.from_feather(path))
-
-    def reference_theta(self) -> np.ndarray:
-        return self._model.reference_theta()
-
-    def reference_theta_exact(self) -> Mapping[str, str]:
-        return dict(self._model.theta_exact)
-
-    def identically_linear_fitpars(self) -> frozenset[str]:
-        """A linear model is affine in every delta, so every fitpar qualifies."""
-        return frozenset(self.fitpars)
-
-    def residual_delta(self, delta_theta: np.ndarray) -> np.ndarray:
-        return self._model.residual_delta(delta_theta)
-
-    def residual_jacobian(self) -> np.ndarray:
-        """J = -M for the linearized model."""
-        return -np.asarray(self._model.design, dtype=float)
-
-    def design_matrix(self, params=None) -> np.ndarray:
-        return np.asarray(self._model.design, dtype=float)
-
-    def gauge_provenance(self) -> GaugeProvenance:
-        return self._gauge_provenance
-
-    @property
-    def gauge_applied(self) -> bool:
-        return self.gauge_provenance().export != "none"
+__all__ = [
+    "validate_pulsar_surface",
+    "zero_delta_tolerance",
+    "is_exact_linear_param",
+    "validate_engine_zero_delta",
+    "validate_engine_shapes",
+    "validate_engine_against_pulsar",
+    "LinearModel",
+    "LinearContribution",
+    "LinearTimingEngine",
+    "RecordLinearTimingEngine",
+]
