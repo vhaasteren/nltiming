@@ -45,22 +45,38 @@ class _Pulsar:
         self._backend = JaxLinearTestEngine.from_linear_model(model)
 
     @property
-    def toas(self): return self._toas
+    def toas(self):
+        return self._toas
+
     @property
-    def residuals(self): return self._residuals
+    def residuals(self):
+        return self._residuals
+
     @property
-    def toaerrs(self): return self._toaerrs
+    def toaerrs(self):
+        return self._toaerrs
+
     @property
-    def freqs(self): return self._freqs
+    def freqs(self):
+        return self._freqs
+
     @property
-    def Mmat(self): return self._backend.design_matrix()
+    def Mmat(self):
+        return self._backend.design_matrix()
+
     @property
-    def flags(self): return self._flags
+    def flags(self):
+        return self._flags
+
     @property
-    def backend_flags(self): return self._backend_flags
-    def state_id(self): return "lin-token"
-    def pint_model(self): return None
-    def timing_engine(self, engines="jug", **kwargs): return self._backend
+    def backend_flags(self):
+        return self._backend_flags
+
+    def pint_model(self):
+        return None
+
+    def timing_engine(self, engines="jug", **kwargs):
+        return self._backend
 
 
 def _ctx(**kw):
@@ -98,16 +114,21 @@ def test_expansion_waveform_and_autodiff_basis_match_finite_difference():
     np.testing.assert_allclose(lin.sampled_waveform_expansion, d_np(z_e), atol=1e-12)
     h = 1e-4
     fd = np.stack(
-        [(d_np(z_e + h * np.eye(3)[j]) - d_np(z_e - h * np.eye(3)[j])) / (2 * h)
-         for j in range(3)], axis=1)
+        [
+            (d_np(z_e + h * np.eye(3)[j]) - d_np(z_e - h * np.eye(3)[j])) / (2 * h)
+            for j in range(3)
+        ],
+        axis=1,
+    )
     np.testing.assert_allclose(lin.sampled_basis, fd, rtol=1e-6, atol=1e-9)
 
 
 def test_sampled_basis_matches_local_timing_block_at_engine_reference():
     ctx = _ctx()
     blk = ctx.local_timing_block()
-    np.testing.assert_allclose(ctx.linearization.sampled_basis, blk.basis,
-                               rtol=1e-10, atol=1e-12)
+    np.testing.assert_allclose(
+        ctx.linearization.sampled_basis, blk.basis, rtol=1e-10, atol=1e-12
+    )
 
 
 def test_local_timing_block_projects_refined_expansion():
@@ -150,10 +171,12 @@ def test_joint_transport_uses_expansion_effective_residual(monkeypatch):
     from nltiming.coordinates import TimingCoordinatePolicy
 
     ntm = TimingSpec(
-        engines="jug", inference=TimingInference.sample_all(),
+        engines="jug",
+        inference=TimingInference.sample_all(),
         priors={"DM": P.delta_uniform(-1e-2, 1e-2)},
         coordinate_policy=TimingCoordinatePolicy(nonaffine_identically_linear="ignore"),
-        name="timing")
+        name="timing",
+    )
     base = ntm.for_pulsar(_Pulsar(), condition=False)
     refined = base.with_expansion(
         delta={"Offset": 0.0, "F0": 3e-13, "F1": 0.0, "DM": 5e-3}
@@ -163,7 +186,8 @@ def test_joint_transport_uses_expansion_effective_residual(monkeypatch):
     y = np.asarray(refined.pulsar.residuals, dtype=float)
     expected = refined.linearization.transport_effective_residual(y)
     np.testing.assert_allclose(
-        np.asarray(captured["reference_residual"]), expected, atol=1e-12)
+        np.asarray(captured["reference_residual"]), expected, atol=1e-12
+    )
     assert not np.allclose(expected, y)  # nonlinear chart: genuinely moved
     ds.config(kernels="matrix")
 
@@ -179,10 +203,13 @@ def test_effective_residual_reconstructs_local_surrogate_with_correct_sign():
     z_e = np.asarray(lin.z_expansion, dtype=float)
     assert np.linalg.norm(z_e) > 0  # genuinely off-zero
     expected = y - lin.sampled_waveform_expansion + lin.sampled_basis @ z_e
-    np.testing.assert_allclose(lin.transport_effective_residual(y), expected, atol=1e-12)
+    np.testing.assert_allclose(
+        lin.transport_effective_residual(y), expected, atol=1e-12
+    )
     # The W_s @ z_e term is present (a zero-only test would miss it).
     assert not np.allclose(
-        lin.transport_effective_residual(y), y - lin.sampled_waveform_expansion)
+        lin.transport_effective_residual(y), y - lin.sampled_waveform_expansion
+    )
 
 
 def test_with_expansion_is_immutable_and_before_conditioning_only():
@@ -195,7 +222,9 @@ def test_with_expansion_is_immutable_and_before_conditioning_only():
     # conditioned context rejects re-expansion
     conditioned = TimingSpec(
         engines="jug", inference=TimingInference.sample_all(), name="timing"
-    ).for_pulsar(_Pulsar())  # condition=True default
+    ).for_pulsar(
+        _Pulsar()
+    )  # condition=True default
     with pytest.raises(ValueError, match="before static conditioning"):
         conditioned.with_expansion(delta={"F0": 0.0, "F1": 0.0, "DM": 0.0})
 

@@ -35,9 +35,7 @@ from .selection import canonical_fitpars, match_fitpars, select_fitpars
 # for PTA MSPs near a good solution they are numerically extremely close. Users
 # who want the affine_normal chart should pass identically_linear= explicitly
 # (unioned with ctx.identically_linear so the DM/JUMP/FD set is retained).
-FALLBACK_IDENTICALLY_LINEAR_EXACT = frozenset(
-    {"DM", "DM1", "DM2", "OFFSET", "PHOFF"}
-)
+FALLBACK_IDENTICALLY_LINEAR_EXACT = frozenset({"DM", "DM1", "DM2", "OFFSET", "PHOFF"})
 FALLBACK_IDENTICALLY_LINEAR_PREFIXES = ("DMX", "JUMP", "FD")
 
 FALLBACK_REGISTRY_VERSION = 1

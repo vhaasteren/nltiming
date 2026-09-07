@@ -29,7 +29,6 @@ class _Pulsar:
         self._freqs = np.full(8, 1400.0, dtype=float)
         self._flags = {"pta": np.array(["demo"] * 8, dtype="U8")}
         self._backend_flags = np.array(["demo"] * 8, dtype="U8")
-        self._state_id = "host-delay-token"
         design = np.array(
             [
                 [1.0, 0.0, 0.2],
@@ -79,9 +78,6 @@ class _Pulsar:
     @property
     def backend_flags(self):
         return self._backend_flags
-
-    def state_id(self):
-        return self._state_id
 
     def pint_model(self):
         return object()

@@ -43,7 +43,9 @@ from .physical_charts import (
     sampling_reference_strings,
 )
 from .pint_compat import resolve_parameter_alias
-from .protocols import GaugeProvenance, JacobianTimingEngine, JaxTimingEngine
+from psrdata import ResidualCentering
+
+from .protocols import JacobianTimingEngine, JaxTimingEngine
 from .inference import (
     InferencePreset,
     TimingInference,
@@ -247,13 +249,10 @@ def _timing_design_matrix(pulsar, engine, *, method: str) -> np.ndarray:
     if method == "autodiff":
         if not isinstance(engine, JacobianTimingEngine):
             leaf_note = ""
-            contributions = getattr(engine, "contributions", None) or getattr(
-                engine, "_contributions", ()
-            )
             offending = [
-                f"{c.name}:{type(c.engine).__name__}"
-                for c in contributions
-                if not isinstance(c.engine, JacobianTimingEngine)
+                f"{name}:{type(leaf).__name__}"
+                for name, _rows, leaf, _cols in _engine_contributions(engine)
+                if not isinstance(leaf, JacobianTimingEngine)
             ]
             if offending:
                 leaf_note = (
@@ -333,8 +332,7 @@ def gauge_direction(leaf, n_rows: int) -> np.ndarray:
 class _RowBlockLeaf:
     """What one named gauge column says about the rows it supports."""
 
-    def __init__(self, leaf, direction: np.ndarray):
-        self.gauge_applied = bool(getattr(leaf, "gauge_applied", False))
+    def __init__(self, direction: np.ndarray):
         self._direction = np.asarray(direction, dtype=float)
 
     def gauge_direction(self) -> np.ndarray:
@@ -378,32 +376,72 @@ def _column_blocks(pulsar, engine, basis: np.ndarray) -> list:
         j for j, name in enumerate(fitpars) if _is_fallback_gauge_column_name(name)
     ]
     if not named:
-        gauge_applied = bool(getattr(engine, "gauge_applied", False))
         raise GaugeColumnMissingError(
             f"Contribution {pulsar_name!r} has no named gauge column "
-            f"(Offset / Offset_<pta> / PHOFF*); structural check failed "
-            f"(leaf gauge_applied={gauge_applied})."
+            f"(Offset / Offset_<pta> / PHOFF*); structural check failed."
         )
     direction = gauge_direction(engine, n_toa)
     blocks = []
     for j in named:
         rows = np.flatnonzero(basis[:, j])
         if rows.size == 0:
-            gauge_applied = bool(getattr(engine, "gauge_applied", False))
             raise GaugeColumnMissingError(
                 f"Contribution {pulsar_name!r} named gauge column "
                 f"{fitpars[j]!r} is numerically zero; local numeric check "
-                f"failed (leaf gauge_applied={gauge_applied})."
+                "failed."
             )
         blocks.append(
             _ColumnBlock(
                 f"{pulsar_name}:{fitpars[j]}",
                 j,
                 rows,
-                _RowBlockLeaf(engine, direction[rows]),
+                _RowBlockLeaf(direction[rows]),
             )
         )
     return blocks
+
+
+def _engine_contributions(engine, basis: np.ndarray | None = None) -> list:
+    """``(name, row_indices, leaf, gauge_columns)`` per contribution.
+
+    Two shapes are understood. A MetaPulsar composite exposes a
+    ``contributions`` sequence of objects with ``name``, ``row_indices`` and a
+    leaf ``engine`` (optionally ``gauge_columns``). A psrdata record engine
+    exposes ``contributions()`` as a mapping of data-set key to
+    ``LinearContribution``; its rows are the support of its phase-offset
+    column and, by psrdata R-3.6.4, that column *is* the phase direction, so
+    the leaf for such a block declares the column on its rows as its
+    ``gauge_direction``. ``gauge_columns`` is ``None`` when the caller should
+    find the columns by name.
+    """
+    contributions = getattr(engine, "contributions", None)
+    if contributions is None:
+        contributions = getattr(engine, "_contributions", None)
+    if callable(contributions):
+        contributions = contributions()
+    if not contributions:
+        return []
+    if isinstance(contributions, Mapping):
+        out = []
+        for key, block in contributions.items():
+            rows = np.asarray(block.rows, dtype=int)
+            column = int(block.column_indices[block.fitpars.index(block.phase_offset)])
+            leaf = (
+                _RowBlockLeaf(np.asarray(basis, dtype=float)[rows, column])
+                if basis is not None
+                else block
+            )
+            out.append((str(key), rows, leaf, [column]))
+        return out
+    return [
+        (
+            str(c.name),
+            np.asarray(c.row_indices, dtype=int),
+            c.engine,
+            getattr(c, "gauge_columns", None),
+        )
+        for c in contributions
+    ]
 
 
 def assert_gauge_column_present(pulsar, engine, basis: np.ndarray) -> None:
@@ -423,18 +461,17 @@ def assert_gauge_column_present(pulsar, engine, basis: np.ndarray) -> None:
     basis = np.asarray(basis, dtype=float)
     fitpars = tuple(pulsar.fitpars)
     n_toa = basis.shape[0]
-    contributions = getattr(engine, "contributions", None) or getattr(
-        engine, "_contributions", None
-    )
+    contributions = _engine_contributions(engine, basis)
     if not contributions:
-        contributions = _column_blocks(pulsar, engine, basis)
+        contributions = [
+            (b.name, b.row_indices, b.engine, b.gauge_columns)
+            for b in _column_blocks(pulsar, engine, basis)
+        ]
 
     block_indicators = []
     gauge_col_indices: set[int] = set()
-    for contribution in contributions:
-        rows = np.asarray(contribution.row_indices, dtype=int)
-        cname = str(contribution.name)
-        local_gauge = getattr(contribution, "gauge_columns", None)
+    for cname, rows, leaf, local_gauge in contributions:
+        rows = np.asarray(rows, dtype=int)
         if local_gauge is None:
             local_gauge = [
                 j
@@ -442,15 +479,12 @@ def assert_gauge_column_present(pulsar, engine, basis: np.ndarray) -> None:
                 if _is_gauge_column_name(name, cname)
             ]
         if not local_gauge:
-            leaf = contribution.engine
-            gauge_applied = bool(getattr(leaf, "gauge_applied", False))
             raise GaugeColumnMissingError(
                 f"Contribution {cname!r} has no named gauge column "
-                f"(Offset / Offset_{cname} / PHOFF*); structural check failed "
-                f"(leaf gauge_applied={gauge_applied})."
+                f"(Offset / Offset_{cname} / PHOFF*); structural check failed."
             )
         A_k = basis[np.ix_(rows, local_gauge)]
-        ones = gauge_direction(contribution.engine, len(rows))
+        ones = gauge_direction(leaf, len(rows))
         Q = _svd_left_basis(A_k)
         if Q.shape[1] == 0:
             proj_err = 1.0
@@ -459,8 +493,6 @@ def assert_gauge_column_present(pulsar, engine, basis: np.ndarray) -> None:
                 np.linalg.norm(ones - Q @ (Q.T @ ones)) / np.linalg.norm(ones)
             )
         if proj_err >= 1e-8:
-            leaf = contribution.engine
-            gauge_applied = bool(getattr(leaf, "gauge_applied", False))
             # Diagnostic only: full-basis projection (never decides pass/fail).
             Q_full = _svd_left_basis(basis[rows])
             if Q_full.shape[1]:
@@ -479,8 +511,7 @@ def assert_gauge_column_present(pulsar, engine, basis: np.ndarray) -> None:
             raise GaugeColumnMissingError(
                 f"Contribution {cname!r} named gauge columns do not span the "
                 f"constant direction (relative residual {proj_err:.3e} >= 1e-8); "
-                f"local numeric check failed "
-                f"(leaf gauge_applied={gauge_applied}).{extra}"
+                f"local numeric check failed.{extra}"
             )
         indicator = np.zeros(n_toa, dtype=float)
         indicator[rows] = ones
@@ -512,31 +543,35 @@ def assert_gauge_column_present(pulsar, engine, basis: np.ndarray) -> None:
         )
 
 
-def _normalize_gauge_provenance(
+def _normalize_residual_centering(
     pulsar, engine
-) -> tuple[tuple[str, GaugeProvenance], ...]:
-    """Build the context-level per-contribution gauge map."""
-    contributions = getattr(engine, "contributions", None) or getattr(
-        engine, "_contributions", None
-    )
-    if contributions:
-        out = []
-        for contribution in contributions:
-            leaf = contribution.engine
-            if not hasattr(leaf, "gauge_provenance"):
-                raise ValueError(
-                    f"Contribution {contribution.name!r} leaf "
-                    f"{type(leaf).__name__} omits gauge_provenance(); "
-                    "required at context construction."
-                )
-            out.append((str(contribution.name), leaf.gauge_provenance()))
-        return tuple(out)
-    if not hasattr(engine, "gauge_provenance"):
+) -> tuple[tuple[str, ResidualCentering], ...]:
+    """The context-level residual-centering map, one entry per data set.
+
+    Every engine exposes ``residual_centering`` as a mapping keyed by data-set
+    key (psrdata R-5.3.4); a composite merges its legs' entries under their
+    own keys. The values are descriptive and go to the run manifest only.
+    """
+    _ = pulsar
+    mapping = getattr(engine, "residual_centering", None)
+    if mapping is None or callable(mapping):
         raise ValueError(
-            f"Engine {type(engine).__name__} omits gauge_provenance(); "
-            "required at context construction."
+            f"Engine {type(engine).__name__} omits the residual_centering "
+            "mapping; required at context construction."
         )
-    return ((str(getattr(pulsar, "name", "pulsar")), engine.gauge_provenance()),)
+    items = tuple((str(key), value) for key, value in dict(mapping).items())
+    if not items:
+        raise ValueError(
+            f"Engine {type(engine).__name__} has an empty residual_centering "
+            "mapping; one entry per data set is required."
+        )
+    for key, value in items:
+        if not isinstance(value, ResidualCentering):
+            raise ValueError(
+                f"residual_centering[{key!r}] must be a psrdata.ResidualCentering; "
+                f"got {type(value).__name__}"
+            )
+    return items
 
 
 def _stable_json(value: object) -> str:
@@ -611,7 +646,7 @@ class TimingSignal:
     proper_space: ParameterSpace
     marginal_z_space: ParameterSpace
     derivative_method: str = "analytic"
-    gauge_provenance: tuple[tuple[str, GaugeProvenance], ...] = ()
+    residual_centering: tuple[tuple[str, ResidualCentering], ...] = ()
     metric: LocalPosteriorMetric | None = None
     transport: StaticTransportRecord | None = None
     physical_charts: tuple = ()  # tuple[PhysicalChart, ...]
@@ -1787,11 +1822,11 @@ class TimingSpec:
         return linear, bool(diagnostics["guard_engaged"])
 
     def _pulsar_state_fingerprint(self, pulsar, engine) -> str:
-        token = None
-        if hasattr(pulsar, "state_id"):
-            token = pulsar.state_id()
-        if token is not None:
-            return f"token:{token}"
+        """Content fingerprint of the pulsar/engine pair for the context cache.
+
+        The record is the state (psrdata SPEC-motivation section 4), so the
+        fingerprint is taken from what the context depends on.
+        """
         design = np.asarray(pulsar.Mmat, dtype=float)
         refs = engine.reference_theta_exact()
         payload = {
@@ -1830,7 +1865,7 @@ class TimingSpec:
             pulsar, engine, method=self.derivative_method
         )
         assert_gauge_column_present(pulsar, engine, engine_design_matrix)
-        gauge_provenance = _normalize_gauge_provenance(pulsar, engine)
+        residual_centering = _normalize_residual_centering(pulsar, engine)
         partition, chart_resolutions, frames, chart_records, fw10_records = (
             activate_charts(
                 partition,
@@ -1957,7 +1992,7 @@ class TimingSpec:
             design_matrix=design_matrix,
             engine_design_matrix=engine_design_matrix,
             derivative_method=self.derivative_method,
-            gauge_provenance=gauge_provenance,
+            residual_centering=residual_centering,
             physical_charts=charts,
             binary_chart_records=chart_records,
             fw10_chart_records=fw10_records,

@@ -107,9 +107,6 @@ class _Pulsar:
     def backend_flags(self):
         return self._backend_flags
 
-    def state_id(self):
-        return "dyn-token"
-
     def pint_model(self):
         return object()
 

@@ -26,7 +26,7 @@ from nltiming.space import ParameterSpace
 
 
 class _Pulsar:
-    def __init__(self, *, state_id: str = "artifact-token"):
+    def __init__(self):
         self.name = "J1111+1111"
         self.fitpars = ("Offset", "F1")
         self._toas = np.linspace(0.0, 1.0, 5)
@@ -35,7 +35,6 @@ class _Pulsar:
         self._freqs = np.full(5, 1400.0)
         self._flags = {"pta": np.array(["demo"] * 5, dtype="U8")}
         self._backend_flags = np.array(["demo"] * 5, dtype="U8")
-        self._state_id = state_id
         model = LinearModel.from_design(
             fitpars=self.fitpars,
             design=np.column_stack([np.ones(5), np.linspace(-0.5, 0.5, 5)]),
@@ -70,9 +69,6 @@ class _Pulsar:
     @property
     def backend_flags(self):
         return self._backend_flags
-
-    def state_id(self):
-        return self._state_id
 
     def pint_model(self):
         return object()
@@ -132,7 +128,7 @@ def test_space_fingerprint_changes_when_C_changes(manifest):
 
 def test_context_digest_changes_with_pulsar_state(pulsar, ntm):
     fp_a = ntm.for_pulsar(pulsar).fingerprint()
-    pulsar._state_id = "artifact-token-updated"
+    np.asarray(pulsar.Mmat)[0, 1] += 0.25  # the record is the state
     fp_b = ntm.for_pulsar(pulsar).fingerprint()
     assert fp_a != fp_b
 
@@ -352,7 +348,7 @@ def test_truths_return_reference_values(tmp_path, manifest):
 def test_run_meta_schema_is_v4_and_code_block_names_owning_package(tmp_path, manifest):
     manifest.write(tmp_path)
     run_meta = json.loads((tmp_path / "nlt_run_meta.json").read_text())
-    assert run_meta["schema"] == "nlt-run-meta-v4"
+    assert run_meta["schema"] == "nlt-run-meta-v5"
     assert run_meta["code"]["package"] == "nltiming"
     assert run_meta["code"]["version"]
 

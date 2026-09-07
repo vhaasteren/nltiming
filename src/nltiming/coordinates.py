@@ -48,9 +48,7 @@ class TimingCoordinatePolicy:
         if self.sigma_source != "parfile_then_wls":
             raise ValueError("sigma_source must be 'parfile_then_wls'")
         if self.nonaffine_identically_linear not in _NONAFFINE_POLICIES:
-            raise ValueError(
-                "nonaffine_identically_linear must be 'warn' or 'ignore'"
-            )
+            raise ValueError("nonaffine_identically_linear must be 'warn' or 'ignore'")
         if self.nonidentically_linear_marginalization not in _NONAFFINE_POLICIES:
             raise ValueError(
                 "nonidentically_linear_marginalization must be 'warn' or 'ignore'"

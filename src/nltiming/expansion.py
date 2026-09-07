@@ -84,9 +84,7 @@ def refine_timing_expansion(
 
     refined_context = ctx
     if converged:
-        refined_context = ctx.with_expansion(
-            delta=delta_final, source="refined"
-        )
+        refined_context = ctx.with_expansion(delta=delta_final, source="refined")
 
     return ExpansionRefinementResult(
         context=refined_context,

@@ -133,9 +133,6 @@ def _ill_conditioned_binary_pulsar(*, e=1.9e-5, seed=1, n=80):
         def backend_flags(self):
             return self._bf
 
-        def state_id(self):
-            return f"j2145like-{e}"
-
         def pint_model(self):
             return None
 
@@ -545,9 +542,6 @@ def test_t28_e_spelling_alias():
         def backend_flags(self):
             return self._bf
 
-        def state_id(self):
-            return "e-alias"
-
         def pint_model(self):
             return None
 
@@ -656,9 +650,6 @@ def test_conversion_metadata_rejects_delta_flat_stigma():
         @property
         def backend_flags(self):
             return self._bf
-
-        def state_id(self):
-            return "stigma-case"
 
         def pint_model(self):
             return None

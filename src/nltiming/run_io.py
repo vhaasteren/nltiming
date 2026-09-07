@@ -19,7 +19,7 @@ from .physical_charts import DEG2RAD, PI, RAD2DEG, TWO_PI
 from .space import ParameterSpace, coord_for_static_layer
 from .units import units_map
 
-RUN_META_SCHEMA = "nlt-run-meta-v4"
+RUN_META_SCHEMA = "nlt-run-meta-v5"
 RUN_META_FILENAME = "nlt_run_meta.json"
 PARAMETER_SPACE_STEM = "nlt_parameter_space"
 ENTERPRISE_NPZ_NAME = "enterprise_x.npz"
@@ -273,7 +273,7 @@ class RunManifest:
     coord: str
     static_layer: str
     derivative_method: str
-    gauge: dict[str, Any]
+    residual_centering: dict[str, Any]
     engines: dict[str, str]
     native_units: dict[str, str]
     display_units: dict[str, str]
@@ -389,7 +389,7 @@ class RunManifest:
             "sampled": list(self.sampled),
             "static_layer": self.static_layer,
             "derivative_method": self.derivative_method,
-            "gauge": dict(self.gauge),
+            "residual_centering": dict(self.residual_centering),
             "engines": dict(self.engines),
             "tempo2_native": self.tempo2_native,
             "nonlinear_params": self.nonlinear_params,
@@ -508,12 +508,12 @@ def build_run_manifest(
         coord=coord_for_static_layer(ntm.static_layer),
         static_layer=ntm.static_layer,
         derivative_method=ntm.derivative_method,
-        gauge=_gauge_manifest_block(ctx),
+        residual_centering=_residual_centering_manifest_block(ctx),
         engines=dict(ntm.engines),
         tempo2_native=tempo2_native,
         nonlinear_params=nonlinear_params,
         prior_override_policy=ntm.prior_override_policy,
-        native_units=units_map(sampled, pint_model, kind="native"),
+        native_units=_native_units(ctx, sampled, pint_model),
         display_units=units_map(sampled, pint_model, kind="display"),
         context_digest=ctx.fingerprint(),
         space_fingerprint=space.fingerprint(),
@@ -532,45 +532,36 @@ def build_run_manifest(
     )
 
 
-def _gauge_manifest_block(ctx) -> dict[str, Any]:
-    """Serialize ``ctx.gauge_provenance`` into the per-contribution gauge block."""
-    provenance = getattr(ctx, "gauge_provenance", None) or ()
-    if not provenance:
+def _native_units(ctx, sampled, pint_model) -> dict[str, str]:
+    """PINT units for the sampled axes, from the engine's own declaration.
+
+    A sampled name the engine does not carry (a chart coordinate) falls back
+    to the PINT-model lookup.
+    """
+    engine_units = dict(getattr(ctx.engine, "native_units", None) or {})
+    fallback = units_map(sampled, pint_model, kind="native")
+    return {name: engine_units.get(name) or fallback[name] for name in sampled}
+
+
+def _residual_centering_manifest_block(ctx) -> dict[str, Any]:
+    """Serialize ``ctx.residual_centering`` into the per-data-set block."""
+    from dataclasses import asdict
+
+    items = getattr(ctx, "residual_centering", None) or ()
+    if not items:
         raise RunIOError(
-            "TimingSignal.gauge_provenance is empty; gauge facts must be "
-            "normalized at context construction."
+            "TimingSignal.residual_centering is empty; residual-centering facts "
+            "must be normalized at context construction."
         )
-    contributions: dict[str, Any] = {}
-    export_modes: list[str] = []
-    reporting_keys: list[tuple[str, bool | None]] = []
-    for name, prov in provenance:
-        export_modes.append(prov.export)
-        reporting_keys.append((prov.reporting_mode, prov.reporting_weighted))
-        reference: dict[str, Any] = {"mode": prov.reference_mode}
-        if prov.reference_mode == "mean":
-            reference["weighted"] = bool(prov.reference_weighted)
-        reporting: dict[str, Any] = {"mode": prov.reporting_mode}
-        if prov.reporting_mode == "mean":
-            reporting["weighted"] = bool(prov.reporting_weighted)
-        contributions[str(name)] = {
-            "export": prov.export,
-            "reference": reference,
-            "reporting": reporting,
-        }
+    contributions = {str(name): asdict(rc) for name, rc in items}
 
     def _summary(values):
         first = values[0]
         return first if all(v == first for v in values) else "mixed"
 
-    export_summary = _summary(export_modes)
-    reporting_summary = _summary(reporting_keys)
-    if reporting_summary == "mixed":
-        reporting_out: Any = "mixed"
-    else:
-        reporting_out = reporting_summary[0]  # mode string when contributions agree
     return {
-        "export": export_summary,
-        "reporting": reporting_out,
+        "stored_residuals": _summary([rc.stored_residuals for _, rc in items]),
+        "standard_output": _summary([rc.standard_output for _, rc in items]),
         "contributions": contributions,
     }
 

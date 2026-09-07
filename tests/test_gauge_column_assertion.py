@@ -11,15 +11,12 @@ from nltiming.nonlinear_timing_model import (
     GaugeColumnMissingError,
     assert_gauge_column_present,
 )
-from nltiming.protocols import GaugeProvenance
+from psrdata import ResidualCentering
 
 
 def _gf():
-    return GaugeProvenance(
-        export="none",
-        reference_mode="none",
-        reporting_mode="mean",
-        reporting_weighted=True,
+    return ResidualCentering(
+        stored_residuals="none", standard_output="mean_removed", standard_weighted=True
     )
 
 
@@ -43,7 +40,7 @@ def test_passes_on_per_pta_offset_layout():
             design=M[:3, :2],
             theta_exact={"F0": "1.0", "Offset_epta": "0.0"},
         ),
-        gauge_provenance=_gf(),
+        residual_centering=_gf(),
     )
     b = JaxLinearTestEngine.from_linear_model(
         LinearModel.from_design(
@@ -51,7 +48,7 @@ def test_passes_on_per_pta_offset_layout():
             design=np.column_stack([M[3:, 0], M[3:, 2]]),
             theta_exact={"F0": "1.0", "Offset_ppta": "0.0"},
         ),
-        gauge_provenance=_gf(),
+        residual_centering=_gf(),
     )
     engine = CompositeView(
         [
@@ -70,7 +67,7 @@ def test_fails_when_named_column_dropped():
         LinearModel.from_design(
             fitpars=fitpars, design=M, theta_exact={"F0": "1.0", "DM": "0.0"}
         ),
-        gauge_provenance=_gf(),
+        residual_centering=_gf(),
     )
     with pytest.raises(GaugeColumnMissingError, match="no named gauge column"):
         assert_gauge_column_present(_Pulsar(fitpars, M), eng, M)
@@ -83,7 +80,7 @@ def test_fails_when_named_column_zeroed():
         LinearModel.from_design(
             fitpars=fitpars, design=M, theta_exact={"F0": "1.0", "Offset": "0.0"}
         ),
-        gauge_provenance=_gf(),
+        residual_centering=_gf(),
     )
     with pytest.raises(GaugeColumnMissingError, match="local numeric"):
         assert_gauge_column_present(_Pulsar(fitpars, M), eng, M)
@@ -97,7 +94,7 @@ def test_fails_when_only_unnamed_near_constant_spans():
         LinearModel.from_design(
             fitpars=fitpars, design=M, theta_exact={"F0": "1.0", "DM": "0.0"}
         ),
-        gauge_provenance=_gf(),
+        residual_centering=_gf(),
     )
     with pytest.raises(GaugeColumnMissingError, match="no named gauge column"):
         assert_gauge_column_present(_Pulsar(fitpars, M), eng, M)
@@ -113,7 +110,7 @@ def test_fails_when_named_zeroed_while_others_span():
             design=M,
             theta_exact={"F0": "1.0", "Offset": "0.0", "JUMP1": "0.0"},
         ),
-        gauge_provenance=_gf(),
+        residual_centering=_gf(),
     )
     with pytest.raises(GaugeColumnMissingError, match="named gauge column"):
         assert_gauge_column_present(_Pulsar(fitpars, M), eng, M)
@@ -131,7 +128,7 @@ def test_wrong_pta_offset_name_does_not_satisfy():
             design=M,
             theta_exact={"F0": "1.0", "Offset_other": "0.0"},
         ),
-        gauge_provenance=_gf(),
+        residual_centering=_gf(),
     )
     engine = CompositeView(
         [
@@ -162,7 +159,7 @@ def test_without_contributions_each_named_column_is_checked_on_its_support():
             design=M,
             theta_exact={name: "0.0" for name in fitpars},
         ),
-        gauge_provenance=_gf(),
+        residual_centering=_gf(),
     )
     assert_gauge_column_present(_Pulsar(fitpars, M), eng, M)
 
@@ -188,7 +185,6 @@ class _DeclaringEngine:
 
     def __init__(self, direction):
         self._direction = np.asarray(direction, dtype=float)
-        self.gauge_applied = False
 
     def gauge_direction(self):
         return self._direction
@@ -217,7 +213,7 @@ def test_a_declared_gauge_direction_is_what_gets_tested():
     # the constant is what keeps every existing engine's guard as strict as it
     # was.
     class _Silent:
-        gauge_applied = False
+        pass
 
     plain = CompositeView(
         [

@@ -11,15 +11,12 @@ from nltiming.nonlinear_timing_model import (
     GaugeColumnMissingError,
     assert_gauge_column_present,
 )
-from nltiming.protocols import GaugeProvenance
+from psrdata import ResidualCentering
 
 
 def _gf():
-    return GaugeProvenance(
-        export="none",
-        reference_mode="none",
-        reporting_mode="mean",
-        reporting_weighted=True,
+    return ResidualCentering(
+        stored_residuals="none", standard_output="mean_removed", standard_weighted=True
     )
 
 
@@ -37,7 +34,7 @@ def _two_leaf_composite(fitpars, M, leaf_fitpars_a, leaf_fitpars_b, design_a, de
             design=design_a,
             theta_exact={n: "0.0" for n in leaf_fitpars_a},
         ),
-        gauge_provenance=_gf(),
+        residual_centering=_gf(),
     )
     b = JaxLinearTestEngine.from_linear_model(
         LinearModel.from_design(
@@ -45,14 +42,16 @@ def _two_leaf_composite(fitpars, M, leaf_fitpars_a, leaf_fitpars_b, design_a, de
             design=design_b,
             theta_exact={n: "0.0" for n in leaf_fitpars_b},
         ),
-        gauge_provenance=_gf(),
+        residual_centering=_gf(),
     )
     n = M.shape[0]
     mid = n // 2
-    return CompositeView([
+    return CompositeView(
+        [
             TestContribution(name="epta", row_indices=np.arange(mid), engine=a),
             TestContribution(name="ppta", row_indices=np.arange(mid, n), engine=b),
-        ])
+        ]
+    )
 
 
 def test_shared_unsuffixed_offset_fails_joint():
@@ -120,6 +119,6 @@ def test_k1_reduces_to_per_contribution():
         LinearModel.from_design(
             fitpars=fitpars, design=M, theta_exact={"F0": "1.0", "Offset": "0.0"}
         ),
-        gauge_provenance=_gf(),
+        residual_centering=_gf(),
     )
     assert_gauge_column_present(_Pulsar(fitpars, M), eng, M)

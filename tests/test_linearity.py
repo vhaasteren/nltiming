@@ -76,7 +76,9 @@ def test_explicit_empty_linearity_sequence_is_authoritative():
 
 
 def test_suppressed_candidates_are_recorded_but_not_effective():
-    res = resolve_linearity(_Pulsar(_REG), _EngineStub({"F0"}), identically_linear=["F0"])
+    res = resolve_linearity(
+        _Pulsar(_REG), _EngineStub({"F0"}), identically_linear=["F0"]
+    )
     suppressed = {d.name for d in res.suppressed_candidates}
     assert "DM" in suppressed
     assert "DM" not in res.effective_names
@@ -100,21 +102,11 @@ def test_registry_digest_is_stable():
 
 
 def test_engine_linearity_declaration_via_linear_engine():
-    """A real LinearTimingEngine declares every fitpar identically linear."""
-    from nltiming.engine_support import LinearModel, LinearTimingEngine
+    """A LinearModelEngine declares every fitpar identically linear."""
+    from nltiming.engine_support import LinearModel, LinearModelEngine
 
     fitpars = ("F0", "F1", "DM")
-    from nltiming.protocols import GaugeProvenance
-
-    eng = LinearTimingEngine(
-        LinearModel.from_design(fitpars=fitpars, design=np.eye(3)),
-        gauge_provenance=GaugeProvenance(
-            export="none",
-            reference_mode="unknown",
-            reporting_mode="mean",
-            reporting_weighted=True,
-        ),
-    )
+    eng = LinearModelEngine(LinearModel.from_design(fitpars=fitpars, design=np.eye(3)))
     res = resolve_linearity(_Pulsar(fitpars), eng)
     assert res.effective_names == set(fitpars)
     assert "engine" in res.sources_for("F0")

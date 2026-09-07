@@ -41,8 +41,18 @@ class _FakeModel:
 class _FakePulsar:
     def __init__(self):
         self.fitpars = (
-            "RAJ", "DECJ", "PMRA", "PX", "F0", "F1", "DM", "DM1",
-            "DMX_0001", "A1", "PB", "JUMP1",
+            "RAJ",
+            "DECJ",
+            "PMRA",
+            "PX",
+            "F0",
+            "F1",
+            "DM",
+            "DM1",
+            "DMX_0001",
+            "A1",
+            "PB",
+            "JUMP1",
         )
         self._model = _FakeModel()
 
@@ -53,7 +63,14 @@ class _FakePulsar:
 def test_default_preset_resolves_only_documented_default_families():
     delta_flat = default_delta_flat_fitpars(_FakePulsar())
     assert delta_flat == (
-        "RAJ", "DECJ", "F0", "F1", "DM", "DM1", "DMX_0001", "JUMP1",
+        "RAJ",
+        "DECJ",
+        "F0",
+        "F1",
+        "DM",
+        "DM1",
+        "DMX_0001",
+        "JUMP1",
     )
 
 
@@ -66,7 +83,14 @@ def test_default_preset_plan_dispositions_and_indices():
         coordinate_policy=TimingCoordinatePolicy(),
     )
     assert plan.marginalized_delta == (
-        "RAJ", "DECJ", "F0", "F1", "DM", "DM1", "DMX_0001", "JUMP1",
+        "RAJ",
+        "DECJ",
+        "F0",
+        "F1",
+        "DM",
+        "DM1",
+        "DMX_0001",
+        "JUMP1",
     )
     assert plan.sampled == ("PMRA", "PX", "A1", "PB")
     assert plan.indices("marginalize_delta_flat") == (0, 1, 4, 5, 6, 7, 8, 11)
@@ -94,8 +118,22 @@ class _FakeCompositeModel:
 class _FakeCompositePulsar:
     def __init__(self, *, with_mapping: bool = True):
         bases = (
-            "RAJ", "DECJ", "PMRA", "PMDEC", "F0", "F1", "DMX_0001", "DMX_0002",
-            "JUMP1", "JUMP2", "JUMP3", "PB", "A1", "ECC", "T0", "Offset",
+            "RAJ",
+            "DECJ",
+            "PMRA",
+            "PMDEC",
+            "F0",
+            "F1",
+            "DMX_0001",
+            "DMX_0002",
+            "JUMP1",
+            "JUMP2",
+            "JUMP3",
+            "PB",
+            "A1",
+            "ECC",
+            "T0",
+            "Offset",
         )
         self.fitpars = tuple(f"{b}_ng5" for b in bases)
         self._fitparameters = (
@@ -115,7 +153,12 @@ def test_default_marginalizes_linear_block_on_suffixed_composite_pulsar():
         coordinate_policy=TimingCoordinatePolicy(),
     )
     assert plan.sampled == (
-        "PMRA_ng5", "PMDEC_ng5", "PB_ng5", "A1_ng5", "ECC_ng5", "T0_ng5",
+        "PMRA_ng5",
+        "PMDEC_ng5",
+        "PB_ng5",
+        "A1_ng5",
+        "ECC_ng5",
+        "T0_ng5",
     )
     marg = set(plan.marginalized_delta)
     assert {"JUMP1_ng5", "DMX_0001_ng5", "RAJ_ng5", "Offset_ng5"} <= marg

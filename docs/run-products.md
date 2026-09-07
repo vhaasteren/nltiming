@@ -3,7 +3,7 @@
 A persisted run is a **scientific record**: decode it with the exact space it
 was sampled with, and build a live model only for fresh calculations. A valid
 read needs only the on-disk products, `nlt_run_meta.json` (schema
-`nlt-run-meta-v4`) plus the serialized `ParameterSpace` and the raw chain, never
+`nlt-run-meta-v5`) plus the serialized `ParameterSpace` and the raw chain, never
 a live PTA, Discovery model, or PINT reload.
 
 ```python

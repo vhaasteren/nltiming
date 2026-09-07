@@ -84,9 +84,6 @@ class _SuffixHost:
     def backend_flags(self):
         return self._backend_flags
 
-    def state_id(self):
-        return "suffix-token"
-
     def pint_model(self):
         return object()
 
@@ -535,9 +532,6 @@ def _hybrid_probe_pulsar(engine_mode):
         Mmat = design
         flags = {"pta": np.array(["x"] * 4)}
         backend_flags = np.array(["x"] * 4)
-
-        def state_id(self):
-            return "probe"
 
         def pint_model(self):
             return None

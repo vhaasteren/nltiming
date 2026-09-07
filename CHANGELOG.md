@@ -5,6 +5,20 @@ the public API may change between tags.
 
 ## Unreleased
 
+### Changed
+- psrdata SPEC v1 alignment. `TimingEngine.gauge_provenance()` /
+  `gauge_applied` are replaced by a `residual_centering` mapping (data-set
+  key to `psrdata.ResidualCentering`), one entry per data set for a single
+  or a combined pulsar alike; the run manifest's `gauge` block becomes
+  `residual_centering` and the schema is `nlt-run-meta-v5`. `TimingPulsar`
+  no longer requires `state_id()`: the context cache fingerprints the
+  record's content. Engine `native_units` are PINT units and are consumed
+  as declared (evaluator and manifest no longer re-derive them from the
+  PINT model). `engine_support` re-exports psrdata's record engine
+  (`LinearTimingEngine`, `LinearContribution`, `linear_engine`) and owns
+  the bare-matrix `LinearModel` / `LinearModelEngine` used by adapters and
+  tests.
+
 ### Added
 - Runnable quickstart scripts under `examples/scripts/` (Discovery/JUG/NUTS
   and Enterprise/libstempo/PTMCMC) on the shipped J1721-2457 data.

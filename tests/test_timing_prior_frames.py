@@ -119,9 +119,6 @@ class _FakePulsar:
     def can_use_engines(self, engines):
         return True
 
-    def state_id(self):
-        return "fake-v1"
-
 
 def test_ntm_resolve_prior_overrides(composite_binary_ctx):
     pulsar = _FakePulsar(dict(composite_binary_ctx.refs))
@@ -137,9 +134,12 @@ def test_ntm_resolve_prior_overrides(composite_binary_ctx):
     )
     partition = plan_for(pulsar, sample_all=True)
     resolved = ntm._resolve_prior_overrides(
-        pulsar=pulsar, engine=engine, partition=partition,
-        charts=(), chart_resolutions=(),
-        )
+        pulsar=pulsar,
+        engine=engine,
+        partition=partition,
+        charts=(),
+        chart_resolutions=(),
+    )
     half = 0.5 * 1.19851257519955
     assert resolved["TASC_epta"].lower == pytest.approx(-half, rel=1e-12)
     assert resolved["TASC_epta"].upper == pytest.approx(+half, rel=1e-12)

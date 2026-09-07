@@ -27,12 +27,11 @@ from nltiming.run_io import (
 
 
 class _Pulsar:
-    def __init__(self, state_id="decode-token"):
+    def __init__(self):
         self.name = "J3333+3333"
         self.fitpars = ("Offset", "F1")
         self._toaerrs = np.full(6, 1.0e-6)
         self._backend_flags = np.array(["demo"] * 6, dtype="U8")
-        self._state_id = state_id
         design = np.column_stack([np.ones(6), np.linspace(-0.5, 0.5, 6)])
         model = LinearModel.from_design(
             fitpars=self.fitpars,
@@ -68,9 +67,6 @@ class _Pulsar:
     @property
     def backend_flags(self):
         return self._backend_flags
-
-    def state_id(self):
-        return self._state_id
 
     def pint_model(self):
         return object()

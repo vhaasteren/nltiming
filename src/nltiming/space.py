@@ -111,9 +111,7 @@ class ParameterSpace:
             raise ValueError(f"select: unknown axes {missing}")
         C = np.asarray(self.linear.C, dtype=float)
         z0 = np.asarray(self.linear.z0, dtype=float)
-        if C.size and not (
-            np.allclose(C, np.eye(C.shape[0])) and np.allclose(z0, 0.0)
-        ):
+        if C.size and not (np.allclose(C, np.eye(C.shape[0])) and np.allclose(z0, 0.0)):
             raise ValueError(
                 "ParameterSpace.select requires an identity static layer; select "
                 "subspaces before static whitening is built (§4.5)"

@@ -38,8 +38,7 @@ def test_timing_imports_and_constructs_without_jug():
             "sys.modules['jax'] = None",
             "import nltiming",
             "from nltiming import TimingSpec",
-            "m = TimingSpec("
-            "engines={'tempo2': 'libstempo', 'pint': 'pint'})",
+            "m = TimingSpec(" "engines={'tempo2': 'libstempo', 'pint': 'pint'})",
             "assert m.tempo2_jug_options is None",
             "m.set_prior('F0', 'normal', mean=0.0, std=1.0)",
             "m2 = m.with_engines({'tempo2': 'libstempo', 'pint': 'pint'})",

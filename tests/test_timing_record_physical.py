@@ -21,7 +21,6 @@ class _Host:
         self._freqs = np.full(5, 1400.0)
         self._flags = {"pta": np.array(["demo"] * 5, dtype="U8")}
         self._backend_flags = np.array(["demo"] * 5, dtype="U8")
-        self._state_id = "record-token"
         model = LinearModel.from_design(
             fitpars=self.fitpars,
             design=np.column_stack([np.ones(5), np.linspace(-0.5, 0.5, 5)]),
@@ -56,9 +55,6 @@ class _Host:
     @property
     def backend_flags(self):
         return self._backend_flags
-
-    def state_id(self):
-        return self._state_id
 
     def pint_model(self):
         return object()

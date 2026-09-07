@@ -118,8 +118,7 @@ class TimingInference:
         return {
             "preset": self.preset,
             "marginalize": {
-                name: marg.coordinate
-                for name, marg in sorted(self.marginalize.items())
+                name: marg.coordinate for name, marg in sorted(self.marginalize.items())
             },
         }
 
@@ -196,13 +195,24 @@ DEFAULT_DELTA_CATEGORIES = (
     "frequency_dependent",
 )
 DEFAULT_DELTA_EXACT = frozenset(
-    {"DM", "DM1", "DM2", "OFFSET", "PHOFF",
-     "RAJ", "DECJ", "ELONG", "ELAT", "RA", "DEC", "LAMBDA", "BETA"}
+    {
+        "DM",
+        "DM1",
+        "DM2",
+        "OFFSET",
+        "PHOFF",
+        "RAJ",
+        "DECJ",
+        "ELONG",
+        "ELAT",
+        "RA",
+        "DEC",
+        "LAMBDA",
+        "BETA",
+    }
 )
 DEFAULT_DELTA_PREFIXES = ("DMX", "JUMP", "FD")
-DEFAULT_DELTA_EXCLUDE = frozenset(
-    {"PMRA", "PMDEC", "PMELONG", "PMELAT", "PX"}
-)
+DEFAULT_DELTA_EXCLUDE = frozenset({"PMRA", "PMDEC", "PMELONG", "PMELAT", "PX"})
 
 
 def _discover_category_params(pint_model, categories) -> set[str]:
@@ -297,8 +307,8 @@ class ResolvedTimingAxis:
     prior: AxisPrior | None = None
     prior_source: str | None = None
     prior_chart: PriorChartKind | None = None
-    engine_name: str | None = None      # engine fitpar this axis replaces
-    physical_chart: str | None = None   # "kepler_laplace" | None
+    engine_name: str | None = None  # engine fitpar this axis replaces
+    physical_chart: str | None = None  # "kepler_laplace" | None
 
 
 @dataclass(frozen=True)
@@ -350,9 +360,7 @@ class TimingParameterPlan:
         )
 
     def indices(self, disposition: Disposition) -> tuple[int, ...]:
-        return tuple(
-            a.fitpar_index for a in self.axes if a.disposition == disposition
-        )
+        return tuple(a.fitpar_index for a in self.axes if a.disposition == disposition)
 
     # Transitional index accessors consumed by the metric/whitening/adapter
     # helpers that still take a partition-shaped object. Stage 4/5 rewrite those

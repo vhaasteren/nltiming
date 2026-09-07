@@ -7,7 +7,7 @@ import pytest
 
 from nltiming import TimingEvaluator
 from nltiming.bijectors import PriorBijector
-from nltiming.protocols import GaugeProvenance
+from psrdata import ResidualCentering
 from nltiming.space import ParameterSpace
 
 
@@ -43,17 +43,13 @@ class LinearJaxBackend:
     def precision_critical_fitpars(self):
         return frozenset({"F0"})
 
-    def gauge_provenance(self):
-        return GaugeProvenance(
-            export="none",
-            reference_mode="none",
-            reporting_mode="mean",
-            reporting_weighted=True,
+    residual_centering = {
+        "single": ResidualCentering(
+            stored_residuals="none",
+            standard_output="mean_removed",
+            standard_weighted=True,
         )
-
-    @property
-    def gauge_applied(self):
-        return False
+    }
 
 
 class NonlinearJaxBackend(LinearJaxBackend):

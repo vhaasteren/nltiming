@@ -138,9 +138,6 @@ class _LinearPulsar:
     def backend_flags(self):
         return self._backend_flags
 
-    def state_id(self):
-        return "frames-token"
-
     def pint_model(self):
         return None
 

@@ -33,6 +33,7 @@ def _metamath():
     """
     ds.config(kernels="metamath")
 
+
 from nltiming import (  # noqa: E402
     GeometryCertificationError,
     GeometryDiagnosticWarning,
@@ -119,7 +120,11 @@ def _oracle(
     The model is exactly ``N(0, I)`` in ``xi`` for the defaults; each keyword
     injects one controlled defect used by a single test.
     """
-    kwargs = {"engines": "jug", "inference": TimingInference.sample_all(), "name": "timing"}
+    kwargs = {
+        "engines": "jug",
+        "inference": TimingInference.sample_all(),
+        "name": "timing",
+    }
     if identically_linear is not None:
         kwargs["identically_linear"] = identically_linear
     ntm = TimingSpec(**kwargs)
@@ -163,7 +168,7 @@ def _oracle(
         z = q
         resid = y - (d_e + Wmodel @ (z - z_e))
         logL = -0.5 * jnp.sum(resid * resid / n0)
-        extra = -xi_quartic * jnp.sum(xi ** 4) + eta_coupling * eta * jnp.sum(z)
+        extra = -xi_quartic * jnp.sum(xi**4) + eta_coupling * eta * jnp.sum(z)
         numpyro.factor(
             "f", logL - 0.5 * jnp.sum(z * z) + ldj + 0.5 * jnp.sum(xi * xi) + extra
         )

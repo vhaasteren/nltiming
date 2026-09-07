@@ -71,9 +71,6 @@ class _Pulsar:
     def backend_flags(self):
         return self._backend_flags
 
-    def state_id(self):
-        return "joint-token"
-
     def pint_model(self):
         return None
 
@@ -161,8 +158,9 @@ def test_nonaffine_identically_linear_warning_can_be_suppressed(recwarn):
         name="timing",
     )
     ntm.for_pulsar(_Pulsar())
-    assert not [w for w in recwarn if issubclass(
-        w.category, NonAffineIdenticallyLinearWarning)]
+    assert not [
+        w for w in recwarn if issubclass(w.category, NonAffineIdenticallyLinearWarning)
+    ]
 
 
 def test_prior_on_delta_flat_axis_raises_and_names_z_prior_remedy():
@@ -269,7 +267,8 @@ def test_z_prior_enterprise_assembly_builds_and_evaluates():
     # only F0/F1 are sampled; DM is marginalized via the W_m GP (no DM param).
     assert not any("DM" in p for p in pta.param_names)
     x0 = np.hstack(
-        [np.asarray(p.sample(), dtype=float).reshape(-1) for p in pta.params])
+        [np.asarray(p.sample(), dtype=float).reshape(-1) for p in pta.params]
+    )
     assert np.isfinite(pta.get_lnlikelihood(x0))
     assert np.isfinite(pta.get_lnprior(x0))
 

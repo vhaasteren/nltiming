@@ -62,9 +62,6 @@ class _Pulsar:
     def backend_flags(self):
         return self._backend_flags
 
-    def state_id(self):
-        return "lifecycle-token"
-
     def pint_model(self):
         return object()
 
@@ -207,16 +204,12 @@ def test_whitening_none_conditions_with_identity_transport_and_no_metric(pulsar)
     """whitening=None is an identity map: it conditions with an identity
     transport and no reference-noise metric, so its provenance never claims a
     (never-applied) toa_errors whitening (§5.5, provenance honesty)."""
-    none_ctx = TimingSpec(
-        engines="jug", name="t"
-    ).for_pulsar(pulsar)
+    none_ctx = TimingSpec(engines="jug", name="t").for_pulsar(pulsar)
     assert none_ctx.conditioned is True
     assert none_ctx.metric is None
     assert none_ctx.transport.kind == "static_affine"
     assert none_ctx.transport.metric_source["reference_noise"] == "identity"
     np.testing.assert_allclose(none_ctx.space.linear.C, np.eye(len(none_ctx.sampled)))
     # An explicit unconditioned base can still be conditioned with None only.
-    base = TimingSpec(engines="jug", name="t").for_pulsar(
-        pulsar, condition=False
-    )
+    base = TimingSpec(engines="jug", name="t").for_pulsar(pulsar, condition=False)
     assert base.with_transport().metric is None

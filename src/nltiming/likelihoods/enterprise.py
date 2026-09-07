@@ -161,9 +161,11 @@ def _make_waveform(
                 )
                 space_coord = coord
                 delta_sampled = np.asarray(
-                    space.delta_from_coord(q, np, coord=space_coord))
+                    space.delta_from_coord(q, np, coord=space_coord)
+                )
                 return -_residual_delta(
-                    engine, ctx.engine_delta_map.full_engine_delta(delta_sampled, np))
+                    engine, ctx.engine_delta_map.full_engine_delta(delta_sampled, np)
+                )
 
             delay_body = _explicit_scalar_delay_function(sampled_names, _evaluate)
             kwargs = {
@@ -183,7 +185,8 @@ def _make_waveform(
             q = np.asarray(x, dtype=float)
             delta_sampled = np.asarray(space.delta_from_coord(q, np, coord="x"))
             return -_residual_delta(
-                engine, ctx.engine_delta_map.full_engine_delta(delta_sampled, np))
+                engine, ctx.engine_delta_map.full_engine_delta(delta_sampled, np)
+            )
 
         kwargs = {"x": _vector_user_parameter(space=space)}
         return parameter.Function(_delay_body, **kwargs)(signal_name, psr=psr)

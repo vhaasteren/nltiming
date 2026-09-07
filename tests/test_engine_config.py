@@ -14,8 +14,6 @@ def test_normalize_engines_accepts_vela_for_pint_family():
         normalize_engines({"tempo2": "vela"})
 
 
-
-
 def test_vela_jax_serves_both_native_packages():
     """vela-jax separates the host from the physics: tempo2 or PINT may read
     the files, and Vela's chain evaluates the delay either way."""

@@ -84,7 +84,9 @@ def is_hybrid_engine_axis(engine_param: str, mode: str | None) -> bool:
     )
 
 
-def hybrid_linearized_fitpars(fitpars, engine_names, mode: str | None) -> frozenset[str]:
+def hybrid_linearized_fitpars(
+    fitpars, engine_names, mode: str | None
+) -> frozenset[str]:
     """Fitpars the hybrid mode moves onto the design-matrix path."""
     resolved = validate_nonlinear_params(mode)
     if resolved is None:

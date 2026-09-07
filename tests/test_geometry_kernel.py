@@ -61,7 +61,9 @@ def test_linear_gaussian_oracle_is_unit_whitened():
 
     # And the conditional identity holds across the full deterministic probe set.
     probes = deterministic_xi_probes(dim)
-    assert conditional_identity_spread(model, hyper={"eta": 0.0}, xi_points=probes) < 1e-6
+    assert (
+        conditional_identity_spread(model, hyper={"eta": 0.0}, xi_points=probes) < 1e-6
+    )
 
 
 def test_zero_slice_identity_cannot_hide_nonzero_xi_curvature():

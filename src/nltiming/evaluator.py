@@ -299,7 +299,13 @@ class TimingEvaluator:
 
     def _build_parameters(self) -> tuple[TimingParameter, ...]:
         model = self.pulsar.pint_model()
-        native_units = units_map(self.fitpars, model, kind="native")
+        # The engine declares each fit parameter's unit (PINT units, psrdata
+        # R-5.2.2); the PINT model serves only the display units.
+        engine_units = dict(getattr(self.engine, "native_units", None) or {})
+        missing = [name for name in self.fitpars if name not in engine_units]
+        if missing:
+            raise ValueError(f"engine native_units lacks fitpars: {missing}")
+        native_units = {name: engine_units[name] for name in self.fitpars}
         display_units = units_map(self.fitpars, model, kind="display")
         mapping = self._parameter_mapping()
         parameters = []

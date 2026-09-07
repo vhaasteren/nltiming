@@ -10,7 +10,7 @@ from nltiming.sampling.numpyro import sample_timing, record_physical_postprocess
 
 
 class _Host:
-    def __init__(self, name: str, token: str):
+    def __init__(self, name):
         self.name = name
         self.fitpars = ("Offset", "F1")
         self._toas = np.linspace(0.0, 1.0, 4)
@@ -19,7 +19,6 @@ class _Host:
         self._freqs = np.full(4, 1400.0)
         self._flags = {"pta": np.array(["demo"] * 4, dtype="U8")}
         self._backend_flags = np.array(["demo"] * 4, dtype="U8")
-        self._state_id = token
         model = LinearModel.from_design(
             fitpars=self.fitpars,
             design=np.column_stack([np.ones(4), np.linspace(-0.5, 0.5, 4)]),
@@ -55,9 +54,6 @@ class _Host:
     def backend_flags(self):
         return self._backend_flags
 
-    def state_id(self):
-        return self._state_id
-
     def pint_model(self):
         return object()
 
@@ -66,8 +62,8 @@ class _Host:
 
 
 def test_multi_pulsar_prefixes_and_cache_independence(monkeypatch):
-    host_a = _Host("J0001+0001", "tok-a")
-    host_b = _Host("J0002+0002", "tok-b")
+    host_a = _Host("J0001+0001")
+    host_b = _Host("J0002+0002")
     ntm = TimingSpec(
         engines="jug",
         inference=TimingInference.groups(delta_flat=["Offset"]),
@@ -101,7 +97,7 @@ def test_multi_pulsar_prefixes_and_cache_independence(monkeypatch):
     assert ntm.for_pulsar(host_a).space is space_a_1
     assert ntm.for_pulsar(host_b).space is space_b_1
 
-    host_a._state_id = "tok-a-updated"
+    np.asarray(host_a.Mmat)[0, 1] += 0.25  # the record is the state
     assert ntm.for_pulsar(host_a).space is not space_a_1
     assert ntm.for_pulsar(host_b).space is space_b_1
 

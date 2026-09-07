@@ -28,7 +28,6 @@ class _Pulsar:
         self._freqs = np.full(8, 1400.0, dtype=float)
         self._flags = {"pta": np.array(["demo"] * 8, dtype="U8")}
         self._backend_flags = np.array(["demo"] * 8, dtype="U8")
-        self._state_id = "token-v1"
         self.backend_calls = []
         self.default_analytically_marginalize = ["Offset", "F0", "DM"]
 
@@ -78,9 +77,6 @@ class _Pulsar:
     @property
     def backend_flags(self):
         return self._backend_flags
-
-    def state_id(self):
-        return self._state_id
 
     def pint_model(self):
         return object()
@@ -164,7 +160,7 @@ def test_component_config_only_build_and_with_engines():
     assert swapped.whitening == ntm.whitening
 
 
-def test_space_cached_and_invalidated_by_state_id(pulsar):
+def test_space_cached_and_invalidated_by_pulsar_content(pulsar):
     ntm = TimingSpec(
         engines="jug",
         whitening=WhiteningConfig(),
@@ -175,7 +171,7 @@ def test_space_cached_and_invalidated_by_state_id(pulsar):
     second = ntm.for_pulsar(pulsar).space
     assert first is second
 
-    pulsar._state_id = "token-v2"
+    pulsar._design[0, 1] += 0.25  # the record is the state
     third = ntm.for_pulsar(pulsar).space
     assert third is not first
 

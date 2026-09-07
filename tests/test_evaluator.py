@@ -6,7 +6,7 @@ import numpy as np
 import pytest
 
 from nltiming import TimingEvaluator
-from nltiming.protocols import GaugeProvenance
+from psrdata import ResidualCentering
 
 
 class _LinearBackend:
@@ -40,17 +40,13 @@ class _LinearBackend:
     def precision_critical_fitpars(self):
         return frozenset()
 
-    def gauge_provenance(self):
-        return GaugeProvenance(
-            export="none",
-            reference_mode="none",
-            reporting_mode="mean",
-            reporting_weighted=True,
+    residual_centering = {
+        "single": ResidualCentering(
+            stored_residuals="none",
+            standard_output="mean_removed",
+            standard_weighted=True,
         )
-
-    @property
-    def gauge_applied(self):
-        return False
+    }
 
 
 class _Pulsar:

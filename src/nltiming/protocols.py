@@ -13,10 +13,9 @@ from typing import Any, Mapping, Protocol, runtime_checkable
 
 import numpy as np
 
-# The gauge provenance is serialized in the pulsar record, so its validating
-# type lives with the record (psrdata) and is re-exported here under the name
-# every engine adapter and test has always imported.
-from psrdata import GaugeProvenance
+# Residual centering is serialized in the pulsar record, so its validating
+# type lives with the record (psrdata, SPEC section 4) and is re-exported here.
+from psrdata import ResidualCentering
 
 
 @dataclass(frozen=True)
@@ -138,17 +137,20 @@ class TimingEngine(Protocol):
 
     def design_matrix(self, params: Any | None = None) -> np.ndarray: ...
 
-    def gauge_provenance(self) -> GaugeProvenance: ...
-
     @property
-    def gauge_applied(self) -> bool:
-        """Derived from ``gauge_provenance().export``; never assigned."""
+    def residual_centering(self) -> Mapping[str, ResidualCentering]:
+        """One entry per data set, for one or several alike (psrdata R-5.3.4).
+
+        Descriptive only (psrdata R-4.2): it explains the stored residual
+        convention and is recorded in the run manifest; no arithmetic in this
+        package branches on it.
+        """
         ...
 
 
 @runtime_checkable
 class JacobianTimingEngine(TimingEngine, Protocol):
-    """Timing engine exposing an exact gauge-free residual Jacobian."""
+    """Timing engine exposing an exact residual Jacobian (``J = -M``)."""
 
     def residual_jacobian(self) -> np.ndarray: ...
 
@@ -177,8 +179,6 @@ class TimingPulsar(PulsarData, Protocol):
     def timing_engine(self, engines="jug") -> TimingEngine: ...
 
     def can_use_engines(self, engines="jug") -> bool: ...
-
-    def state_id(self) -> str | None: ...
 
 
 @runtime_checkable

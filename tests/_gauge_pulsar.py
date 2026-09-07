@@ -8,18 +8,8 @@ from __future__ import annotations
 
 import numpy as np
 
-from _engine_stubs import JaxLinearTestEngine
+from _engine_stubs import JaxLinearTestEngine, gauge_free_centering
 from nltiming.engine_support import LinearModel
-from nltiming.protocols import GaugeProvenance
-
-
-def gauge_free_provenance() -> GaugeProvenance:
-    return GaugeProvenance(
-        export="none",
-        reference_mode="none",
-        reporting_mode="mean",
-        reporting_weighted=True,
-    )
 
 
 def with_leading_offset(
@@ -28,7 +18,9 @@ def with_leading_offset(
     theta_exact: dict[str, str],
 ) -> tuple[tuple[str, ...], np.ndarray, dict[str, str]]:
     """Prepend an ``Offset`` constant column when absent."""
-    if any(name == "Offset" or name.startswith(("Offset_", "PHOFF")) for name in fitpars):
+    if any(
+        name == "Offset" or name.startswith(("Offset_", "PHOFF")) for name in fitpars
+    ):
         return fitpars, np.asarray(design, dtype=float), dict(theta_exact)
     n = int(np.asarray(design).shape[0])
     fitpars = ("Offset",) + tuple(fitpars)
@@ -47,6 +39,10 @@ def linearized_jug_from_design(
     model = LinearModel.from_design(
         fitpars=fitpars, design=design, theta_exact=theta_exact
     )
-    return fitpars, design, JaxLinearTestEngine.from_linear_model(
-        model, gauge_provenance=gauge_free_provenance()
+    return (
+        fitpars,
+        design,
+        JaxLinearTestEngine.from_linear_model(
+            model, residual_centering=gauge_free_centering()
+        ),
     )

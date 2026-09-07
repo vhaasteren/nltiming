@@ -58,9 +58,6 @@ class _BinaryPulsar:
     flags = property(lambda s: s._flags)
     backend_flags = property(lambda s: s._bf)
 
-    def state_id(self):
-        return "bin"
-
     def pint_model(self):
         return None
 

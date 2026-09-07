@@ -21,7 +21,9 @@ def test_binary_axes_are_binary(name):
     assert is_binary_axis(name)
 
 
-@pytest.mark.parametrize("name,canonical", [("XDOT", "A1DOT"), ("E", "ECC"), ("STIG", "STIGMA")])
+@pytest.mark.parametrize(
+    "name,canonical", [("XDOT", "A1DOT"), ("E", "ECC"), ("STIG", "STIGMA")]
+)
 def test_tempo2_spellings_resolve_before_classification(name, canonical):
     """The registry is keyed on PINT names; a par may use either spelling."""
     assert canonical in BINARY_AXES
@@ -68,7 +70,10 @@ def test_linearized_fitpars_use_the_engine_spelling():
     """A PTA-suffixed fitpar is classified through its engine name."""
     fitpars = ("A1_epta", "F0_epta", "PX_epta")
     mapping = {"A1_epta": "A1", "F0_epta": "F0", "PX_epta": "PX"}
-    assert hybrid_linearized_fitpars(fitpars, mapping, "binary") == {"F0_epta", "PX_epta"}
+    assert hybrid_linearized_fitpars(fitpars, mapping, "binary") == {
+        "F0_epta",
+        "PX_epta",
+    }
     assert hybrid_linearized_fitpars(fitpars, mapping, "binary+") == {"F0_epta"}
     assert hybrid_linearized_fitpars(fitpars, mapping, None) == frozenset()
 

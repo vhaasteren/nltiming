@@ -78,9 +78,6 @@ class FakeTimingPulsar:
     def can_use_engines(self, engines="jug") -> bool:
         return True
 
-    def state_id(self) -> str:
-        return "fake-pulsar-v1"
-
 
 @pytest.fixture
 def fake_pulsar_interface() -> FakeTimingPulsar:

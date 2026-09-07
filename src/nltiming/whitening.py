@@ -160,7 +160,9 @@ def _z_space_wls(wls: DeltaWLS, prior_bijector) -> tuple[np.ndarray, np.ndarray]
     return mean_z, covariance_z
 
 
-def _linear_from_z_covariance(covariance_z: np.ndarray, *, mode: str = "whitening") -> np.ndarray:
+def _linear_from_z_covariance(
+    covariance_z: np.ndarray, *, mode: str = "whitening"
+) -> np.ndarray:
     # The only static whitening is the full posterior whitening (§4.4.1); the old
     # diagonal "standardized" mode was retired in favor of the chart system.
     if mode != "whitening":

@@ -75,9 +75,6 @@ class _Pulsar:
     def backend_flags(self):
         return self._backend_flags
 
-    def state_id(self):
-        return "exp-token"
-
     def pint_model(self):
         return None
 
@@ -192,9 +189,6 @@ class _SignedDomainPulsar:
     @property
     def backend_flags(self):
         return self._backend_flags
-
-    def state_id(self):
-        return "signed-domain-token"
 
     def pint_model(self):
         return None

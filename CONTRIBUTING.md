@@ -31,7 +31,8 @@ environment (devcontainer / conda) and sandbox mode for those.
 - `evaluator.py`, mapping-based evaluation, metadata, scans, Jacobians, and
   immutable local weighted fits
 - `engine_config.py`, engine-selection vocabulary (`normalize_engines`)
-- `engine_support.py`, `LinearModel`, validators, `LinearTimingEngine`
+- `engine_support.py`, `LinearModel` / `LinearModelEngine`, validators;
+  re-exports psrdata's record engine (`LinearTimingEngine`)
   (backend adapters live in MetaPulsar's `metapulsar.engines`)
 - `likelihoods/`, Discovery and Enterprise likelihood interfaces
 - `sampling/`, `numpyro.joint_model` / `model` / `nuts`, PTMCMC helpers
@@ -43,6 +44,6 @@ environment (devcontainer / conda) and sandbox mode for those.
   records, optional geometry certifier
 - `metric.py`, `WhiteningConfig`, `LocalPosteriorMetric`, reference-noise metric
   builders, and the static/dynamic transport records
-- `run_io.py`, the `nlt-run-meta-v4` run-metadata format, `RunResults`,
+- `run_io.py`, the `nlt-run-meta-v5` run-metadata format, `RunResults`,
   and the static/dynamic checkpoint writers
 

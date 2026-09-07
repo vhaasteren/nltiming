@@ -1,8 +1,27 @@
-"""Runtime validators and shared engine primitives."""
+"""Runtime validators and shared engine primitives.
+
+Two linear engines meet here, and they are different things:
+
+- :class:`psrdata.LinearTimingEngine` is *the record's own* calculation,
+  ``Δr = -Mmat @ δ`` over a complete ``PulsarData`` (psrdata SPEC section 5).
+  It is re-exported unchanged, together with ``LinearContribution`` and
+  ``linear_engine``.
+- :class:`LinearModelEngine` is this package's reference implementation of
+  its own ``TimingEngine`` protocol over a bare :class:`LinearModel`
+  (fit parameters, one design matrix, reference strings, units). It exists
+  for engine adapters that linearize one block of a larger pulsar and for
+  tests that need an engine without a record.
+"""
 
 from __future__ import annotations
 
+from dataclasses import dataclass, field
+from decimal import Decimal, localcontext
+from typing import Any, Mapping
+
 import numpy as np
+from psrdata import ResidualCentering
+from psrdata.linear import LinearContribution, LinearTimingEngine, linear_engine
 
 from nltiming.protocols import EnterprisePulsarLike, TimingEngine
 
@@ -87,6 +106,24 @@ def validate_engine_shapes(engine: TimingEngine) -> None:
         raise ValueError(f"reference_theta_exact missing fitpars: {missing}")
 
 
+def validate_engine_residual_centering(engine: TimingEngine) -> None:
+    """Check the engine exposes a nonempty ``residual_centering`` mapping."""
+    mapping = getattr(engine, "residual_centering", None)
+    if mapping is None or callable(mapping):
+        raise ValueError(
+            f"Engine {type(engine).__name__} must expose a residual_centering "
+            "mapping (data-set key -> psrdata.ResidualCentering)"
+        )
+    if not mapping:
+        raise ValueError("residual_centering must have one entry per data set")
+    for key, value in mapping.items():
+        if not isinstance(value, ResidualCentering):
+            raise ValueError(
+                f"residual_centering[{key!r}] must be a psrdata.ResidualCentering, "
+                f"got {type(value).__name__}"
+            )
+
+
 def validate_engine_against_pulsar(
     engine: TimingEngine, pulsar: EnterprisePulsarLike, tol: float = 1e-12
 ) -> None:
@@ -94,6 +131,7 @@ def validate_engine_against_pulsar(
     validate_pulsar_surface(pulsar)
     validate_engine_shapes(engine)
     validate_engine_zero_delta(engine, tol=tol)
+    validate_engine_residual_centering(engine)
     design = np.asarray(engine.design_matrix(), dtype=float)
     pulsar_design = np.asarray(pulsar.Mmat, dtype=float)
     nrows = len(pulsar.toas)
@@ -109,16 +147,148 @@ def validate_engine_against_pulsar(
         )
 
 
-# The linear engine is the record's own: ``Δr = −Mmat δ`` over the record's
-# matrix, with every optional hook this package reads answered for the linear
-# case. It lives with the record (psrdata) and is re-exported here under the
-# names MetaPulsar's linearized stand-ins and this package's tests import.
-from psrdata.linear import (  # noqa: E402
-    LinearContribution,
-    LinearModel,
-    LinearTimingEngine,
-    RecordLinearTimingEngine,
-)
+# --- a linear engine over a bare design matrix ---------------------------------
+
+#: Unit label of a :class:`LinearModel` column whose caller supplied none.
+#: Production engines take their units from the record's parameter facts
+#: (PINT units, psrdata R-3.5.3); this placeholder is for test doubles.
+UNKNOWN_UNIT = "native"
+
+
+@dataclass(frozen=True)
+class LinearModel:
+    """One linear timing block: fit parameters, matrix, references and units.
+
+    ``design`` is in fitter sign, ``Δr ≈ -design @ δ``. ``theta_exact`` holds
+    the reference value of each fit parameter as a decimal string and
+    ``native_units`` its unit label, both keyed by fit parameter.
+    """
+
+    fitpars: tuple[str, ...]
+    design: np.ndarray
+    theta_exact: Mapping[str, str] = field(default_factory=dict)
+    native_units: Mapping[str, str] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        fitpars = tuple(str(name) for name in self.fitpars)
+        design = np.asarray(self.design, dtype=float)
+        if design.ndim != 2 or design.shape[1] != len(fitpars):
+            raise ValueError(
+                f"design must have shape (n, {len(fitpars)}) for fitpars "
+                f"{fitpars}; got {design.shape}"
+            )
+        theta = {name: str(self.theta_exact.get(name, "0.0")) for name in fitpars}
+        units = {
+            name: str(self.native_units.get(name, UNKNOWN_UNIT)) for name in fitpars
+        }
+        object.__setattr__(self, "fitpars", fitpars)
+        object.__setattr__(self, "design", design)
+        object.__setattr__(self, "theta_exact", theta)
+        object.__setattr__(self, "native_units", units)
+
+    @classmethod
+    def from_design(
+        cls,
+        *,
+        fitpars,
+        design,
+        theta_exact: Mapping[str, str] | None = None,
+        native_units: Mapping[str, str] | None = None,
+    ) -> "LinearModel":
+        return cls(
+            fitpars=tuple(fitpars),
+            design=design,
+            theta_exact=dict(theta_exact or {}),
+            native_units=dict(native_units or {}),
+        )
+
+    def reference_theta(self) -> np.ndarray:
+        """float64 reference vector, each entry the correctly rounded decimal."""
+        with localcontext() as ctx:
+            ctx.prec = 60
+            return np.array(
+                [float(Decimal(self.theta_exact[name])) for name in self.fitpars],
+                dtype=float,
+            )
+
+
+class LinearModelEngine:
+    """This package's reference ``TimingEngine`` over a :class:`LinearModel`.
+
+    ``residual_delta(δ) = -design @ δ``; every fit parameter is identically
+    linear. ``residual_centering`` is a one-entry mapping unless the caller
+    supplies a mapping; a caller that knows nothing leaves it ``"unknown"``.
+    """
+
+    engine_name = "linear"
+    nonlinear_params: str | None = None
+
+    def __init__(
+        self,
+        model: LinearModel,
+        *,
+        residual_centering: (
+            ResidualCentering | Mapping[str, ResidualCentering] | None
+        ) = None,
+        key: str = "single",
+    ):
+        self._model = model
+        self.fitpars = tuple(model.fitpars)
+        self.native_units = dict(model.native_units)
+        if residual_centering is None:
+            residual_centering = ResidualCentering(stored_residuals="unknown")
+        if isinstance(residual_centering, ResidualCentering):
+            residual_centering = {key: residual_centering}
+        self.residual_centering: dict[str, ResidualCentering] = dict(residual_centering)
+        validate_engine_residual_centering(self)
+
+    @classmethod
+    def from_linear_model(
+        cls,
+        model: LinearModel,
+        *,
+        residual_centering: (
+            ResidualCentering | Mapping[str, ResidualCentering] | None
+        ) = None,
+        **_ignored: Any,
+    ) -> "LinearModelEngine":
+        return cls(model, residual_centering=residual_centering)
+
+    @property
+    def model(self) -> LinearModel:
+        return self._model
+
+    def reference_theta(self) -> np.ndarray:
+        return self._model.reference_theta()
+
+    def reference_theta_exact(self) -> Mapping[str, str]:
+        return dict(self._model.theta_exact)
+
+    def residual_delta(self, delta_theta) -> np.ndarray:
+        delta = np.asarray(delta_theta, dtype=float).reshape(-1)
+        if delta.shape != (len(self.fitpars),):
+            raise ValueError(
+                f"delta_theta must have shape ({len(self.fitpars)},); "
+                f"got {delta.shape}"
+            )
+        return -(self._model.design @ delta)
+
+    def design_matrix(self, params: Any | None = None) -> np.ndarray:
+        _ = params
+        return self._model.design
+
+    def residual_jacobian(self) -> np.ndarray:
+        return -self._model.design
+
+    def identically_linear_fitpars(self) -> frozenset[str]:
+        return frozenset(self.fitpars)
+
+    def binary_chart_capability(self, *args: Any, **kwargs: Any) -> None:
+        return None
+
+    def __repr__(self) -> str:
+        return f"<{type(self).__name__} fitpars={list(self.fitpars)}>"
+
 
 __all__ = [
     "validate_pulsar_surface",
@@ -126,9 +296,12 @@ __all__ = [
     "is_exact_linear_param",
     "validate_engine_zero_delta",
     "validate_engine_shapes",
+    "validate_engine_residual_centering",
     "validate_engine_against_pulsar",
+    "UNKNOWN_UNIT",
     "LinearModel",
+    "LinearModelEngine",
     "LinearContribution",
     "LinearTimingEngine",
-    "RecordLinearTimingEngine",
+    "linear_engine",
 ]

@@ -608,6 +608,7 @@ def test_te1_cross_frontend_density_parity(_duck_ctx):
     from nltiming import box_hyper_probe_points
     from nltiming.likelihoods.enterprise import enterprise_marginal_products
     import nltiming.sampling as nlts
+
     decentered_target = nlts.ptmcmc.decentered_target
 
     ctx = _duck_ctx

@@ -6,31 +6,21 @@ import numpy as np
 import pytest
 
 from _engine_stubs import JaxLinearTestEngine
+from psrdata import ResidualCentering
+
 from nltiming.engine_support import (
     LinearModel,
-    LinearTimingEngine,
+    LinearModelEngine,
     is_exact_linear_param,
     validate_engine_zero_delta,
     zero_delta_tolerance,
 )
 from nltiming.nonlinear_timing_model import (
     TimingSpec,
-    _normalize_gauge_provenance,
+    _normalize_residual_centering,
 )
-from nltiming.protocols import GaugeProvenance
 from nltiming.run_io import build_run_manifest
 from nltiming import WhiteningConfig, TimingInference
-
-
-def _gf(**kwargs):
-    base = dict(
-        export="none",
-        reference_mode="none",
-        reporting_mode="mean",
-        reporting_weighted=True,
-    )
-    base.update(kwargs)
-    return GaugeProvenance(**base)
 
 
 def _model():
@@ -41,12 +31,18 @@ def _model():
     )
 
 
-def test_linear_timing_engine_requires_gauge_provenance():
-    with pytest.raises(TypeError):
-        LinearTimingEngine(_model())
+def test_linear_model_engine_defaults_to_unknown_centering():
+    engine = LinearModelEngine(_model())
+    assert engine.residual_centering == {
+        "single": ResidualCentering(stored_residuals="unknown")
+    }
+    keyed = LinearModelEngine(
+        _model(), residual_centering=ResidualCentering("none"), key="epta"
+    )
+    assert tuple(keyed.residual_centering) == ("epta",)
 
 
-def test_context_gauge_provenance_for_direct_engine(tmp_path):
+def test_context_residual_centering_for_direct_engine(tmp_path):
     class _Pulsar:
         def __init__(self):
             self.name = "J1234+5678"
@@ -87,9 +83,6 @@ def test_context_gauge_provenance_for_direct_engine(tmp_path):
         def backend_flags(self):
             return self._backend_flags
 
-        def state_id(self):
-            return "g14a"
-
         def pint_model(self):
             return None
 
@@ -104,39 +97,40 @@ def test_context_gauge_provenance_for_direct_engine(tmp_path):
         name="timing",
     )
     ctx = ntm.for_pulsar(pulsar, condition=True)
-    assert len(ctx.gauge_provenance) == 1
-    assert ctx.gauge_provenance[0][0] == "J1234+5678"
-    assert ctx.gauge_provenance[0][1].export == "none"
+    assert len(ctx.residual_centering) == 1
+    assert ctx.residual_centering[0][0] == "single"
+    assert ctx.residual_centering[0][1].stored_residuals == "unknown"
 
     manifest = build_run_manifest(ctx, likelihood="discovery", sampler="test")
     meta = manifest.run_meta()
-    assert meta["schema"] == "nlt-run-meta-v4"
-    assert "J1234+5678" in meta["gauge"]["contributions"]
-    assert meta["gauge"]["export"] == "none"
+    assert meta["schema"] == "nlt-run-meta-v5"
+    assert "single" in meta["residual_centering"]["contributions"]
+    assert meta["residual_centering"]["stored_residuals"] == "unknown"
+    assert meta["residual_centering"]["standard_output"] == "mean_removed"
 
 
-def test_normalize_raises_when_leaf_omits_gauge_provenance():
-    class _NoProv:
+def test_normalize_raises_when_the_engine_omits_residual_centering():
+    class _NoCentering:
         fitpars = ("F0", "Offset")
 
     class _Pulsar:
         name = "x"
         fitpars = ("F0", "Offset")
 
-    with pytest.raises(ValueError, match="gauge_provenance"):
-        _normalize_gauge_provenance(_Pulsar(), _NoProv())
+    with pytest.raises(ValueError, match="residual_centering"):
+        _normalize_residual_centering(_Pulsar(), _NoCentering())
+
+    class _Wrong:
+        fitpars = ("F0", "Offset")
+        residual_centering = {"single": "none"}
+
+    with pytest.raises(ValueError, match="ResidualCentering"):
+        _normalize_residual_centering(_Pulsar(), _Wrong())
 
 
-def _gauge_free() -> GaugeProvenance:
-    return GaugeProvenance(
-        export="none",
-        reference_mode="none",
-        reporting_mode="mean",
-        reporting_weighted=True,
-    )
-
-
-def _assert_sign_contract(engine, *, modulo_constant: bool = False, rtol=1e-10, atol=1e-12):
+def _assert_sign_contract(
+    engine, *, modulo_constant: bool = False, rtol=1e-10, atol=1e-12
+):
     """Δr(δ) ≈ -M δ; on pre-gauged blocks, compare modulo an additive constant."""
     M = np.asarray(engine.design_matrix(), dtype=float)
     delta = np.linspace(0.1, 0.1 * len(engine.fitpars), len(engine.fitpars))
@@ -160,7 +154,7 @@ def _sign_model(fitpars=("F0", "Offset"), n=4):
 
 
 def test_linear_timing_engine_sign_contract():
-    eng = LinearTimingEngine(_sign_model(), gauge_provenance=_gauge_free())
+    eng = LinearModelEngine(_sign_model())
     _assert_sign_contract(eng)
 
 
