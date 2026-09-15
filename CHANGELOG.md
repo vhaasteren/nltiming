@@ -6,6 +6,11 @@ the public API may change between tags.
 ## Unreleased
 
 ### Changed
+- Default timing engine is vela-jax (`TimingSpec()`, `normalize_engines` fill,
+  `TimingEvaluator`). JUG remains available as `engines="jug"`; JUG graph-mode
+  knobs (`tempo2_native`, `tempo2_jug_options`) are refused unless JUG is
+  selected, and are no longer forwarded into vela-jax / PINT / libstempo
+  engine builds.
 - psrdata SPEC v1 alignment. `TimingEngine.gauge_provenance()` /
   `gauge_applied` are replaced by a `residual_centering` mapping (data-set
   key to `psrdata.ResidualCentering`), one entry per data set for a single
@@ -20,7 +25,7 @@ the public API may change between tags.
   tests.
 
 ### Added
-- Runnable quickstart scripts under `examples/scripts/` (Discovery/JUG/NUTS
+- Runnable quickstart scripts under `examples/scripts/` (Discovery/vela-jax/NUTS
   and Enterprise/libstempo/PTMCMC) on the shipped J1721-2457 data.
 - `nltiming.configure_logging`: the package now defaults loguru to
   `WARNING` and above instead of loguru's `DEBUG` default.

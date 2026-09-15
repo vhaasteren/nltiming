@@ -8,12 +8,12 @@ the mode a model choice rather than an optimisation.
 
 This module is the single owner of the vocabulary and of what "binary axis"
 means. Engines execute the mode; they do not define it. That ownership used to
-sit in JUG, which meant running a *vela-jax* leg through MetaPulsar imported
-JUG to ask what a binary parameter is -- a hard dependency on the package
-vela-jax exists to replace. The registry below is the union of JUG's
-``_BINARY_PARAMS`` and vela-jax's ``BINARY_AXES``, so neither engine loses an
-axis it can evaluate; JUG keeps its own copy for JUG-internal use, and there is
-no import cycle in either direction.
+sit in JUG, which meant a vela-jax leg through MetaPulsar imported JUG to ask
+what a binary parameter is -- a hard dependency on an optional engine. The
+registry below is the union of JUG's ``_BINARY_PARAMS`` and vela-jax's
+``BINARY_AXES``, so neither engine loses an axis it can evaluate; JUG keeps
+its own copy for JUG-internal use, and there is no import cycle in either
+direction.
 """
 
 from __future__ import annotations

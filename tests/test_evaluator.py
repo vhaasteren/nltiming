@@ -10,7 +10,7 @@ from psrdata import ResidualCentering
 
 
 class _LinearBackend:
-    backend_name = "jug"
+    backend_name = "vela_jax"
     fitpars = ("F0", "Offset")
     native_units = {"F0": "Hz", "Offset": "s"}
 
@@ -68,7 +68,7 @@ class _Pulsar:
     def pint_model(self):
         return None
 
-    def timing_engine(self, engines="jug", **kwargs):
+    def timing_engine(self, engines="vela_jax", **kwargs):
         return self._backend
 
 

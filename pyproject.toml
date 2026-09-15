@@ -40,8 +40,8 @@ dependencies = [
 [project.optional-dependencies]
 # Not on PyPI (name collides with an unrelated ETCD package 0.0.x).
 # Temporary fork: JAX cho_solve static-arg fix for current JAX (upstream PR TBD).
-# JUG installation lives on MetaPulsar's jug extra; nltiming keeps JAX/NumPyro
-# groups for likelihood evaluation only.
+# Timing-engine extras live on MetaPulsar (vela_jax default, jug optional);
+# nltiming keeps JAX/NumPyro groups for likelihood evaluation only.
 discovery = [
     "discovery @ git+https://github.com/vhaasteren/discovery.git@temp/nltiming",
 ]
@@ -112,7 +112,8 @@ addopts = [
 ]
 markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
-    "requires_jug: marks tests that need the JUG/JAX timing engine",
+    "requires_jug: marks tests that need the optional JUG timing engine",
+    "requires_vela_jax: marks tests that need the vela-jax timing engine",
     "requires_libstempo: marks tests that need libstempo/tempo2 available",
     "requires_discovery: marks tests that need the discovery package",
     "requires_enterprise: marks tests that need enterprise-pulsar",

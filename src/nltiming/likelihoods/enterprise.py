@@ -33,9 +33,10 @@ from nltiming.space import coord_for_static_layer
 def _residual_delta(engine, full_delta: np.ndarray) -> np.ndarray:
     """Evaluate residual delta, preferring the JAX path when available.
 
-    The JUG NumPy residual path is deprecated and less accurate at large
-    deltas; using the JAX path keeps the Enterprise likelihood consistent
-    with the Discovery likelihood interface on JAX-capable engines.
+    ``residual_delta_jax`` is the NUTS/Discovery path. Some engines (notably
+    JUG) also expose a NumPy residual that drifts from the JAX graph at large
+    deltas; using the JAX path when it exists keeps the Enterprise likelihood
+    consistent with Discovery.
     """
     fn = getattr(engine, "residual_delta_jax", None)
     if fn is not None:

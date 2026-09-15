@@ -4,7 +4,24 @@ from __future__ import annotations
 
 import pytest
 
-from nltiming.engine_config import _IMPL_FAMILY, normalize_engines
+from nltiming.engine_config import DEFAULT_ENGINE, _IMPL_FAMILY, normalize_engines
+
+
+def test_default_engine_is_vela_jax():
+    assert DEFAULT_ENGINE == "vela_jax"
+    assert normalize_engines({}) == {"pint": "vela_jax", "tempo2": "vela_jax"}
+    assert normalize_engines("vela_jax") == {"pint": "vela_jax", "tempo2": "vela_jax"}
+
+
+def test_omitted_native_package_fills_with_vela_jax():
+    assert normalize_engines({"pint": "pint"}) == {
+        "pint": "pint",
+        "tempo2": "vela_jax",
+    }
+
+
+def test_jug_remains_an_explicit_choice():
+    assert normalize_engines("jug") == {"pint": "jug", "tempo2": "jug"}
 
 
 def test_normalize_engines_accepts_vela_for_pint_family():

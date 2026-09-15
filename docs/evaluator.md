@@ -9,7 +9,7 @@ from nltiming.space import ParameterSpace
 
 timing = TimingEvaluator.from_pulsar(
     pulsar,
-    engines={"pint": "jug", "tempo2": "jug"},
+    engines="vela_jax",
     derivative_method="autodiff",
 )
 

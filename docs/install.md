@@ -1,7 +1,8 @@
 # Installation
 
 `nltiming` is alpha software and is not on PyPI yet. Everything installs from
-git. Python 3.11 or newer is required; the default JUG timing engine needs 3.12.
+git. Python 3.11 or newer is required. The default vela-jax engine runs on
+3.11; the optional JUG engine needs 3.12.
 
 ## Typical stack
 
@@ -12,8 +13,8 @@ pip install "nltiming[discovery,numpyro] @ git+https://github.com/vhaasteren/nlt
 # nltiming + Enterprise + PTMCMCSampler
 pip install "nltiming[enterprise,ptmcmc] @ git+https://github.com/vhaasteren/nltiming"
 
-# The pulsar host (required today) and the JUG timing engine
-pip install "metapulsar[jug] @ git+https://github.com/vhaasteren/metapulsar"
+# The pulsar host (required today) and the default JAX timing engine (vela-jax)
+pip install "metapulsar[vela_jax] @ git+https://github.com/vhaasteren/metapulsar"
 ```
 
 Extras can be combined: `nltiming[discovery,numpyro,enterprise,ptmcmc]`.
@@ -40,11 +41,11 @@ pulsar host. Today the host is [MetaPulsar](https://github.com/vhaasteren/metapu
 
 | Engine | `engines=` | Install | Gradients |
 |--------|-----------|---------|-----------|
-| JUG (JAX) | `"jug"` | `metapulsar[jug]`, Python 3.12 | yes (NUTS) |
+| vela-jax (default; Vela's chain in JAX, PINT or tempo2 host) | `"vela_jax"` | `metapulsar[vela_jax]`; the package is not public yet | yes (NUTS) |
+| JUG (optional JAX timing package) | `"jug"` | `metapulsar[jug]`, Python 3.12 | yes (NUTS) |
 | libstempo / tempo2 | `"libstempo"` | `metapulsar[libstempo]` + system tempo2 | no (PTMCMC, derivative-free) |
 | PINT | `"pint"` | included with MetaPulsar | no |
 | Vela.jl | `"vela"` | `metapulsar[vela]` + Julia | no |
-| vela-jax (Vela's chain in JAX, PINT or tempo2 host) | `"vela_jax"` | `metapulsar[vela_jax]`; the package is not public yet | yes (NUTS) |
 
 ## tempo2 / libstempo
 
@@ -89,6 +90,6 @@ logger.add(sys.stderr, level="INFO")
 ## Check the install
 
 ```bash
-python -c "import nltiming, metapulsar, jug, discovery, numpyro; print(nltiming.__name__)"
+python -c "import nltiming, metapulsar, vela_jax, discovery, numpyro; print(nltiming.__name__)"
 cd examples/scripts && python quickstart_discovery.py
 ```

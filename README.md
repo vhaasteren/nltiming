@@ -37,8 +37,8 @@ Alpha, not on PyPI yet. Install from git together with the pulsar host,
 # nltiming with the Discovery / NumPyro sampling stack
 pip install "nltiming[discovery,numpyro] @ git+https://github.com/vhaasteren/nltiming"
 
-# pulsar host + JAX timing engine (JUG); needs Python >= 3.12
-pip install "metapulsar[jug] @ git+https://github.com/vhaasteren/metapulsar"
+# pulsar host + default JAX timing engine (vela-jax)
+pip install "metapulsar[vela_jax] @ git+https://github.com/vhaasteren/metapulsar"
 ```
 
 For Enterprise and PTMCMC add the `enterprise,ptmcmc` extras. The full
@@ -47,7 +47,7 @@ dependency table, the tempo2 path, and the pinned development branches are in
 
 ## Quickstart
 
-One pulsar, Discovery, the JUG engine, NUTS. This is
+One pulsar, Discovery, the vela-jax engine, NUTS. This is
 [`examples/scripts/quickstart_discovery.py`](examples/scripts/quickstart_discovery.py);
 it runs in under a minute on the example data in the repository.
 
@@ -74,7 +74,7 @@ pulsar = create_metapulsar(
 
 # 2. The timing model. The default plan samples the nonlinear axes and
 #    marginalizes the rest analytically.
-spec = TimingSpec(engines="jug")
+spec = TimingSpec()  # engines="vela_jax": PINT or tempo2 reads, Vela's chain evaluates
 timing = spec.for_pulsar(pulsar)
 print("sampled:", timing.sampled)
 
@@ -134,19 +134,21 @@ par-file uncertainty.
 ```python
 from nltiming import TimingSpec, TimingInference, priors
 
-# Default: sample the nonlinear block, marginalize the linear axes.
-TimingSpec(engines="jug")
+# Default: vela-jax kernel; sample the nonlinear block, marginalize the linear axes.
+TimingSpec()
 
 # Sample every timing parameter (joint full-basis NUTS).
-TimingSpec(engines="jug", inference="all")
+TimingSpec(inference="all")
 
 # Name the marginalized axes explicitly; unmentioned axes are sampled.
 TimingSpec(
-    engines="jug",
     inference=TimingInference.groups(delta_flat=["DM", "DM1"], z_prior=["F0", "F1"]),
     priors={"TASC": priors.delta_uniform(-0.5, 0.5, scale="PB")},
     binary_chart="auto",      # ECC/OM/T0 -> EPS1/EPS2/TASC for near-circular orbits
 )
+
+# Optional: JUG as the JAX engine instead of vela-jax (Python >= 3.12).
+TimingSpec(engines="jug")
 ```
 
 `timing.plan`, `timing.sampled`, `timing.marginalized`, and
@@ -160,7 +162,7 @@ Introductions for PTA users who have not sampled a timing model before, in
 
 | # | Notebook | Focus |
 |---|----------|-------|
-| 1 | `01_discovery_enterprise_backends.ipynb` | Discovery + Enterprise on one pulsar, JUG / libstempo / Vela engines, chains and corner plots |
+| 1 | `01_discovery_enterprise_backends.ipynb` | Discovery + Enterprise on one pulsar, vela-jax / libstempo / Vela / JUG engines, chains and corner plots |
 | 2 | `02_charts_and_binary.ipynb` | Per-axis coordinate charts and the Kepler-to-Laplace binary chart |
 | 3 | `03_decentering_and_full_basis.ipynb` | Default decentered sampling vs `inference="all"` |
 | 4 | `04_geometry.ipynb` | Certify the sampling geometry before running NUTS |
@@ -187,16 +189,17 @@ Alpha; the API may change between tags.
   are planned.
 - The `discovery` extra installs a fork branch with a JAX fix; `enterprise`
   installs the NANOGrav `dev` branch. Both are temporary.
-- The JUG engine needs Python 3.12. PINT, libstempo, Vela and vela-jax engines
-  work on 3.11.
+- The default engine is vela-jax (Python 3.11). JUG is optional and needs
+  Python 3.12. PINT, libstempo and Vela.jl work on 3.11.
 - Out of scope by design: noise bases, spectra and correlated-noise
   likelihoods. Those stay with Discovery and Enterprise.
 
 ## Related projects
 
 [MetaPulsar](https://github.com/vhaasteren/metapulsar) (multi-PTA pulsar
-host), [JUG](https://github.com/MattTMiles/jug) (JAX timing engine),
-vela-jax (Vela.jl's delay chain in JAX, not public yet),
+host), vela-jax (default JAX delay: Vela.jl's chain over a PINT or tempo2
+freeze; not public yet), [JUG](https://github.com/MattTMiles/jug)
+(optional JAX timing engine),
 [Discovery](https://github.com/nanograv/discovery),
 [Enterprise](https://github.com/nanograv/enterprise),
 [Vela.jl](https://github.com/abhisrkckl/Vela.jl),

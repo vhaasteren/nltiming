@@ -22,8 +22,8 @@ from nltiming import TimingSpec, sampling
 sampling.numpyro.ensure_x64()
 
 spec = TimingSpec(
-    engines="jug",
     inference="all",          # sample every timing axis
+    # engines="vela_jax"      # default JAX kernel
     # whitening=None          # default: identity static layer (sampler coord z)
 )
 timing = spec.for_pulsar(pulsar)  # pulsar: TimingPulsar (MetaPulsar today)

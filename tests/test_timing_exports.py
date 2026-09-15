@@ -1,6 +1,5 @@
 """Public export surface for the timing package."""
 
-import pytest
 from nltiming import (
     EnterprisePulsarLike,
     EphemerisExtras,
@@ -23,7 +22,7 @@ def test_timing_subpackage_exports():
 
 
 def test_timing_imports_and_constructs_without_jug():
-    """JUG-free configs must import and construct with jug/jax uninstalled.
+    """Default and JUG-free configs must import and construct with jug uninstalled.
 
     Runs in a subprocess with ``jug`` and ``jax`` blocked from importing, so
     the check is meaningful even in environments where both are installed.
@@ -38,6 +37,9 @@ def test_timing_imports_and_constructs_without_jug():
             "sys.modules['jax'] = None",
             "import nltiming",
             "from nltiming import TimingSpec",
+            "default = TimingSpec()",
+            "assert default.engines == {'tempo2': 'vela_jax', 'pint': 'vela_jax'}",
+            "assert default.tempo2_jug_options is None",
             "m = TimingSpec(" "engines={'tempo2': 'libstempo', 'pint': 'pint'})",
             "assert m.tempo2_jug_options is None",
             "m.set_prior('F0', 'normal', mean=0.0, std=1.0)",

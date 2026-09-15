@@ -72,10 +72,10 @@ class FakeTimingPulsar:
     def pint_model(self):
         return None
 
-    def timing_engine(self, engines="jug") -> FakeTimingEngine:
+    def timing_engine(self, engines="vela_jax") -> FakeTimingEngine:
         return FakeTimingEngine(self.fitpars)
 
-    def can_use_engines(self, engines="jug") -> bool:
+    def can_use_engines(self, engines="vela_jax") -> bool:
         return True
 
 

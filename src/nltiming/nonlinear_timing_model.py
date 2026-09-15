@@ -68,7 +68,7 @@ from .priors import (
 from .space import ParameterSpace, coord_for_static_layer
 from .units import lookup_pint_param, native_physical_bounds, to_native
 from .whitening import posterior_linear_transform, schur_delta_wls
-from .engine_config import normalize_engines
+from .engine_config import DEFAULT_ENGINE, normalize_engines
 
 _DERIVATIVE_METHODS = {"analytic", "autodiff"}
 _PRIOR_OVERRIDE_POLICIES = {"warn", "strict"}
@@ -89,7 +89,7 @@ def _normalize_derivative_method(method: str) -> str:
 
 # The hybrid vocabulary lives in `nltiming.hybrid`, which owns both the closed
 # mode set and what counts as a binary axis. It used to be JUG's, which meant
-# running a *vela-jax* leg through MetaPulsar imported JUG to ask what a binary
+# a vela-jax leg through MetaPulsar imported JUG to ask what a binary
 # parameter is.
 from .hybrid import validate_nonlinear_params as _validate_nonlinear_params
 
@@ -108,7 +108,7 @@ def _check_engine_nonlinear_params(engine, requested: str | None) -> None:
             f"timing engine executes nonlinear_params={executed!r} but "
             f"{requested!r} was requested; every contribution's engine must "
             "honour the hybrid residual mode (MetaPulsar.timing_engine does "
-            "for jug/libstempo/vela/pint)"
+            "for vela_jax/jug/libstempo/vela/pint)"
         )
 
 
@@ -1147,7 +1147,7 @@ class TimingSpec:
     def __init__(
         self,
         *,
-        engines: str | Mapping[str, str] = "jug",
+        engines: str | Mapping[str, str] = DEFAULT_ENGINE,
         derivative_method: str = "analytic",
         tempo2_native: str | None = None,
         tempo2_jug_options: Mapping[str, Any] | None = None,
@@ -1189,6 +1189,13 @@ class TimingSpec:
         self._tempo2_jug_options_raw = (
             None if tempo2_jug_options is None else dict(tempo2_jug_options)
         )
+        if (
+            self.tempo2_native is not None or self._tempo2_jug_options_raw is not None
+        ) and "jug" not in self.engines.values():
+            raise ValueError(
+                "tempo2_native and tempo2_jug_options are JUG graph-mode knobs; "
+                "include 'jug' in engines or omit them"
+            )
         self.nonlinear_params = _validate_nonlinear_params(nonlinear_params)
         self.prior_override_policy = override_policy
         self.inference = inference
@@ -1221,12 +1228,11 @@ class TimingSpec:
 
     def _uses_jug(self) -> bool:
         # ``nonlinear_params`` deliberately does not count: the hybrid mode is
-        # executed by every engine family, not only JUG.
-        return (
-            "jug" in self.engines.values()
-            or self.tempo2_native is not None
-            or self._tempo2_jug_options_raw is not None
-        )
+        # executed by every engine family, not only JUG. Graph-mode knobs
+        # (``tempo2_native``, ``tempo2_jug_options``) are refused at
+        # construction unless ``jug`` is actually selected, so they cannot
+        # drag JUG into a vela-jax / PINT / libstempo spec.
+        return "jug" in self.engines.values()
 
     @property
     def tempo2_jug_options(self) -> dict[str, Any] | None:
@@ -1348,20 +1354,21 @@ class TimingSpec:
 
     @property
     def resolved_tempo2_native(self) -> str:
-        """The tempo2-native mode after default resolution (§18).
+        """The JUG tempo2-native mode after default resolution.
 
-        Omitting ``tempo2_native`` resolves to ``"fixed_state_stripped"`` — the
-        production default — through every layer: this value is what the JUG
-        engine is built with and what the config fingerprint and run manifest
-        record. Any other value is an explicit user choice. The raw
-        ``self.tempo2_native`` (``None`` when omitted) is retained only as the
-        "user set a mode" signal for :meth:`_uses_jug`.
+        Meaningful only when ``engines`` selects ``jug``. Omitting
+        ``tempo2_native`` on a JUG spec resolves to ``"fixed_state_stripped"``
+        — JUG's production default — and that is what the engine is built
+        with and what the config fingerprint records. Any other value is an
+        explicit user choice. Non-JUG specs do not forward this knob.
         """
         if self.tempo2_native is None:
             return "fixed_state_stripped"
         return str(self.tempo2_native)
 
-    def _tempo2_native_fingerprint(self) -> str:
+    def _tempo2_native_fingerprint(self) -> str | None:
+        if not self._uses_jug():
+            return None
         return self.resolved_tempo2_native
 
     def _nonlinear_params_fingerprint(self) -> str | None:
@@ -1369,14 +1376,16 @@ class TimingSpec:
         return self.nonlinear_params
 
     def _timing_engine_kwargs(self) -> dict[str, Any]:
-        return {
-            "tempo2_native": self.resolved_tempo2_native,
-            "tempo2_jug_options": self.tempo2_jug_options,
+        kwargs: dict[str, Any] = {
             "nonlinear_params": self.nonlinear_params,
             "prime_sessions": True,
             "verify_wiring": False,
             "subtract_tzr": False,
         }
+        if self._uses_jug():
+            kwargs["tempo2_native"] = self.resolved_tempo2_native
+            kwargs["tempo2_jug_options"] = self.tempo2_jug_options
+        return kwargs
 
     def _engine_for_pulsar(self, pulsar):
         engine = pulsar.timing_engine(

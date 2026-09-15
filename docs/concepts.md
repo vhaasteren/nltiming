@@ -45,9 +45,10 @@ What to sample is a **typed inference plan** (`inference=`). You name what is
 from nltiming import TimingSpec, TimingInference, InferencePreset
 
 # Everyday presets (strings or InferencePreset):
-TimingSpec(engines="jug")                      # == inference="default"
-TimingSpec(engines="jug", inference="all")     # sample every axis
-TimingSpec(engines="jug", inference=InferencePreset.ALL)
+TimingSpec()                                   # vela-jax; == inference="default"
+TimingSpec(inference="all")                    # sample every axis
+TimingSpec(inference=InferencePreset.ALL)
+TimingSpec(engines="jug")                      # optional JUG kernel instead
 
 # Mixed mode: name marginalized axes + measure; unmentioned axes are sampled:
 TimingInference.groups(delta_flat=["DM1"], z_prior=["DM"])

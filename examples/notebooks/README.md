@@ -17,9 +17,9 @@ dependency can be dropped; the `nltiming` API in these notebooks will not
 change.
 
 Run top-to-bottom from `examples/notebooks/` in an environment that has
-MetaPulsar, JUG, Discovery, NumPyro, Enterprise, PTMCMCSampler, and (for
+MetaPulsar, vela-jax, Discovery, NumPyro, Enterprise, PTMCMCSampler, and (for
 notebook 5) pyvela / Vela.jl (e.g. the MetaPulsar devcontainer with this
-package editable-installed).
+package editable-installed). JUG is optional for the JUG comparison cells.
 
 Short, non-notebook versions of the first notebook live in
 [`../scripts/`](../scripts/): `quickstart_discovery.py` and
@@ -29,11 +29,11 @@ Short, non-notebook versions of the first notebook live in
 
 | # | Notebook | Data | Focus |
 |---|----------|------|-------|
-| 1 | `01_discovery_enterprise_backends.ipynb` | J1721-2457 | Discovery + Enterprise, backends (JUG, libstempo, Vela), chains and corner plots |
+| 1 | `01_discovery_enterprise_backends.ipynb` | J1721-2457 | Discovery + Enterprise, backends (vela-jax, libstempo, Vela, optional JUG), chains and corner plots |
 | 2 | `02_charts_and_binary.ipynb` | J1022+1001 | Per-axis charts and Kepler↔Laplace (`EPS1/EPS2/TASC` on a DDH engine) |
 | 3 | `03_decentering_and_full_basis.ipynb` | J1022+1001 | Default decentered sampling vs `inference="all"` |
 | 4 | `04_geometry.ipynb` | J1022+1001 | Certify geometry; `identically_linear` |
-| 5 | `05_vela_discovery_sim.ipynb` | J1909-3744-sim | Three-way overlay on a simulated ELL1 pulsar: native Vela/emcee, nltiming Discovery/JUG/NUTS, and Discovery/Vela/`discovery_target` PTMCMC |
+| 5 | `05_vela_discovery_sim.ipynb` | J1909-3744-sim | Three-way overlay on a simulated ELL1 pulsar: native Vela/emcee, nltiming Discovery/vela-jax/NUTS, and Discovery/Vela/`discovery_target` PTMCMC |
 
 Data lives in [`examples/data/`](../data/): AEI-DR2 combined
 `par-optimized` pars and INCLUDE `.tim` trees, plus the barycentric ELL1

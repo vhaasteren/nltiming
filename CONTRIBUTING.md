@@ -15,7 +15,7 @@ make check    # black, ruff, tests
 ```
 
 Linux CI also installs `libsuitesparse-dev` so `scikit-sparse` (pulled by
-enterprise) can build against CHOLMOD. Tests that need JUG, libstempo,
+enterprise) can build against CHOLMOD. Tests that need vela-jax, JUG, libstempo,
 Discovery, or Enterprise skip cleanly when those packages are not installed.
 libstempo-backed tests are not run on bare runners; use a tempo2-enabled
 environment (devcontainer / conda) and sandbox mode for those.

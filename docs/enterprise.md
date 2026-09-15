@@ -32,7 +32,7 @@ red = gp_signals.FourierBasisGP(
 )
 
 spec = TimingSpec(
-    engines={"tempo2": "jug", "pint": "jug"},
+    engines="vela_jax",
     inference=TimingInference.groups(delta_flat=["DM", "DM1"]),
     whitening=WhiteningConfig(),   # joint vector Parameter in sampler coord x
     priors={"TASC": priors.delta_uniform(-0.5, 0.5, scale="PB")},

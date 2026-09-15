@@ -58,9 +58,9 @@ def validate_pulsar_surface(pulsar: EnterprisePulsarLike) -> None:
 def zero_delta_tolerance(engine: TimingEngine, requested: float) -> float:
     """Return the strict caller-requested residual-delta tolerance.
 
-    JUG's former tempo2-specific relaxation represented a closed
-    reference-state gap. Current tempo2 compatibility has picosecond-tier
-    zero-delta behavior and is validated by the same checks as other engines.
+    A former JUG tempo2-specific relaxation represented a closed
+    reference-state gap. Current engines, including JUG's tempo2 path, have
+    picosecond-tier zero-delta behavior and are validated by the same checks.
     """
     _ = engine
     return float(requested)

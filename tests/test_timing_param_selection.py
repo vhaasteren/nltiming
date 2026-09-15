@@ -406,6 +406,25 @@ def test_with_engines_carries_inference_and_priors(pulsar):
 # tempo2_native default resolution (§18)
 
 
+def test_default_engines_are_vela_jax():
+    ntm = TimingSpec(name="timing")
+    assert ntm.engines == {"tempo2": "vela_jax", "pint": "vela_jax"}
+    assert ntm._uses_jug() is False
+    assert "tempo2_native" not in ntm._timing_engine_kwargs()
+    assert "tempo2_jug_options" not in ntm._timing_engine_kwargs()
+
+
+def test_tempo2_native_without_jug_is_refused():
+    with pytest.raises(ValueError, match="tempo2_native"):
+        TimingSpec(engines="vela_jax", tempo2_native="full", name="timing")
+    with pytest.raises(ValueError, match="tempo2_jug_options"):
+        TimingSpec(
+            engines={"pint": "pint", "tempo2": "libstempo"},
+            tempo2_jug_options={"iers_policy": "warn"},
+            name="timing",
+        )
+
+
 def test_omitted_tempo2_native_resolves_to_fixed_state_stripped():
     ntm = TimingSpec(engines="jug", name="timing")
     # Raw field stays None (the "user set a mode" signal for _uses_jug);
@@ -471,7 +490,10 @@ def test_nonlinear_params_does_not_imply_jug_use():
     )
     assert ntm._uses_jug() is False
     assert ntm.tempo2_jug_options is None
-    assert ntm._timing_engine_kwargs()["nonlinear_params"] == "binary+"
+    kwargs = ntm._timing_engine_kwargs()
+    assert kwargs["nonlinear_params"] == "binary+"
+    assert "tempo2_native" not in kwargs
+    assert "tempo2_jug_options" not in kwargs
 
 
 def test_nonlinear_params_validation_is_local_and_normalizing():

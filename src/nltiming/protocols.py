@@ -1,7 +1,7 @@
 """Protocols for pulsars and timing engines.
 
 Stack layering:
-- **Timing engine** — residuals and design matrix (JUG, PINT, tempo2).
+- **Timing engine** — residuals and design matrix (vela-jax, PINT, tempo2, JUG, Vela.jl).
 - **Likelihood interface** — Enterprise / Discovery signal assembly (``likelihoods/*``).
 - **Sampler** — user-owned posterior driver (PTMCMC, NumPyro NUTS, …); not imported here.
 """
@@ -176,9 +176,9 @@ class TimingPulsar(PulsarData, Protocol):
 
     def pint_model(self) -> Any: ...
 
-    def timing_engine(self, engines="jug") -> TimingEngine: ...
+    def timing_engine(self, engines="vela_jax") -> TimingEngine: ...
 
-    def can_use_engines(self, engines="jug") -> bool: ...
+    def can_use_engines(self, engines="vela_jax") -> bool: ...
 
 
 @runtime_checkable

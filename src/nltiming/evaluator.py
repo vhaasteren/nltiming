@@ -14,6 +14,7 @@ from typing import Any, Literal, cast
 
 import numpy as np
 
+from .engine_config import DEFAULT_ENGINE
 from .selection import match_fitpars, validated_parameter_mapping_view
 from .protocols import JacobianTimingEngine, JaxTimingEngine
 from .space import ParameterSpace
@@ -261,7 +262,7 @@ class TimingEvaluator:
         self,
         pulsar: Any,
         *,
-        engines: str | Mapping[str, str] = "jug",
+        engines: str | Mapping[str, str] = DEFAULT_ENGINE,
         prefer_jax: bool = True,
         **engine_kwargs: Any,
     ):

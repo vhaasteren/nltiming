@@ -2,11 +2,12 @@
 
 `nltiming` owns the nonlinear-timing math, engine-selection vocabulary,
 backend-neutral engine support, and the Discovery and Enterprise likelihood
-interfaces. Concrete PINT, libstempo, JUG, and Vela adapters plus composite
-assembly live in MetaPulsar (`metapulsar.engines`). Pulsars (single-pulsar or
-multi-PTA composites such as MetaPulsar) supply the data via the
-`TimingPulsar` protocol; the JUG package owns the JAX timing-engine
-primitives.
+interfaces. Concrete vela-jax, PINT, libstempo, JUG, and Vela adapters plus
+composite assembly live in MetaPulsar (`metapulsar.engines`). Pulsars
+(single-pulsar or multi-PTA composites such as MetaPulsar, or a vela-jax
+`TimingPulsar`) supply the data via the `TimingPulsar` protocol. The default
+JAX delay kernel is vela-jax (`engines="vela_jax"`). JUG remains an optional
+implementation. nltiming owns the `JaxTimingEngine` protocol, not a kernel.
 
 Deliberately **out of scope**: Fourier/DM/chromatic/ECORR bases, `Phi`
 inference, power-law or free-spectrum projection, and correlated-noise
@@ -23,9 +24,9 @@ The interactive transformed-space (`z`) timing fit (`fit_z`, `jacobian_z`,
 | Nonlinear-timing math (`ParameterSpace`, bijectors, whitening, priors, inference plan) | **nltiming** |
 | Engine protocols, selection vocabulary (`engine_config`), validators (`engine_support`) | **nltiming** |
 | The pulsar record, its feather schema, `ParameterFact` / `ResidualCentering`, and the record's own linear engine (`LinearTimingEngine`; re-exported by `engine_support`, which also owns the bare-matrix `LinearModel` / `LinearModelEngine`) | **psrdata** |
-| Backend adapters (PINT, libstempo, JUG, Vela) + multi-PTA composite | **MetaPulsar** (`metapulsar.engines`) |
+| Backend adapters (vela-jax, PINT, libstempo, JUG, Vela) + multi-PTA composite | **MetaPulsar** (`metapulsar.engines`) |
 | Discovery + Enterprise likelihood interfaces, model helpers, sampler recipes, run products | **nltiming** |
-| JAX / nonlinear timing-engine primitives | **JUG** |
+| Differentiable delay kernel \(r(\theta)\) | **vela-jax** (default). JUG is optional (`engines="jug"`). nltiming owns the `JaxTimingEngine` protocol, not a kernel. |
 | Multi-PTA pulsar, session construction, data combination | **MetaPulsar** |
 | GP bases, `Phi` inference, spectra, correlated-noise likelihoods | **Discovery / Enterprise** |
 
@@ -62,12 +63,12 @@ the original `TimingPulsar` name): frozen TOA arrays, `pint_model()`,
 `timing_engine()`; single-pulsar and multi-PTA composite pulsars both work , 
 PTA-suffixed parameter names are matched by base name.
 
-**Today, MetaPulsar is required.** The only production `TimingPulsar`
-implementation is
-[MetaPulsar](https://github.com/vhaasteren/metapulsar), even for a single PTA
-dataset. Examples and docs therefore build pulsars with `create_metapulsar`.
-Once Discovery and/or Enterprise ship a native `TimingPulsar`, that dependency
-can be dropped; the `nltiming` API does not change.
+**A `TimingPulsar` host is required.** Production implementations today are
+[MetaPulsar](https://github.com/vhaasteren/metapulsar) (one PTA or several) and
+a vela-jax `TimingPulsar` (one pulsar). Examples that combine datasets still
+use `create_metapulsar`. Once Discovery and/or Enterprise ship a native
+`TimingPulsar`, that MetaPulsar dependency can be dropped for the single-pulsar
+path; the `nltiming` API does not change.
 
 
 ## Engine contract: phase gauge and hybrid residual linearization
@@ -87,14 +88,15 @@ is the full native residual at the sampled point; `"binary"` keeps only the
 binary axes nonlinear and evaluates every other fitpar (spin, astrometry,
 DM, …) through its design-matrix column, `−M[:, lin] δ_lin`, with
 astrometry frozen at the par-file reference inside the binary delay;
-`"binary+"` additionally keeps `PX` nonlinear. JUG runs the formula inside
-its residual graph; the libstempo / Vela / PINT adapters realise the same
-model with their native/exact-linear split, using JUG's parameter registry
-for the binary partition. nltiming does not choose a mode from the
-inference plan; it refuses an engine that did not execute the requested
-mode, and the run manifest records the mode the engine *executed*. Under a
-hybrid mode the linearized axes are reported as identically linear by every
-family, on the leaf engines and on the composite alike.
+`"binary+"` additionally keeps `PX` nonlinear. vela-jax and JUG run the
+formula inside their residual graphs; the libstempo / Vela / PINT adapters
+realise the same model with their native/exact-linear split, using
+`nltiming.hybrid`'s binary-axis registry for the partition. nltiming does
+not choose a mode from the inference plan; it refuses an engine that did not
+execute the requested mode, and the run manifest records the mode the engine
+*executed*. Under a hybrid mode the linearized axes are reported as
+identically linear by every family, on the leaf engines and on the composite
+alike.
 
 A linear-vs-nonlinear contrast is therefore a deliberate choice of mode
 (`None` vs `"binary"` / `"binary+"`) by the caller: two runs that both pass

@@ -2,6 +2,12 @@
 
 from __future__ import annotations
 
+# Default implementation when a native package is omitted from ``engines=``.
+# ``vela_jax`` is the JAX delay kernel: PINT or tempo2 reads the files, Vela's
+# ported chain evaluates the residual. JUG remains a legal choice via
+# ``engines="jug"``; it is not the default.
+DEFAULT_ENGINE = "vela_jax"
+
 # Which implementations may serve each native timing package. The key is the
 # package a leg's files were *written* by; the value set is the implementations
 # able to evaluate them.
@@ -37,7 +43,7 @@ def normalize_engines(engines):
         raise ValueError(f"Unknown engine compatibility keys: {sorted(extra)}")
     out = {}
     for native, choices in _ENGINE_CHOICES.items():
-        impl = engines.get(native, "jug")
+        impl = engines.get(native, DEFAULT_ENGINE)
         if impl not in choices:
             raise ValueError(
                 f"engines[{native!r}] must be one of {choices}, got {impl!r}"
@@ -47,6 +53,7 @@ def normalize_engines(engines):
 
 
 __all__ = [
+    "DEFAULT_ENGINE",
     "_ENGINE_CHOICES",
     "_IMPL_FAMILY",
     "normalize_engines",

@@ -1,7 +1,7 @@
 """nltiming quickstart: sample the nonlinear timing block of one pulsar.
 
-Discovery likelihood, JUG timing engine, NumPyro NUTS. Runs top to bottom on
-the J1721-2457 example data shipped with the repository:
+Discovery likelihood, vela-jax timing engine, NumPyro NUTS. Runs top to bottom
+on the J1721-2457 example data shipped with the repository:
 
     cd examples/scripts && python quickstart_discovery.py
 """
@@ -38,7 +38,7 @@ pulsar = create_metapulsar(
 
 # 2. The timing model: which fit parameters to sample, which to marginalize.
 #    The default plan samples the nonlinear axes and marginalizes the rest.
-spec = TimingSpec(engines="jug")
+spec = TimingSpec()  # default engines="vela_jax"
 timing = spec.for_pulsar(pulsar)
 print("sampled:     ", timing.sampled)
 print("marginalized:", timing.marginalized)
