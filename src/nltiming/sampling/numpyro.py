@@ -676,9 +676,20 @@ def _validate_fixed(
                 "fixed cannot pin timing/coefficient parameters (owned by the "
                 f"model): {key!r}"
             )
-        if not isinstance(value, (int, float)):
-            raise TypeError(f"fixed[{key!r}] must be numeric")
-        fixed_params[key] = float(value)
+        if isinstance(value, (int, float)):
+            fixed_params[key] = float(value)
+            continue
+        if key.endswith(")"):
+            # Discovery vector hyperparameter (``name(n)``): pin the whole vector.
+            size = int(key[key.index("(") + 1 : -1])
+            arr = np.asarray(value, dtype=np.float64)
+            if arr.shape != (size,):
+                raise ValueError(
+                    f"fixed[{key!r}] must have shape ({size},), got {arr.shape}"
+                )
+            fixed_params[key] = arr
+            continue
+        raise TypeError(f"fixed[{key!r}] must be numeric")
     return fixed_params
 
 
@@ -773,7 +784,15 @@ def joint_model(
     def nlt_joint_model() -> None:
         params = dict(fixed_params)
         for par in free:
-            params[par] = numpyro.sample(par, dist.Uniform(*bounds[par]))
+            lo, hi = bounds[par]
+            if par.endswith(")"):
+                # Discovery vector hyperparameter (free spectrum): one site.
+                size = int(par[par.index("(") + 1 : -1])
+                params[par] = numpyro.sample(
+                    par, dist.Uniform(lo, hi).expand([size]).to_event(1)
+                )
+            else:
+                params[par] = numpyro.sample(par, dist.Uniform(lo, hi))
 
         xi = numpyro.sample(xi_site, dist.Normal(0.0, 1.0).expand([dim]).to_event(1))
         q, ldj = transport.apply(params, xi)
@@ -1259,7 +1278,16 @@ def decentered_model(
     def nlt_decentered_model() -> None:
         params = dict(fixed_params)
         for par in free:
-            params[par] = numpyro.sample(par, dist.Uniform(*bounds[par]))
+            lo, hi = bounds[par]
+            if par.endswith(")"):
+                # Discovery vector hyperparameter, e.g. ``psr_red_noise_log10_rho(47)``
+                # (free spectrum): one uniform box per component, one site.
+                size = int(par[par.index("(") + 1 : -1])
+                params[par] = numpyro.sample(
+                    par, dist.Uniform(lo, hi).expand([size]).to_event(1)
+                )
+            else:
+                params[par] = numpyro.sample(par, dist.Uniform(lo, hi))
 
         xi = numpyro.sample(xi_site, dist.Normal(0.0, 1.0).expand([dim]).to_event(1))
         z, ldj = transport.apply(params, xi)
@@ -1327,6 +1355,27 @@ def resolve_dense_mass(model_fn: Callable[[], None], dense_mass: Any) -> Any:
     least two hyperparameters, and ``False`` otherwise. It never places the
     vector ``xi`` site in a dense block. Any other (NumPyro-compatible) value —
     ``bool`` or an explicit list of site groups — is forwarded unchanged.
+
+    .. warning::
+
+        The dense block is formed over *every* hyperparameter site, and a
+        vector site contributes all of its components. With scalar power-law
+        hyperparameters the block is a few dozen dimensions and adapts well.
+        With free-spectrum vectors (``psr_red_noise_log10_rho(n)``, one
+        component per bin) the block grows to 88 dimensions on a 409-TOA
+        single-PTA host and 235 on a three-PTA host, far more than NumPyro's
+        early adaptation windows (25 to 75 draws) can estimate. Measured on
+        AEI-DR2 J0613-0200 (PPTA leg, ``decentered_model``, 200 + 200): the
+        dense default saturated the tree depth (973 leapfrogs per iteration,
+        89% at the cap, 1016 s for 200 draws) while a diagonal mass on the
+        identical model needed 125 leapfrogs and 153 s; fixing only the bins
+        (block of 19 scalars) was fast, fixing only the white noise (block of
+        67 bin components) was slow. **These defaults need to change:** at
+        minimum ``"auto"`` should exclude vector sites from the dense block
+        (dense over the scalar hyperparameters, diagonal over vectors), or
+        require warmup windows long enough for the block it builds. Until
+        then, pass ``dense_mass=False`` for any model with free-spectrum or
+        other vector hyperparameter sites.
     """
     if dense_mass != "auto":
         return dense_mass
@@ -1364,6 +1413,16 @@ def nuts(
     only, leaving the intended-white ``xi`` vector on an identity mass
     (:func:`resolve_dense_mass`, §10). Explicit values are forwarded unchanged.
     The requested ``num_warmup``/``num_samples`` are never silently overridden.
+
+    .. warning::
+
+        Do not rely on the ``"auto"`` default when the likelihood carries
+        vector hyperparameter sites (free spectra, ``log10_rho(n)``): the
+        dense block then spans every bin and adapts badly, saturating the
+        tree depth by an order of magnitude in wall time (see
+        :func:`resolve_dense_mass` for the measurement). Pass
+        ``dense_mass=False`` in that case. The default should be revised to
+        exclude vector sites.
 
     Callers must invoke :func:`ensure_x64` before constructing the Discovery
     likelihood, not just before calling this function — JAX arrays already
