@@ -32,7 +32,7 @@ Extras can be combined: `nltiming[discovery,numpyro,enterprise,ptmcmc]`.
 | `dev` | pytest, black, ruff, mypy | Development. |
 
 The pulsar record and its feather schema come from
-[`psrdata`](https://github.com/vhaasteren/psrdata), an unconditional dependency.
+[`psrdata`](https://github.com/nanograv/psrdata), an unconditional dependency.
 
 ## Timing engines
 

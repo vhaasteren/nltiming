@@ -34,7 +34,7 @@ dependencies = [
     # The pulsar record and its feather schema. Unconditional, not an extra:
     # an nltiming that cannot read the file is not a consumer of it, and
     # `LinearTimingEngine.from_feather` is the file-only T0 path.
-    "psrdata @ git+https://github.com/vhaasteren/psrdata.git@main",
+    "psrdata @ git+https://github.com/nanograv/psrdata.git@main",
 ]
 
 [project.optional-dependencies]
