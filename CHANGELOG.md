@@ -3,7 +3,23 @@
 All notable changes to `nltiming` are recorded here. The project is in alpha;
 the public API may change between tags.
 
-## Unreleased
+## [0.1.0] - 2026-09-16
+
+First tagged release.
+
+### Fixed
+- ArviZ 1.x `from_dict` no longer accepts `posterior=`
+  ([#4](https://github.com/vhaasteren/nltiming/issues/4)).
+  `numpyro.posterior` and `RunResults.to_arviz` use both the 0.x kwargs
+  API and the 1.x nested mapping.
+
+### Changed
+- Pin `psrdata` to tag `v0.1.0` (was moving `main`).
+- Discovery extra installs `vhaasteren/discovery@feat/class-tracking`
+  (Transport / metamath). `@temp/nltiming` was a cho_solve-only tip and
+  could not run the NUTS notebooks.
+- `numpyro` extra now includes `arviz>=0.12`.
+- Require `pint-pulsar>=1.1.7`.
 
 ### Changed
 - Default timing engine is vela-jax (`TimingSpec()`, `normalize_engines` fill,

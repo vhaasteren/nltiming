@@ -254,13 +254,7 @@ def posterior(mcmc, ctx, *, units: str = "display"):
     latent ``xi``. Variables use the short sampled timing names and retain the
     NumPyro chain/draw dimensions for standard ArviZ and corner plots.
     """
-    try:
-        import arviz as az
-    except ImportError as exc:
-        raise ImportError(
-            "posterior requires arviz; install arviz (it is also a dependency "
-            "of the corner plotting package)"
-        ) from exc
+    from ..arviz_compat import inference_data_from_dict
 
     names = tuple(ctx.sampled_all)
     samples = mcmc.get_samples(group_by_chain=True)
@@ -290,7 +284,7 @@ def posterior(mcmc, ctx, *, units: str = "display"):
         fw10_absorbed_chart=ctx.fw10_absorbed_chart_manifest(),
     )
     shape = delta.shape[:2]
-    return az.from_dict(
+    return inference_data_from_dict(
         posterior={
             name: np.asarray(values).reshape(shape) for name, values in physical.items()
         }

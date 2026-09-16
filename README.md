@@ -35,7 +35,7 @@ Alpha, not on PyPI yet. Install from git together with the pulsar host,
 
 ```bash
 # nltiming with the Discovery / NumPyro sampling stack
-pip install "nltiming[discovery,numpyro] @ git+https://github.com/vhaasteren/nltiming"
+pip install "nltiming[discovery,numpyro] @ git+https://github.com/vhaasteren/nltiming@v0.1.0"
 
 # pulsar host + default JAX timing engine (vela-jax)
 pip install "metapulsar[vela_jax] @ git+https://github.com/vhaasteren/metapulsar"

@@ -999,27 +999,28 @@ class RunResults:
         raise RunIOError(f"unsupported physical-table extension {path.suffix!r}")
 
     def to_arviz(self, *, sample_stats: Mapping[str, np.ndarray] | None = None):
+        from .arviz_compat import inference_data_from_dict
+
         try:
-            import arviz as az
+            posterior = {k: v[None, ...] for k, v in self.load_display().items()}
+            stats = (
+                {k: np.asarray(v)[None, ...] for k, v in sample_stats.items()}
+                if sample_stats
+                else None
+            )
+            return inference_data_from_dict(
+                posterior=posterior,
+                sample_stats=stats,
+                attrs={
+                    "nlt_run_meta_schema": self.run_meta["schema"],
+                    "space_digest": self.run_meta["parameter_space"]["digest"],
+                    "context_digest": self.run_meta["context_digest"],
+                    "likelihood": self.run_meta["likelihood"],
+                    "sample_coord": self.run_meta["sample_coord"],
+                },
+            )
         except ImportError as exc:
             raise RunIOError("to_arviz requires arviz") from exc
-        posterior = {k: v[None, ...] for k, v in self.load_display().items()}
-        stats = (
-            {k: np.asarray(v)[None, ...] for k, v in sample_stats.items()}
-            if sample_stats
-            else None
-        )
-        return az.from_dict(
-            posterior=posterior,
-            sample_stats=stats,
-            attrs={
-                "nlt_run_meta_schema": self.run_meta["schema"],
-                "space_digest": self.run_meta["parameter_space"]["digest"],
-                "context_digest": self.run_meta["context_digest"],
-                "likelihood": self.run_meta["likelihood"],
-                "sample_coord": self.run_meta["sample_coord"],
-            },
-        )
 
 
 def load_run(

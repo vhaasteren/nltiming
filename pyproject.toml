@@ -29,21 +29,22 @@ dependencies = [
     "numpy>=1.24",
     "scipy>=1.10",
     "astropy>=5.0",
-    "pint-pulsar>=0.9.7",
+    "pint-pulsar>=1.1.7",
     "loguru>=0.7",
     # The pulsar record and its feather schema. Unconditional, not an extra:
     # an nltiming that cannot read the file is not a consumer of it, and
     # `LinearTimingEngine.from_feather` is the file-only T0 path.
-    "psrdata @ git+https://github.com/nanograv/psrdata.git@main",
+    "psrdata @ git+https://github.com/nanograv/psrdata.git@v0.1.0",
 ]
 
 [project.optional-dependencies]
 # Not on PyPI (name collides with an unrelated ETCD package 0.0.x).
-# Temporary fork: JAX cho_solve static-arg fix for current JAX (upstream PR TBD).
+# Transport / metamath live on this fork branch until nanograv/discovery#138
+# merges. @temp/nltiming is the stale cho_solve-only tip and cannot run NUTS.
 # Timing-engine extras live on MetaPulsar (vela_jax default, jug optional);
 # nltiming keeps JAX/NumPyro groups for likelihood evaluation only.
 discovery = [
-    "discovery @ git+https://github.com/vhaasteren/discovery.git@temp/nltiming",
+    "discovery @ git+https://github.com/vhaasteren/discovery.git@feat/class-tracking",
 ]
 # Use nanograv/enterprise@dev (prior_draw_mode, mockpulsar, etc. not yet on PyPI).
 # Pulls scikit-sparse — needs SuiteSparse/CHOLMOD headers (see .github/workflows/ci.yml).
@@ -64,7 +65,7 @@ enterprise_extensions = [
 # (or MetaPulsar sandbox_tempo2) for real tempopulsar evaluation — tempo2 can
 # segfault the host process when used in-process.
 libstempo = ["libstempo>=2.0.0"]
-numpyro = ["jax>=0.4.0", "numpyro>=0.13.0"]
+numpyro = ["jax>=0.4.0", "numpyro>=0.13.0", "arviz>=0.12"]
 ptmcmc = ["ptmcmcsampler>=2.1.0"]
 dev = [
     "pytest>=7.0",

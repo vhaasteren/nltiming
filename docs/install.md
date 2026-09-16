@@ -1,17 +1,17 @@
 # Installation
 
-`nltiming` is alpha software and is not on PyPI yet. Everything installs from
-git. Python 3.11 or newer is required. The default vela-jax engine runs on
+`nltiming` is alpha software and is not on PyPI yet. Install the `v0.1.0`
+git tag. Python 3.11 or newer is required. The default vela-jax engine runs on
 3.11; the optional JUG engine needs 3.12.
 
 ## Typical stack
 
 ```bash
 # nltiming + Discovery + NumPyro (NUTS)
-pip install "nltiming[discovery,numpyro] @ git+https://github.com/vhaasteren/nltiming"
+pip install "nltiming[discovery,numpyro] @ git+https://github.com/vhaasteren/nltiming@v0.1.0"
 
 # nltiming + Enterprise + PTMCMCSampler
-pip install "nltiming[enterprise,ptmcmc] @ git+https://github.com/vhaasteren/nltiming"
+pip install "nltiming[enterprise,ptmcmc] @ git+https://github.com/vhaasteren/nltiming@v0.1.0"
 
 # The pulsar host (required today) and the default JAX timing engine (vela-jax)
 pip install "metapulsar[vela_jax] @ git+https://github.com/vhaasteren/metapulsar"
@@ -23,8 +23,8 @@ Extras can be combined: `nltiming[discovery,numpyro,enterprise,ptmcmc]`.
 
 | Extra | Installs | Notes |
 |-------|----------|-------|
-| `discovery` | Discovery from `vhaasteren/discovery@temp/nltiming` | Temporary fork with a JAX `cho_solve` fix. The PyPI package named `discovery` is unrelated. |
-| `numpyro` | `jax`, `numpyro` | NUTS sampling of Discovery models. |
+| `discovery` | Discovery from `vhaasteren/discovery@feat/class-tracking` | Transport / `kernels="metamath"` / `class_tracking`. Needed for NUTS. The PyPI package named `discovery` is unrelated. `@temp/nltiming` is a stale cho_solve-only tip and cannot run the notebooks. |
+| `numpyro` | `jax`, `numpyro`, `arviz` | NUTS sampling of Discovery models. `arviz` 0.x and 1.x both work. |
 | `enterprise` | `enterprise-pulsar` from `nanograv/enterprise@dev` | Needs `prior_draw_mode`, not yet released. Pulls `scikit-sparse`, which needs SuiteSparse/CHOLMOD headers (`libsuitesparse-dev` on Debian/Ubuntu). |
 | `ptmcmc` | `ptmcmcsampler` | PTMCMC sampling of Enterprise (and Discovery) targets. |
 | `enterprise_extensions` | `enterprise_extensions` from `nanograv/enterprise_extensions@dev` | Optional `JumpProposal` / `setup_sampler` helpers. See the libstempo note below. |
@@ -32,7 +32,8 @@ Extras can be combined: `nltiming[discovery,numpyro,enterprise,ptmcmc]`.
 | `dev` | pytest, black, ruff, mypy | Development. |
 
 The pulsar record and its feather schema come from
-[`psrdata`](https://github.com/nanograv/psrdata), an unconditional dependency.
+[`psrdata`](https://github.com/nanograv/psrdata) tag `v0.1.0`, an
+unconditional dependency.
 
 ## Timing engines
 
