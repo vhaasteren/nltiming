@@ -22,6 +22,13 @@ _NON_NEGATIVE = {"PB", "FB0", "A1", "M2", "MTOT", "MP", "STIGMA", "PX", "H3"}
 # STIGMA is not unit-interval: sigma = tan(i/2) exceeds 1 for i > 90 deg
 # (e.g. J1902-5105, STIG = 1.154); its physical domain is (0, inf).
 _UNIT_INTERVAL = {"ECC", "E", "SINI"}
+# COSI (DDR's DT92 inclination cosine) is signed: cos i runs over the whole of
+# (-1, 1), and the two halves are physically distinct orbital orientations
+# rather than a sign convention. Clipping it to [0, 1] would silently halve the
+# prior and make Vela/pyvela's isotropic Uniform(-1, 1) unreachable. The engine
+# still enforces the strict |COSI| < 1: an endpoint has zero measure and
+# returns an invalid-state NaN rather than being clamped.
+_SIGNED_UNIT_INTERVAL = {"COSI"}
 _KIN_INTERVAL_DEG = (0.0, 180.0)
 
 
@@ -159,6 +166,8 @@ def native_physical_bounds(name: str) -> tuple[float | None, float | None]:
         return _KIN_INTERVAL_DEG
     if key in _UNIT_INTERVAL:
         return 0.0, 1.0
+    if key in _SIGNED_UNIT_INTERVAL:
+        return -1.0, 1.0
     if key in _NON_NEGATIVE:
         return 0.0, None
     return None, None

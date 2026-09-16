@@ -96,6 +96,11 @@ def test_native_physical_bounds():
     assert native_physical_bounds("H3_epta") == (0.0, None)
     assert native_physical_bounds("PBDOT") == (None, None)
     assert native_physical_bounds("PBDOT_epta") == (None, None)
+    # COSI is signed on (-1, 1): the two halves are distinct orbital
+    # orientations, and clipping to [0, 1] would halve Vela/pyvela's isotropic
+    # Uniform(-1, 1) prior without saying so.
+    assert native_physical_bounds("COSI") == (-1.0, 1.0)
+    assert native_physical_bounds("COSI_ng15") == (-1.0, 1.0)
     # STIG normalizes to STIGMA; sigma is positive-unbounded, not unit-interval.
     assert normalize_param_name("STIG") == "STIGMA"
     assert native_physical_bounds("STIG") == (0.0, None)

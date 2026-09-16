@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 import numpy as np
 import pytest
 
@@ -237,3 +239,102 @@ def test_host_discovery_target_matches_direct_logl(pulsar, layer):
         wrong = dict(noisedict)
         wrong[ctx.delay_keys[0]] = 0.4
         assert float(likelihood.logL(wrong)) != pytest.approx(direct, rel=1e-8)
+
+
+class _DomainLimitedEngine(JaxLinearTestEngine):
+    """A linear engine that NaNs past a boundary, as ``BINARY DDR`` does.
+
+    vela-jax's DDR stage returns NaN delay and doppler at a sampled point
+    outside the model's derived physical domain -- a negative inferred pulsar
+    mass, say -- and stops there, on the grounds that turning a non-finite
+    residual into a ``-inf`` log density belongs to the sampler, not to the
+    timing engine (vela-jax SPEC §7.10b, D13). This stub reproduces exactly
+    that contract on the axis this suite already exercises, so the *consumer*
+    half can be asserted without a DDR par or a vela-jax dependency.
+    """
+
+    #: Any delta this far from the reference is "outside". The predicate is on
+    #: the whole vector rather than a chosen slot: which engine slot a sampled
+    #: key lands in depends on the inference plan, and keying on slot 0 here
+    #: made an earlier version of this test vacuous -- ``Offset`` is
+    #: marginalized, so that slot was always exactly zero and the NaN never
+    #: fired while the assertion still "passed" a finite likelihood.
+    BOUNDARY = 1.0
+
+    def residual_delta_jax(self, delta_theta: Any) -> Any:
+        delta = jnp.asarray(delta_theta)
+        inside = jnp.max(jnp.abs(delta)) < self.BOUNDARY
+        return jnp.where(inside, super().residual_delta_jax(delta), jnp.nan)
+
+    def residual_delta(self, delta_theta: Any):
+        return np.asarray(self.residual_delta_jax(delta_theta), dtype=float)
+
+
+@pytest.fixture
+def domain_limited_pulsar():
+    pulsar = _Pulsar()
+    pulsar._jug_backend = _DomainLimitedEngine.from_linear_model(
+        LinearModel.from_design(
+            fitpars=pulsar.fitpars,
+            design=pulsar._design,
+            theta_exact={"Offset": "0.0", "F1": "1.0", "DM": "5.0"},
+        )
+    )
+    return pulsar
+
+
+def test_an_engine_outside_its_domain_gives_a_non_finite_log_likelihood(
+    domain_limited_pulsar,
+):
+    """The consumer half of vela-jax's D13, on the Discovery path.
+
+    An engine that reports NaN for an unphysical sampled point is only useful
+    if the likelihood turns that into something a sampler rejects. The thing
+    that must **not** happen is a finite ``logL``: a NaN residual quietly
+    contributing a plausible number is the worst of the three outcomes, and it
+    is the one this gate exists to exclude.
+
+    Measured: Discovery propagates the NaN and ``logL`` is **NaN**, eagerly and
+    under ``jit`` -- *not* ``-inf``, which is what vela-jax SPEC §12.5 names.
+    Both are rejected by a Metropolis test (every comparison against NaN is
+    false) and by NumPyro's divergence handling, so nothing here is wrong
+    today; but they are not interchangeable for a sampler that branches on
+    ``isneginf`` or that feeds the value into adaptation. The assertion below
+    is therefore on non-finiteness, with the observed value pinned separately
+    so that a change from NaN to ``-inf`` is visible rather than silent.
+    """
+    nlts.numpyro.ensure_x64()
+    pulsar = domain_limited_pulsar
+    noisedict = {f"{pulsar.name}_efac": 1.0}
+    ctx = _jax_spec(inference=_inference()).for_pulsar(pulsar)
+    likelihood = ds.PulsarLikelihood(
+        [
+            pulsar.residuals,
+            ds.makenoise_measurement_simple(pulsar, noisedict, add_equad=False),
+            *ctx.discovery_signals(),
+        ]
+    )
+    key = ctx.delay_keys[0]
+
+    # The delay signal itself must actually go non-finite, or the assertion
+    # below would be about nothing.
+    delay = ctx.discovery_signals()[-1]
+    assert np.all(np.isfinite(np.asarray(delay({key: 0.25}), dtype=float)))
+    assert np.all(np.isnan(np.asarray(delay({key: 2.0}), dtype=float)))
+
+    inside = float(likelihood.logL({**noisedict, key: 0.25}))
+    assert np.isfinite(inside)
+
+    outside = float(likelihood.logL({**noisedict, key: 2.0}))
+    assert not np.isfinite(outside), (
+        "an unphysical sampled point produced a finite log likelihood; the "
+        "engine's NaN was absorbed somewhere instead of rejecting the point"
+    )
+    # Under jit too: a NaN that only survives eager evaluation would be worse
+    # than useless, since sampling runs compiled.
+    compiled = float(jax.jit(likelihood.logL)({**noisedict, key: 2.0}))
+    assert not np.isfinite(compiled)
+
+    # Pinned, not required: today Discovery propagates NaN rather than
+    # collapsing to -inf. See the docstring.
+    assert np.isnan(outside) and np.isnan(compiled)

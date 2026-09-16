@@ -31,12 +31,18 @@ NONLINEAR_PARAMS_MODES = frozenset(
 #: PINT canonical names of every binary-model axis any supported engine
 #: evaluates: the union of JUG's ``_BINARY_PARAMS`` (which lacks ``LNEDOT``)
 #: and vela-jax's ``BINARY_AXES`` (which lacks ``A0``/``B0``/``H4``/``MTOT``/
-#: ``XOMDOT``/``XPBDOT``). An engine that cannot evaluate one of these refuses
+#: ``XOMDOT``). An engine that cannot evaluate one of these refuses
 #: it at build time; the registry's job is to say what *kind* of axis it is.
+#:
+#: ``COSI`` and ``GGAMMA`` come from ``BINARY DDR`` (vela-jax v2.6): the DT92
+#: inclination cosine, which DDR uses in place of ``SINI``/``KIN``, and the
+#: regular Einstein coefficient it reads under ``DDRPK N``. ``COSI`` is signed
+#: on ``(-1, 1)`` -- see ``units._SIGNED_UNIT_INTERVAL`` -- rather than a
+#: non-negative amplitude.
 # fmt: off
 BINARY_AXES = frozenset({
-    "A0", "A1", "A1DOT", "B0", "DR", "DTH", "ECC", "EDOT",
-    "EPS1", "EPS1DOT", "EPS2", "EPS2DOT", "GAMMA", "H3", "H4",
+    "A0", "A1", "A1DOT", "B0", "COSI", "DR", "DTH", "ECC", "EDOT",
+    "EPS1", "EPS1DOT", "EPS2", "EPS2DOT", "GAMMA", "GGAMMA", "H3", "H4",
     "KIN", "KOM", "LNEDOT", "M2", "MTOT", "OM", "OMDOT", "PB", "PBDOT",
     "SHAPMAX", "SINI", "STIGMA", "T0", "TASC", "XOMDOT", "XPBDOT",
 })

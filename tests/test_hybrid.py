@@ -21,6 +21,15 @@ def test_binary_axes_are_binary(name):
     assert is_binary_axis(name)
 
 
+@pytest.mark.parametrize("name", ["COSI", "GGAMMA", "XPBDOT"])
+def test_the_ddr_axes_are_binary(name):
+    """``BINARY DDR`` (vela-jax v2.6) samples the DT92 inclination cosine in
+    place of ``SINI``/``KIN``, and reads ``GGAMMA`` under ``DDRPK N``. Without
+    these the hybrid split would hand a DDR axis to the linear path, where no
+    engine evaluates it."""
+    assert is_binary_axis(name)
+
+
 @pytest.mark.parametrize(
     "name,canonical", [("XDOT", "A1DOT"), ("E", "ECC"), ("STIG", "STIGMA")]
 )
