@@ -1480,7 +1480,11 @@ def disk_shrink_factor(a: float, b: float, h1: float, h2: float, r_max: float) -
     """Largest c in (0, 1] with hypot(a + c*h1, b + c*h2) <= r_max, for
     a, b >= 0 (use |eps_ref| components). Closed form: if the c=1 corner is
     inside, 1; else the positive root of
-    (h1^2+h2^2)c^2 + 2(a*h1+b*h2)c + (a^2+b^2-r_max^2) = 0."""
+    (h1^2+h2^2)c^2 + 2(a*h1+b*h2)c + (a^2+b^2-r_max^2) = 0.
+
+    The quadratic can land one ulp outside ``r_max``; snap ``c`` inward so
+    the reconstructed hypot satisfies the closed support.
+    """
     if float(np.hypot(a + h1, b + h2)) <= r_max:
         return 1.0
     A = h1 * h1 + h2 * h2
@@ -1488,7 +1492,15 @@ def disk_shrink_factor(a: float, b: float, h1: float, h2: float, r_max: float) -
     C = a * a + b * b - r_max * r_max
     if C >= 0.0:  # reference itself outside r_max — cannot happen post-candidacy
         raise ValueError("reference eccentricity outside the physical disk")
-    return float((-Bq + np.sqrt(Bq * Bq - 4.0 * A * C)) / (2.0 * A))
+    c = float((-Bq + np.sqrt(Bq * Bq - 4.0 * A * C)) / (2.0 * A))
+    r = float(np.hypot(a + c * h1, b + c * h2))
+    if r > r_max:
+        c *= r_max / r
+        r = float(np.hypot(a + c * h1, b + c * h2))
+        while r > r_max and c > 0.0:
+            c = float(np.nextafter(c, 0.0))
+            r = float(np.hypot(a + c * h1, b + c * h2))
+    return c
 
 
 @dataclass(frozen=True)

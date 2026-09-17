@@ -719,9 +719,15 @@ def test_capability_group_isolation():
 def test_disk_shrink_factor():
     # c=1 corner inside -> 1.0.
     assert disk_shrink_factor(0.0, 0.0, 0.1, 0.1, 1.0) == 1.0
-    # corner outside -> shrunk so the corner lands exactly on r_max.
+    # corner outside -> shrunk so the corner lands on r_max (closed support).
     c = disk_shrink_factor(0.5, 0.0, 1.0, 0.0, 1.0)
-    assert np.hypot(0.5 + c * 1.0, 0.0) == pytest.approx(1.0)
+    corner = float(np.hypot(0.5 + c * 1.0, 0.0))
+    assert corner <= 1.0
+    assert corner == pytest.approx(1.0)
+    # Huge box onto 1 - DISK_MARGIN: hypot must not overshoot the closed disk.
+    r_max = 1.0 - DISK_MARGIN
+    c_edge = disk_shrink_factor(0.0, 0.0, 1e12, 1e12, r_max)
+    assert float(np.hypot(c_edge * 1e12, c_edge * 1e12)) <= r_max
 
 
 def test_rect_ray_and_guards():
