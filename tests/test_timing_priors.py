@@ -309,3 +309,62 @@ def test_spec_for_target_rejects_partial_mapping():
     )
     with pytest.raises(ParameterMappingError, match="absent"):
         spec_for_target(_Host(), spec, "STIGMA_mpta", _Host.fitpars)
+
+
+def _kom_prior(column, toaerr):
+    """Resolve the real cheat-prior box for a single sampled ``KOM`` axis."""
+    from conftest import FakeTimingPulsar
+
+    from nltiming.nonlinear_timing_model import TimingSpec
+
+    pulsar = FakeTimingPulsar()
+    pulsar.fitpars = ["KOM"]
+    pulsar._toaerrs = np.full(4, toaerr, dtype=float)
+    pulsar._Mmat = np.array(column, dtype=float).reshape(4, 1)
+    block = PriorBlock.from_fitpars(["KOM"], policy="wide_default")
+    return (
+        TimingSpec(engines="vela_jax", name="timing")
+        ._fill_wls_cheat_priors(
+            pulsar=pulsar,
+            partition=plan_for(pulsar, sample_all=True),
+            block=block,
+            theta_ref_native={"KOM": 30.0},
+            design_matrix=pulsar._Mmat,
+        )
+        .priors[0]
+    )
+
+
+def test_a_cyclic_axis_is_capped_at_one_period():
+    """KOM and OM are exactly 360-periodic, so an unclipped box is improper.
+
+    Measured in vela-jax: a geometry-on DDR delay is invariant under
+    ``KOM -> KOM + 360 deg`` bit-for-bit, and *not* under +180. With the
+    default +-100 sigma box the posterior therefore carries several identical
+    copies of one mode; a chain drifts between them and reports a sigma larger
+    than the value, which reads as a weak constraint rather than as an
+    unidentifiable parameter.
+
+    One period means +-180 deg *about the par value*, not an absolute
+    ``[0, 360)``. The box is centred on the reference, so this puts the edge as
+    far from the starting point as it can go, instead of dropping a hard edge
+    next to any pulsar whose KOM sits near zero -- where the likelihood is
+    perfectly smooth and only the branch cut is not.
+    """
+    from nltiming.units import native_period
+
+    assert native_period("KOM") == 360.0
+    assert native_period("OM") == 360.0
+    assert native_period("KOM_epta") == 360.0
+    for aperiodic in ("KIN", "M2", "A1", "F0", "COSI", "PX"):
+        assert native_period(aperiodic) is None, aperiodic
+
+    # A loose axis: 100 sigma spans many turns, so the cap is what survives.
+    capped = _kom_prior([1e-3, 5e-4, -5e-4, -1e-3], 1.0)
+    assert (capped.lower, capped.upper) == (-180.0, 180.0)
+    assert capped.upper - capped.lower == native_period("KOM")
+
+    # A well-measured axis is untouched: the cap is a ceiling, not a width.
+    tight = _kom_prior([1.0, 0.5, -0.5, -1.0], 1e-6)
+    assert tight.upper - tight.lower < 1e-3
+    assert tight.lower == -tight.upper
