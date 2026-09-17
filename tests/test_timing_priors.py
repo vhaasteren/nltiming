@@ -314,6 +314,7 @@ def test_spec_for_target_rejects_partial_mapping():
 def _kom_prior(column, toaerr):
     """Resolve the real cheat-prior box for a single sampled ``KOM`` axis."""
     from conftest import FakeTimingPulsar
+
     from nltiming.nonlinear_timing_model import TimingSpec
 
     pulsar = FakeTimingPulsar()
