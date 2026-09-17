@@ -1,12 +1,12 @@
 """Slice-5 tests for multi-pulsar timing component ctx."""
 
 import numpy as np
+from _engine_stubs import JaxLinearTestEngine
 
 from nltiming import TimingInference
-from _engine_stubs import JaxLinearTestEngine
 from nltiming.engine_support import LinearModel
 from nltiming.nonlinear_timing_model import TimingSpec
-from nltiming.sampling.numpyro import sample_timing, record_physical_postprocess
+from nltiming.sampling.numpyro import record_physical_postprocess, sample_timing
 
 
 class _Host:

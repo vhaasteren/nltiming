@@ -9,9 +9,10 @@ from __future__ import annotations
 
 import json
 import warnings
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Mapping, Sequence
+from typing import Any
 
 import numpy as np
 
@@ -70,7 +71,7 @@ class RunIOError(RuntimeError):
     """Raised when NLT run products are missing, mismatched, or unreadable."""
 
 
-def _slice_draws(x: np.ndarray, *, burn: int | float, thin: int) -> np.ndarray:
+def _slice_draws(x: np.ndarray, *, burn: float, thin: int) -> np.ndarray:
     """Apply burn-in (count or leading fraction) and thinning to sample rows."""
     n = int(x.shape[0])
     if isinstance(burn, float):
@@ -689,7 +690,7 @@ class RunResults:
     @classmethod
     def load(
         cls, run_dir: str | Path, *, verify: bool = True, force: bool = False
-    ) -> "RunResults":
+    ) -> RunResults:
         run_dir = Path(run_dir)
         run_meta_path = run_dir / RUN_META_FILENAME
         if not run_meta_path.is_file():
@@ -777,20 +778,26 @@ class RunResults:
                 continue
             data = np.load(path)
             files = set(data.files)
-            if "space_digest" in files and expected_space is not None:
-                if str(data["space_digest"]) != expected_space:
-                    self._fail(
-                        "chains",
-                        f"{spec['path']} space_digest does not match the manifest",
-                        force=force,
-                    )
-            if "context_digest" in files and expected_context is not None:
-                if str(data["context_digest"]) != expected_context:
-                    self._fail(
-                        "chains",
-                        f"{spec['path']} context_digest does not match the manifest",
-                        force=force,
-                    )
+            if (
+                "space_digest" in files
+                and expected_space is not None
+                and str(data["space_digest"]) != expected_space
+            ):
+                self._fail(
+                    "chains",
+                    f"{spec['path']} space_digest does not match the manifest",
+                    force=force,
+                )
+            if (
+                "context_digest" in files
+                and expected_context is not None
+                and str(data["context_digest"]) != expected_context
+            ):
+                self._fail(
+                    "chains",
+                    f"{spec['path']} context_digest does not match the manifest",
+                    force=force,
+                )
 
     def assert_consistent_with(self, ctx) -> None:
         """Verify a live context matches this run's persisted decoder (§7.5).
@@ -828,19 +835,25 @@ class RunResults:
         # Metric-source and transport identity, when both sides carry them.
         sections = run_meta.get("sections", {})
         run_metric = (sections.get("metric_source") or {}).get("digest")
-        if run_metric is not None and ctx.metric is not None:
-            if run_metric != ctx.metric.fingerprint():
-                raise RunIOError(
-                    "metric_source section diverged: the live metric provenance "
-                    "differs from the run's. Decode with run.space (§7.5)."
-                )
+        if (
+            run_metric is not None
+            and ctx.metric is not None
+            and run_metric != ctx.metric.fingerprint()
+        ):
+            raise RunIOError(
+                "metric_source section diverged: the live metric provenance "
+                "differs from the run's. Decode with run.space (§7.5)."
+            )
         run_transport = (sections.get("transport") or {}).get("digest")
-        if run_transport is not None and ctx.transport is not None:
-            if run_transport != ctx.transport.fingerprint():
-                raise RunIOError(
-                    "transport section diverged: the live transport differs from "
-                    "the run's. Decode with run.space (§7.5)."
-                )
+        if (
+            run_transport is not None
+            and ctx.transport is not None
+            and run_transport != ctx.transport.fingerprint()
+        ):
+            raise RunIOError(
+                "transport section diverged: the live transport differs from "
+                "the run's. Decode with run.space (§7.5)."
+            )
 
     @property
     def latent_decodable(self) -> bool:
@@ -890,7 +903,7 @@ class RunResults:
             "run metadata has no readable latent source (chain_layout, latent, or checkpoint)"
         )
 
-    def latent(self, *, burn: int | float = 0, thin: int = 1) -> np.ndarray:
+    def latent(self, *, burn: float = 0, thin: int = 1) -> np.ndarray:
         """Latent sample rows with burn-in and thinning applied.
 
         ``burn`` is a draw count (int) or a leading fraction (float in [0, 1)).
@@ -901,7 +914,7 @@ class RunResults:
     def posterior(
         self,
         *,
-        burn: int | float = 0,
+        burn: float = 0,
         thin: int = 1,
         units: str = "display",
     ) -> dict[str, np.ndarray]:

@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 from decimal import Decimal, localcontext
-from typing import Literal, Mapping
+from typing import Literal
 
 import numpy as np
 
@@ -507,7 +508,7 @@ class PriorBlock:
         named_defaults: dict[str, AxisPrior] | None = None,
         theta_ref: ExactNativeRef | dict[str, str | float | int] | None = None,
         pint_model=None,
-    ) -> "PriorBlock":
+    ) -> PriorBlock:
         """Resolve priors for fit parameters from overrides/PINT/wide-default policy."""
         policy = validate_prior_policy(policy)
         overrides = overrides or {}

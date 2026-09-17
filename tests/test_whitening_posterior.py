@@ -120,7 +120,7 @@ def test_local_posterior_origin_is_guarded_and_reference_is_deterministic():
     assert np.all(np.abs(guarded.z0) < 7.0)  # strictly inside the PIT edge
 
     # auto with a score behaves like local_posterior; without one, reference.
-    auto_with, d1 = posterior_linear_transform(
+    _auto_with, d1 = posterior_linear_transform(
         fisher, prior_bijector=bij, mode="whitening", score_delta=score, origin="auto"
     )
     assert d1["origin"] == "local_posterior"
@@ -160,7 +160,7 @@ def test_pullback_logprob_matches_direct_and_space_density():
     pytest.importorskip("jax")
     import jax.numpy as jnp
 
-    from nltiming.sampling.numpyro import ensure_x64, _static_pullback_distribution_cls
+    from nltiming.sampling.numpyro import _static_pullback_distribution_cls, ensure_x64
 
     ensure_x64()
     C = _highly_conditioned_C()
@@ -194,7 +194,7 @@ def test_pullback_sample_roundtrips_and_is_jax_transformable():
     jax = pytest.importorskip("jax")
     import jax.numpy as jnp
 
-    from nltiming.sampling.numpyro import ensure_x64, _static_pullback_distribution_cls
+    from nltiming.sampling.numpyro import _static_pullback_distribution_cls, ensure_x64
 
     ensure_x64()
     C = _highly_conditioned_C()
@@ -226,7 +226,7 @@ def test_pullback_gradients_finite_under_high_condition_without_ctc():
     jax = pytest.importorskip("jax")
     import jax.numpy as jnp
 
-    from nltiming.sampling.numpyro import ensure_x64, _static_pullback_distribution_cls
+    from nltiming.sampling.numpyro import _static_pullback_distribution_cls, ensure_x64
 
     ensure_x64()
     C = _highly_conditioned_C()

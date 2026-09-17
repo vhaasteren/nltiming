@@ -1,11 +1,11 @@
 """Tests for frame-aware prior override materialization."""
 
 import pytest
+from _planhelp import plan_for
 
 from nltiming import TimingInference
 from nltiming.bijectors import AxisPrior
 from nltiming.nonlinear_timing_model import TimingSpec
-from _planhelp import plan_for
 from nltiming.priors import (
     PriorBuildContext,
     PriorOverrideSpec,
@@ -105,7 +105,7 @@ class _FakeBackend:
 
 class _FakePulsar:
     name = "FAKEPSR"
-    fitpars = ["TASC_epta", "PB_epta"]
+    fitpars = ("TASC_epta", "PB_epta")
 
     def __init__(self, refs: dict[str, str]):
         self._refs = refs

@@ -6,22 +6,21 @@ import json
 
 import numpy as np
 import pytest
+from _engine_stubs import JaxLinearTestEngine
 
-from nltiming import WhiteningConfig
-from nltiming import TimingInference
+from nltiming import TimingInference, WhiteningConfig
+from nltiming.engine_support import LinearModel
+from nltiming.nonlinear_timing_model import TimingSpec
 from nltiming.run_io import (
     DISCOVERY_CHECKPOINT_NAME,
     DISCOVERY_FINAL_NAME,
     RunIOError,
     RunResults,
     build_run_manifest,
-    derived_param_name,
     decode_physical,
+    derived_param_name,
     save_discovery_checkpoint,
 )
-from _engine_stubs import JaxLinearTestEngine
-from nltiming.engine_support import LinearModel
-from nltiming.nonlinear_timing_model import TimingSpec
 from nltiming.space import ParameterSpace
 
 

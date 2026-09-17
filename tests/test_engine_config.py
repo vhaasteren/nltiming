@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from nltiming.engine_config import DEFAULT_ENGINE, _IMPL_FAMILY, normalize_engines
+from nltiming.engine_config import _IMPL_FAMILY, DEFAULT_ENGINE, normalize_engines
 
 
 def test_default_engine_is_vela_jax():

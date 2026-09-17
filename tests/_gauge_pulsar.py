@@ -7,8 +7,8 @@ columns. Unit-test pulsars must do the same before context construction.
 from __future__ import annotations
 
 import numpy as np
-
 from _engine_stubs import JaxLinearTestEngine, gauge_free_centering
+
 from nltiming.engine_support import LinearModel
 
 

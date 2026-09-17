@@ -9,34 +9,32 @@ import pytest
 
 jax = pytest.importorskip("jax")
 jax.config.update("jax_enable_x64", True)
-import jax.numpy as jnp  # noqa: E402
+import jax.numpy as jnp
+from _engine_stubs import JaxLinearTestEngine
+from test_physical_charts import (
+    FITPARS,
+    REFS,
+    _activate,
+    _FakeEngineNoCap,
+    _FakePulsar,
+    _plan,
+)
 
-from nltiming import SUPPORTS_CONVERSION_METADATA, TimingInference  # noqa: E402
-from nltiming.physical_charts import (  # noqa: E402
+from nltiming import SUPPORTS_CONVERSION_METADATA, TimingInference
+from nltiming.coordinates import TimingCoordinatePolicy
+from nltiming.engine_support import LinearModel
+from nltiming.nonlinear_timing_model import TimingSpec
+from nltiming.physical_charts import (
     KeplerLaplacePolicy,
     activate_charts,
     frame_change_matrix,
     resolve_chart_candidates,
 )
-from nltiming.priors import (  # noqa: E402
+from nltiming.priors import (
     stigma_mass_ceiling_lower,
     stigma_orientation_logpdf,
 )
-from nltiming.whitening import normalized_basis  # noqa: E402
-from nltiming.coordinates import TimingCoordinatePolicy  # noqa: E402
-from nltiming.nonlinear_timing_model import TimingSpec  # noqa: E402
-from _engine_stubs import JaxLinearTestEngine  # noqa: E402
-from nltiming.engine_support import LinearModel  # noqa: E402
-
-from test_physical_charts import (  # noqa: E402
-    FITPARS,
-    REFS,
-    _FakeEngineNoCap,
-    _FakePulsar,
-    _activate,
-    _plan,
-)
-
+from nltiming.whitening import normalized_basis
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -246,7 +244,7 @@ def test_t23_adapter_flow_normalized_basis():
         sig = signal_cls(pulsar)
         basis = sig.get_basis()
         np.testing.assert_allclose(basis, expected, rtol=1e-12, atol=0.0)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 — skip if enterprise cannot instantiate
         pytest.skip(f"enterprise signal instantiation unavailable: {exc}")
 
 
@@ -368,7 +366,7 @@ def test_t26_z_prior_exclusion():
     p = _FakePulsar()
     # ECC/OM z-prior (support includes e=0 via default boxes), T0 delta-flat.
     inf = TimingInference.groups(z_prior=["ECC", "OM"], delta_flat=["T0"])
-    plan, resolved, frames, records = _activate(
+    _plan, resolved, frames, records = _activate(
         p, inf, KeplerLaplacePolicy(mode="auto")
     )
     assert resolved == ()
@@ -383,7 +381,7 @@ def test_t26_z_prior_exclusion():
     )
     assert ctx.physical_charts == ()
     # Sampled-axis variant still exercises the unchanged origin guard (S-path).
-    plan_s, res_s, frames_s, rec_s = _activate(
+    _plan_s, res_s, frames_s, rec_s = _activate(
         p, TimingInference.sample_all(), KeplerLaplacePolicy(mode="auto")
     )
     # Without an origin-certified backend the default WLS box contains the

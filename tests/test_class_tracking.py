@@ -13,16 +13,14 @@ import pytest
 jax = pytest.importorskip("jax")
 jax.config.update("jax_enable_x64", True)
 
-import jax.numpy as jnp  # noqa: E402
+import discovery as ds
+import jax.numpy as jnp
+from numpyro.infer.util import log_density
+from test_decentered_model import _DiscoveryPulsar
 
-import discovery as ds  # noqa: E402
-from numpyro.infer.util import log_density  # noqa: E402
-
-from nltiming import TimingInference  # noqa: E402
-from nltiming.nonlinear_timing_model import TimingSpec  # noqa: E402
-import nltiming.sampling as nlts  # noqa: E402
-
-from test_decentered_model import _DiscoveryPulsar  # noqa: E402
+import nltiming.sampling as nlts
+from nltiming import TimingInference
+from nltiming.nonlinear_timing_model import TimingSpec
 
 
 @pytest.fixture(autouse=True)

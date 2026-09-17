@@ -51,7 +51,7 @@ def test_expansion_spec_factories_and_validation():
 
 
 def test_model_fingerprint_changes_with_coordinate_policy():
-    from nltiming import TimingSpec, TimingInference
+    from nltiming import TimingInference, TimingSpec
 
     base = TimingSpec(
         engines="jug", inference=TimingInference.sample_all()

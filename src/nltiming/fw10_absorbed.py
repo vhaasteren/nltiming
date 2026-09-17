@@ -9,8 +9,9 @@ Maps absorbed-gauge chart coordinates
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import ClassVar, Mapping
+from typing import ClassVar
 
 import numpy as np
 
@@ -300,7 +301,7 @@ class FW10AbsorbedChart:
         h3_ref_str: str,
         stigma_ref_str: str,
         pb_ref_str: str,
-    ) -> "FW10AbsorbedChart":
+    ) -> FW10AbsorbedChart:
         """Build from absolute engine references via encode."""
         om_rad = float(om_deg) * DEG2RAD
         x_p, e1p, e2p, tasc, _, _ = fw10_encode(a1, ecc, om_rad, t0, h3, stig, pb_days)

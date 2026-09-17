@@ -8,8 +8,8 @@ affine ``affine_normal`` chart instead.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 import math
+from dataclasses import dataclass
 
 import numpy as np
 import scipy.linalg as sl
@@ -84,7 +84,7 @@ class PriorBijector:
     @classmethod
     def from_normal(
         cls, names: tuple[str, ...], means: np.ndarray, stds: np.ndarray
-    ) -> "PriorBijector":
+    ) -> PriorBijector:
         priors = tuple(
             AxisPrior(family="normal", mean=float(m), std=float(s))
             for m, s in zip(means, stds, strict=True)
@@ -94,7 +94,7 @@ class PriorBijector:
     @classmethod
     def from_uniform(
         cls, names: tuple[str, ...], lowers: np.ndarray, uppers: np.ndarray
-    ) -> "PriorBijector":
+    ) -> PriorBijector:
         priors = tuple(
             AxisPrior(family="uniform", lower=float(lo), upper=float(hi))
             for lo, hi in zip(lowers, uppers, strict=True)
@@ -322,7 +322,7 @@ class WhiteningLinear:
         self.logabsdet = float(logdet)
 
     @classmethod
-    def identity(cls, ndim: int) -> "WhiteningLinear":
+    def identity(cls, ndim: int) -> WhiteningLinear:
         return cls(C=np.eye(ndim, dtype=float), z0=np.zeros(ndim, dtype=float))
 
     def z_from_x(self, x, xp):

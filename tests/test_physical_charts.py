@@ -10,7 +10,7 @@ import pytest
 
 from nltiming import physical_charts as pc
 from nltiming.coordinates import TimingCoordinatePolicy
-from nltiming.inference import resolve_inference_plan, TimingInference
+from nltiming.inference import TimingInference, resolve_inference_plan
 from nltiming.linearity import resolve_linearity
 from nltiming.physical_charts import (
     DISK_MARGIN,
@@ -178,7 +178,7 @@ def test_jacobian_vs_fd():
         J = ch.jacobian_at(d_eps1, d_eps2, d_pb)
         h = 1e-9
 
-        def f(e1, e2, tasc):
+        def f(e1, e2, tasc, d_pb=d_pb):
             return np.array(
                 ch.engine_delta_from_sample_delta(e1, e2, tasc, d_pb=d_pb, xp=np)
             )
@@ -652,7 +652,7 @@ def test_capability_resolution():
     assert cbad.skip_reason == "unsupported_binary_model"
 
     # Fallback (no method): capability_source recorded as "fallback".
-    (cfb,) = resolve_chart_candidates(p, _FakeEngineNoCap(), KeplerLaplacePolicy())
+    (_cfb,) = resolve_chart_candidates(p, _FakeEngineNoCap(), KeplerLaplacePolicy())
     _, _, _, recfb = _activate(p, TimingInference.sample_all(), KeplerLaplacePolicy())
     assert recfb[0]["capability_source"] == "fallback"
 
@@ -771,7 +771,7 @@ def test_binary_chart_capability_requires_cert_ref():
 
 def test_guard_support_equals_prior_support():
     p = _FakePulsar()
-    plan, resolved, _, _ = _activate(
+    _plan, resolved, _, _ = _activate(
         p, TimingInference.sample_all(), KeplerLaplacePolicy()
     )
     res = resolved[0]
@@ -921,7 +921,7 @@ def test_matches_pint():
         t0 = 55000.0 + rng.uniform(-100, 100)
         pb = rng.uniform(1, 50)
         eps1, eps2, tasc = laplace_from_kepler(e, om, t0, pb)
-        e2, om2, t02 = kepler_from_laplace(eps1, eps2, tasc, pb)
+        _e2, om2, t02 = kepler_from_laplace(eps1, eps2, tasc, pb)
         # T0 = TASC + PB*om/360 (in turns).
         assert abs(t02 - (tasc + pb * (om2 / 360.0))) < 1e-9
 

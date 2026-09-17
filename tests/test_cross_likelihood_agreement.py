@@ -13,25 +13,23 @@ constants; the physically meaningful quantity — how the log posterior
 changes as the timing coordinate moves — must still agree exactly.
 """
 
-import numpy as np
-import pytest
-
 import jax.numpy as jnp
 import jax.random as jr
+import numpy as np
+import pytest
+from _engine_stubs import JaxLinearTestEngine, LinearTestEngine
 from numpyro import handlers
 
-from nltiming import WhiteningConfig
-from nltiming import TimingInference
-from _engine_stubs import JaxLinearTestEngine, LinearTestEngine
+import nltiming.sampling as nlts
+from nltiming import TimingInference, WhiteningConfig
 from nltiming.engine_support import LinearModel
 from nltiming.nonlinear_timing_model import TimingSpec
-import nltiming.sampling as nlts
 
 pytest.importorskip("discovery")
 pytest.importorskip("enterprise")
 
-import discovery as ds  # noqa: E402
-from enterprise.signals import parameter, signal_base, white_signals  # noqa: E402
+import discovery as ds
+from enterprise.signals import parameter, signal_base, white_signals
 
 
 class _Pulsar:

@@ -7,18 +7,19 @@ test in the metapulsar repo, where a discovery-native pulsar and likelihood are
 available.
 """
 
+from typing import ClassVar
+
 import numpy as np
 import pytest
 
 jax = pytest.importorskip("jax")
 jax.config.update("jax_enable_x64", True)
-import jax.numpy as jnp  # noqa: E402
-
-
-from nltiming import TimingInference, WhiteningConfig  # noqa: E402
+import jax.numpy as jnp
 from _engine_stubs import JaxLinearTestEngine
-from nltiming.engine_support import LinearModel  # noqa: E402
-from nltiming.nonlinear_timing_model import TimingSpec  # noqa: E402
+
+from nltiming import TimingInference, WhiteningConfig
+from nltiming.engine_support import LinearModel
+from nltiming.nonlinear_timing_model import TimingSpec
 
 
 class _Pulsar:
@@ -370,8 +371,8 @@ def test_cross_term_sign(monkeypatch):
 def test_joint_model_requires_identity_static_layer():
     """joint_model rejects a conditioned (non-identity) whitening layer before
     it touches the likelihood (the one-affine-layer invariant, §5.5)."""
-    from nltiming.metric import OneAffineLayerError
     import nltiming.sampling as nlts
+    from nltiming.metric import OneAffineLayerError
 
     ntm = TimingSpec(
         engines="jug",
@@ -382,10 +383,10 @@ def test_joint_model_requires_identity_static_layer():
     ctx = ntm.for_pulsar(_Pulsar())  # conditioned => non-identity (C, c)
 
     class _FakeLikelihood:
-        sampled_gps: list = []
+        sampled_gps: ClassVar[list] = []
 
         class clogL:
-            params: list = []
+            params: ClassVar[list] = []
 
     with pytest.raises(OneAffineLayerError):
         nlts.numpyro.joint_model(_FakeLikelihood(), ctx)

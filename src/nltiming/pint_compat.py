@@ -9,8 +9,9 @@ from __future__ import annotations
 
 import math
 import re
-from functools import lru_cache
-from typing import Any, Dict, List, Mapping, NamedTuple, Optional, Tuple
+from collections.abc import Mapping
+from functools import cache, lru_cache
+from typing import Any, NamedTuple
 
 import astropy.units as u
 import numpy as np
@@ -25,7 +26,7 @@ class KeyReturningDict(dict):
         return key
 
 
-def get_category_mapping_from_pint() -> Dict[str, str]:
+def get_category_mapping_from_pint() -> dict[str, str]:
     """Get component category mappings from PINT.
 
     Returns:
@@ -41,7 +42,7 @@ def get_category_mapping_from_pint() -> Dict[str, str]:
     return KeyReturningDict(mapping)
 
 
-def get_extra_top_level_params_for_category() -> Dict[str, List[str]]:
+def get_extra_top_level_params_for_category() -> dict[str, list[str]]:
     """Return extra top-level parameters to include per logical component.
 
     Some parameters (e.g., BINARY) are defined at the TimingModel top level in
@@ -63,11 +64,11 @@ def _get_all_components():
     return AllComponents()
 
 
-_FDJUMP_TEMPO2_INSTANCE_RE = re.compile(r"^FDJUMP(\d+)_(\d+)$", re.I)
-_FDJUMP_TEMPO2_BARE_RE = re.compile(r"^FDJUMP(\d+)$", re.I)
-_FDJUMP_PINT_INSTANCE_RE = re.compile(r"^FD(\d+)JUMP(\d+)$", re.I)
-_FDJUMP_PINT_BARE_RE = re.compile(r"^FD(\d+)JUMP$", re.I)
-_FDJUMPDM_RE = re.compile(r"^FDJUMPDM(?:_(\d+)|(\d+))?$", re.I)
+_FDJUMP_TEMPO2_INSTANCE_RE = re.compile(r"^FDJUMP(\d+)_(\d+)$", re.IGNORECASE)
+_FDJUMP_TEMPO2_BARE_RE = re.compile(r"^FDJUMP(\d+)$", re.IGNORECASE)
+_FDJUMP_PINT_INSTANCE_RE = re.compile(r"^FD(\d+)JUMP(\d+)$", re.IGNORECASE)
+_FDJUMP_PINT_BARE_RE = re.compile(r"^FD(\d+)JUMP$", re.IGNORECASE)
+_FDJUMPDM_RE = re.compile(r"^FDJUMPDM(?:_(\d+)|(\d+))?$", re.IGNORECASE)
 _FDJUMP_CONTROL_KEYS = frozenset({"FDJUMP_SCALE", "FDJUMPLOG"})
 
 
@@ -183,7 +184,7 @@ def pint_parameter_name(param_name: str) -> str | None:
     return canonical
 
 
-def get_aliases_for_parameter(canonical_param: str) -> List[str]:
+def get_aliases_for_parameter(canonical_param: str) -> list[str]:
     """Get all aliases for a canonical parameter name.
 
     Args:
@@ -224,7 +225,7 @@ def get_aliases_for_parameter(canonical_param: str) -> List[str]:
 
 def get_parameters_by_type_from_models(
     param_type: str, pint_models: Mapping[str, Any]
-) -> List[str]:
+) -> list[str]:
     """Get parameters by type from PINT models, including dynamic derivatives and aliases.
 
     Args:
@@ -247,11 +248,14 @@ def get_parameters_by_type_from_models(
         try:
             # Extract parameters for the specific component
             for comp in model.components.values():
-                if hasattr(comp, "category") and comp.category == target_category:
-                    if hasattr(comp, "params"):
-                        all_params.update(comp.params)  # Includes dynamic derivatives!
+                if (
+                    hasattr(comp, "category")
+                    and comp.category == target_category
+                    and hasattr(comp, "params")
+                ):
+                    all_params.update(comp.params)  # Includes dynamic derivatives!
 
-        except Exception as e:
+        except (AttributeError, TypeError, KeyError) as e:
             logger.warning(
                 f"Failed to extract parameters from model for PTA {pta_name}: {e}"
             )
@@ -273,9 +277,8 @@ def get_parameters_by_type_from_models(
                     if getattr(tm, extra).value is not None:
                         all_params_with_aliases.add(extra)
                         break
-                except Exception:
-                    # Be robust to any attribute access issues
-                    pass
+                except (AttributeError, TypeError) as exc:
+                    logger.debug("skipping extra {}: {}", extra, exc)
 
     logger.debug(
         f"Component {param_type}: Found {len(all_params)} canonical parameters, {len(all_params_with_aliases)} total with aliases"
@@ -299,7 +302,7 @@ def get_parameters_by_type_from_models(
 #: deliberately absent: ``MJDParameter.quantity`` is an astropy ``Time`` with
 #: no ``.to()``, so epochs go through :func:`mjd_from_par` /
 #: :func:`mjd_from_model` instead.
-CANONICAL_SI: Dict[str, u.UnitBase] = {
+CANONICAL_SI: dict[str, u.UnitBase] = {
     "A1": u.Unit("lsec"),
     "A1DOT": u.Unit("lsec") / u.s,
     "ECC": u.dimensionless_unscaled,
@@ -348,7 +351,7 @@ class _ParamDescriptor(NamedTuple):
     is_epoch: bool
 
 
-@lru_cache(maxsize=None)
+@cache
 def _descriptor(canonical: str) -> _ParamDescriptor:
     """Cache the declared unit and Tempo scaling rule for one parameter."""
     ac = _get_all_components()
@@ -428,9 +431,9 @@ def si_quantity_from_token(name: str, token: Any) -> u.Quantity:
     return param.quantity.to(CANONICAL_SI[canonical])
 
 
-def _find_par_token(par: Mapping[str, Any], *names: str) -> Optional[Tuple[str, str]]:
+def _find_par_token(par: Mapping[str, Any], *names: str) -> tuple[str, str] | None:
     """(spelling, value token) for the first present spelling, alias-aware."""
-    wanted: Dict[str, None] = {}
+    wanted: dict[str, None] = {}
     for name in names:
         wanted.setdefault(name.upper())
         canonical = pint_parameter_name(name)
@@ -450,8 +453,8 @@ def _find_par_token(par: Mapping[str, Any], *names: str) -> Optional[Tuple[str, 
 
 
 def si_from_par(
-    par: Mapping[str, Any], *names: str, default: Optional[float] = None
-) -> Optional[float]:
+    par: Mapping[str, Any], *names: str, default: float | None = None
+) -> float | None:
     """Alias-aware SI read of a parfile dict entry (first spelling present)."""
     found = _find_par_token(par, *names)
     if found is None:
@@ -518,8 +521,8 @@ def token_from_si(name: str, value_si: float) -> str:
 
 
 def mjd_from_par(
-    par: Mapping[str, Any], *names: str, default: Optional[float] = None
-) -> Optional[np.longdouble]:
+    par: Mapping[str, Any], *names: str, default: float | None = None
+) -> np.longdouble | None:
     """Read an epoch parameter as MJD days (row D).
 
     Separate from the SI accessors because ``MJDParameter.quantity`` is an
@@ -537,7 +540,7 @@ def mjd_from_par(
         raise ParUnitError(f"unparsable epoch token {token!r} for {spelling}") from exc
 
 
-def mjd_from_model(model: Any, name: str) -> Optional[np.longdouble]:
+def mjd_from_model(model: Any, name: str) -> np.longdouble | None:
     """Model-side counterpart of :func:`mjd_from_par` (long-double MJD days)."""
     if not hasattr(model, name):
         return None

@@ -71,7 +71,7 @@ dev = [
     "pytest>=7.0",
     "pytest-cov>=4.0",
     "black==25.11.0",
-    "ruff>=0.4",
+    "ruff>=0.16,<0.17",
     "mypy>=1.0",
 ]
 
@@ -100,6 +100,10 @@ fallback_version = "0.0.0"
 [tool.black]
 line-length = 88
 target-version = ["py311"]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 88
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -29,8 +29,9 @@ import json
 import os
 import pathlib
 import warnings
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from typing import Any, Mapping, Sequence
+from typing import Any
 
 import numpy as np
 
@@ -47,7 +48,7 @@ def _require_site_metadata(model) -> tuple[str, tuple[str, ...]]:
     xi_site = getattr(model, "xi_site", None)
     hyper_sites = getattr(model, "hyper_sites", None)
     if not isinstance(xi_site, str):
-        raise ValueError(
+        raise TypeError(
             "geometry kernel requires model.xi_site (a str); the built joint "
             "model does not expose it"
         )
@@ -444,7 +445,7 @@ class _CompiledTarget:
 
         self.xi_site, self.hyper_sites = _require_site_metadata(model)
         hyper_example = {k: float(hyper_example[k]) for k in self.hyper_sites}
-        pf, z0, order, shapes = _unconstrained_potential(
+        pf, _z0, order, shapes = _unconstrained_potential(
             model, np.zeros(dim), hyper_example
         )
         self._order = order

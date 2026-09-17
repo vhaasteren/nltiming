@@ -5,13 +5,32 @@ from __future__ import annotations
 import hashlib
 import json
 import warnings
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, replace
-from typing import Any, Literal, Mapping, Sequence
+from typing import Any, Literal
 
 import numpy as np
+from psrdata import ResidualCentering
 
 from . import priors as prior_specs
 from .bijectors import AxisPrior, WhiteningLinear
+from .coordinates import (
+    LocallyMarginalizedTimingWarning,
+    NonAffineIdenticallyLinearWarning,
+    TimingCoordinatePolicy,
+    TimingExpansionSpec,
+)
+from .engine_config import DEFAULT_ENGINE, normalize_engines
+from .frames import EngineDeltaMap
+from .inference import (
+    InferencePreset,
+    TimingInference,
+    TimingParameterPlan,
+    coerce_timing_inference,
+    resolve_inference_plan,
+)
+from .linearity import LinearityResolution, resolve_linearity
+from .linearization import TimingLinearization, build_linearization
 from .metric import (
     LocalPosteriorMetric,
     StaticTransportRecord,
@@ -21,39 +40,20 @@ from .metric import (
     static_transport_record,
     toa_errors_metric,
 )
-from .coordinates import (
-    LocallyMarginalizedTimingWarning,
-    NonAffineIdenticallyLinearWarning,
-    TimingCoordinatePolicy,
-    TimingExpansionSpec,
-)
-from .frames import EngineDeltaMap
-from .linearization import TimingLinearization, build_linearization
 from .physical_charts import (
     KeplerLaplacePolicy,
     MarginalBasisFrame,
     activate_charts,
-    marginal_frame_skip_reason,
     coerce_binary_chart_policy,
     expand_override_key,
     frame_change_matrix,
+    marginal_frame_skip_reason,
     materialize_eps_override,
     normalize_inference_selectors,
     resolve_chart_candidates,
     sampling_reference_strings,
 )
 from .pint_compat import resolve_parameter_alias
-from psrdata import ResidualCentering
-
-from .protocols import JacobianTimingEngine, JaxTimingEngine
-from .inference import (
-    InferencePreset,
-    TimingInference,
-    TimingParameterPlan,
-    coerce_timing_inference,
-    resolve_inference_plan,
-)
-from .linearity import LinearityResolution, resolve_linearity
 from .priors import (
     PriorBlock,
     PriorBuildContext,
@@ -65,13 +65,15 @@ from .priors import (
     store_prior_override,
     validate_prior_policy,
 )
+from .protocols import JacobianTimingEngine, JaxTimingEngine
 from .space import ParameterSpace, coord_for_static_layer
 from .units import lookup_pint_param, native_physical_bounds, to_native
 from .whitening import posterior_linear_transform, schur_delta_wls
-from .engine_config import DEFAULT_ENGINE, normalize_engines
 
 _DERIVATIVE_METHODS = {"analytic", "autodiff"}
 _PRIOR_OVERRIDE_POLICIES = {"warn", "strict"}
+_DEFAULT_COORDINATE_POLICY = TimingCoordinatePolicy()
+_DEFAULT_EXPANSION_SPEC = TimingExpansionSpec.engine_reference()
 
 
 class GaugeColumnMissingError(ValueError):
@@ -567,7 +569,7 @@ def _normalize_residual_centering(
         )
     for key, value in items:
         if not isinstance(value, ResidualCentering):
-            raise ValueError(
+            raise TypeError(
                 f"residual_centering[{key!r}] must be a psrdata.ResidualCentering; "
                 f"got {type(value).__name__}"
             )
@@ -630,7 +632,7 @@ class TimingSignal:
     run-metadata snapshots). The spec itself stays pure configuration.
     """
 
-    model: "TimingSpec"
+    model: TimingSpec
     pulsar: Any
     engine: Any
     plan: TimingParameterPlan
@@ -642,7 +644,7 @@ class TimingSignal:
     delay_keys: tuple[str, ...]
     design_matrix: np.ndarray  # sampling-frame M_s (= M_e off charts)
     engine_design_matrix: np.ndarray  # engine-frame M_e
-    linearization: "TimingLinearization"
+    linearization: TimingLinearization
     proper_space: ParameterSpace
     marginal_z_space: ParameterSpace
     derivative_method: str = "analytic"
@@ -655,14 +657,14 @@ class TimingSignal:
     marginal_basis_frames: tuple = ()  # tuple[MarginalBasisFrame, ...]
     marginal_basis_frame_records: tuple = ()  # tuple[dict, ...] (manifest-ready)
     conversion_metadata: Any | None = None
-    engine_delta_map: "EngineDeltaMap | None" = None  # sampled mode; always set
+    engine_delta_map: EngineDeltaMap | None = None  # sampled mode; always set
 
     def with_expansion(
         self,
         *,
         delta,
         source: str = "explicit_delta",
-    ) -> "TimingSignal":
+    ) -> TimingSignal:
         """Re-linearize all proper-prior axes at one fixed physical point (§5.3).
 
         ``delta`` is a mapping over ``ctx.plan.proper`` (no delta-flat names) or an
@@ -759,7 +761,7 @@ class TimingSignal:
 
     def with_transport(
         self, metric: LocalPosteriorMetric | None = None
-    ) -> "TimingSignal":
+    ) -> TimingSignal:
         """Return a new, conditioned context finalized on ``metric`` (§5.2).
 
         Finalize-once and immutable: raises on an already-conditioned context,
@@ -883,7 +885,7 @@ class TimingSignal:
 
     def timing_param_keys(self) -> tuple[str, ...]:
         if not self.plan.sampled:
-            return tuple()
+            return ()
         return (self.latent_name, *self.delay_keys)
 
     def non_timing_params(self, params: Sequence[str]) -> tuple[str, ...]:
@@ -938,7 +940,7 @@ class TimingSignal:
         """Transport coefficient key for this pulsar's timing block (joint mode)."""
         return f"{self.name_stem}_timing_z"
 
-    def local_timing_block(self) -> "LocalTimingBlock":
+    def local_timing_block(self) -> LocalTimingBlock:
         """Sampled-block timing delay Jacobian in prior-normal ``z``.
 
         Thin projection of :attr:`linearization`: ``basis`` is
@@ -1157,9 +1159,9 @@ class TimingSpec:
         priors: Mapping[str, PriorOverrideSpec] | None = None,
         prior_policy: PriorPolicy = "wide_default",
         prior_override_policy: Literal["warn", "strict"] = "warn",
-        coordinate_policy: TimingCoordinatePolicy = TimingCoordinatePolicy(),
-        expansion: TimingExpansionSpec = TimingExpansionSpec.engine_reference(),
-        binary_chart: "KeplerLaplacePolicy | str | None" = "auto",
+        coordinate_policy: TimingCoordinatePolicy = _DEFAULT_COORDINATE_POLICY,
+        expansion: TimingExpansionSpec = _DEFAULT_EXPANSION_SPEC,
+        binary_chart: KeplerLaplacePolicy | str | None = "auto",
         whitening: WhiteningConfig | None = None,
         name: str = "nonlinear_timing_model",
     ):
@@ -1299,7 +1301,7 @@ class TimingSpec:
         """Convenience wrapper for frame='delta' priors."""
         self.set_prior(name, kind, frame="delta", scale=scale, **bounds)
 
-    def with_engines(self, engines) -> "TimingSpec":
+    def with_engines(self, engines) -> TimingSpec:
         """Return a new model config with a different engine selection."""
         other = TimingSpec(
             engines=engines,
@@ -1782,7 +1784,7 @@ class TimingSpec:
             names=block.names, priors=tuple(priors), sources=block.sources
         )
 
-    def _default_metric(self, ctx: "TimingSignal") -> LocalPosteriorMetric:
+    def _default_metric(self, ctx: TimingSignal) -> LocalPosteriorMetric:
         """Build the reference-noise metric named by the whitening config.
 
         Only class 1 (``toa_errors``) and class 2 (``frozen_white``, which needs
@@ -1840,7 +1842,7 @@ class TimingSpec:
         refs = engine.reference_theta_exact()
         payload = {
             "fitpars": tuple(pulsar.fitpars),
-            "n_toa": int(len(pulsar.toas)),
+            "n_toa": len(pulsar.toas),
             "design_shape": tuple(design.shape),
             "design_checksum": float(np.sum(np.abs(design))),
             "residual_shape": tuple(np.asarray(pulsar.residuals).shape),

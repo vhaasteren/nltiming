@@ -28,7 +28,7 @@ from nltiming.protocols import JacobianTimingEngine, TimingEngine
 from nltiming.run_io import build_run_manifest
 
 psrdata = pytest.importorskip("psrdata")
-from psrdata import LinearEngineError, ParameterFact, ResidualCentering  # noqa: E402
+from psrdata import LinearEngineError, ParameterFact, ResidualCentering
 
 PINT_CENTERING = ResidualCentering(
     stored_residuals="none", standard_output="mean_removed", standard_weighted=True
@@ -273,6 +273,7 @@ def test_the_phase_offset_column_is_the_gauge_direction():
     matrix that declares nothing is held to the constant and fails.
     """
     from _engine_stubs import JaxLinearTestEngine
+
     from nltiming.engine_support import LinearModel
 
     n = 24
