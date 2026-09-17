@@ -30,6 +30,19 @@ _UNIT_INTERVAL = {"ECC", "E", "SINI"}
 # returns an invalid-state NaN rather than being clamped.
 _SIGNED_UNIT_INTERVAL = {"COSI"}
 _KIN_INTERVAL_DEG = (0.0, 180.0)
+# Angles the delay depends on only through their sine and cosine, so the
+# likelihood is *exactly* invariant under a full turn. Measured on a
+# geometry-on DDR fixture, KOM + 360 deg moves the binary delay by 0.0 s
+# bit-for-bit (KOM + 180 deg moves it by 1.6e-7 s, so the period is 360, not
+# 180); OM + 360 deg moves DD residuals by 1.9 ns against 40 s for OM + 180,
+# the residue being float64 `sin(x + 2pi)` on DD's unwrapped anomaly.
+#
+# These are *periodic*, not *bounded*, and the difference is the whole reason
+# they are not in the sets above. KIN's (0, 180) is a real physical range for
+# an inclination; [0, 360) for KOM is only a choice of branch. Left unbounded,
+# a +-100 sigma box spans several turns and the posterior has infinitely many
+# identical modes, which reads as a huge sigma rather than as a bug.
+_PERIODIC_DEG = {"KOM": 360.0, "OM": 360.0}
 
 
 def _qualified_name_candidates(name: str) -> list[str]:
@@ -157,6 +170,21 @@ def to_display(name: str, native_value, pint_model: Any | None = None):
     """Convert timing-engine storage units to display-unit magnitudes."""
     _ = storage_unit(name, pint_model)
     return np.asarray(native_value)
+
+
+def native_period(name: str) -> float | None:
+    """Period of a cyclic axis in storage units, or ``None`` if aperiodic.
+
+    Deliberately separate from :func:`native_physical_bounds`. A bound says
+    "outside this the model is unphysical"; a period says "outside this the
+    model repeats". The prior builder needs the second for cyclic angles,
+    because it centres its box on the par value: one period *about the
+    reference* keeps the axis identifiable while putting the box edge as far
+    from the starting point as it can go. Clipping to an absolute ``[0, 360)``
+    would instead drop a hard edge right next to any pulsar whose ``KOM`` sits
+    near zero, where the likelihood is perfectly smooth.
+    """
+    return _PERIODIC_DEG.get(normalize_param_name(name))
 
 
 def native_physical_bounds(name: str) -> tuple[float | None, float | None]:

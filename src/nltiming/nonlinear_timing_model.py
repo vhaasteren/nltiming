@@ -66,7 +66,12 @@ from .priors import (
     validate_prior_policy,
 )
 from .space import ParameterSpace, coord_for_static_layer
-from .units import lookup_pint_param, native_physical_bounds, to_native
+from .units import (
+    lookup_pint_param,
+    native_period,
+    native_physical_bounds,
+    to_native,
+)
 from .whitening import posterior_linear_transform, schur_delta_wls
 from .engine_config import DEFAULT_ENGINE, normalize_engines
 
@@ -1775,6 +1780,19 @@ class TimingSpec:
                     upper = min(upper, bound_hi - ref)
             if not (upper > lower):
                 lower, upper = -half, half
+            # A cyclic axis gets ONE period, centred on the par value. Without
+            # it a +-100 sigma box on KOM or OM spans several turns, and since
+            # the likelihood is exactly invariant under a full turn the
+            # posterior has infinitely many identical modes: the chain drifts
+            # between copies and reports a sigma larger than the value, which
+            # looks like a weak constraint rather than an unidentifiable
+            # parameter. Applied after the bounds clip and in delta units, so
+            # the edge sits half a period from the reference rather than
+            # wherever an absolute [0, 360) branch cut happens to fall.
+            period = native_period(name)
+            if period is not None:
+                lower = max(lower, -0.5 * period)
+                upper = min(upper, 0.5 * period)
             priors.append(
                 AxisPrior(family="uniform", lower=float(lower), upper=float(upper))
             )
