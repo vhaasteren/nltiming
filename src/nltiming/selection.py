@@ -17,12 +17,12 @@ from .pint_compat import resolve_fit_column_name, resolve_parameter_alias
 __all__ = [
     "ParameterMappingError",
     "ParameterMappingView",
-    "parameter_mapping_view",
-    "validated_parameter_mapping_view",
     "canonical_fitpars",
-    "match_fitpars",
-    "select_fitpars",
     "fitpar_suffix",
+    "match_fitpars",
+    "parameter_mapping_view",
+    "select_fitpars",
+    "validated_parameter_mapping_view",
 ]
 
 
@@ -69,7 +69,7 @@ def parameter_mapping_view(pulsar) -> ParameterMappingView:
 
     if not hasattr(pulsar, "_fitparameters"):
         return ParameterMappingView(None, "none")
-    mapping = getattr(pulsar, "_fitparameters")
+    mapping = pulsar._fitparameters
     if mapping is None:
         return ParameterMappingView(None, "none")
     if not isinstance(mapping, Mapping):

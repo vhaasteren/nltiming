@@ -15,9 +15,10 @@ Two linear engines meet here, and they are different things:
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from decimal import Decimal, localcontext
-from typing import Any, Mapping
+from typing import Any
 
 import numpy as np
 from psrdata import ResidualCentering
@@ -77,9 +78,7 @@ def is_exact_linear_param(param_name: str) -> bool:
     name = param_name.upper()
     if name == "OFFSET":
         return True
-    if name.startswith(("DMX", "JUMP", "FD")):
-        return True
-    return False
+    return name.startswith(("DMX", "JUMP", "FD"))
 
 
 def validate_engine_zero_delta(engine: TimingEngine, tol: float = 1e-12) -> None:
@@ -118,7 +117,7 @@ def validate_engine_residual_centering(engine: TimingEngine) -> None:
         raise ValueError("residual_centering must have one entry per data set")
     for key, value in mapping.items():
         if not isinstance(value, ResidualCentering):
-            raise ValueError(
+            raise TypeError(
                 f"residual_centering[{key!r}] must be a psrdata.ResidualCentering, "
                 f"got {type(value).__name__}"
             )
@@ -194,7 +193,7 @@ class LinearModel:
         design,
         theta_exact: Mapping[str, str] | None = None,
         native_units: Mapping[str, str] | None = None,
-    ) -> "LinearModel":
+    ) -> LinearModel:
         return cls(
             fitpars=tuple(fitpars),
             design=design,
@@ -251,7 +250,7 @@ class LinearModelEngine:
             ResidualCentering | Mapping[str, ResidualCentering] | None
         ) = None,
         **_ignored: Any,
-    ) -> "LinearModelEngine":
+    ) -> LinearModelEngine:
         return cls(model, residual_centering=residual_centering)
 
     @property
@@ -291,17 +290,17 @@ class LinearModelEngine:
 
 
 __all__ = [
-    "validate_pulsar_surface",
-    "zero_delta_tolerance",
-    "is_exact_linear_param",
-    "validate_engine_zero_delta",
-    "validate_engine_shapes",
-    "validate_engine_residual_centering",
-    "validate_engine_against_pulsar",
     "UNKNOWN_UNIT",
+    "LinearContribution",
     "LinearModel",
     "LinearModelEngine",
-    "LinearContribution",
     "LinearTimingEngine",
+    "is_exact_linear_param",
     "linear_engine",
+    "validate_engine_against_pulsar",
+    "validate_engine_residual_centering",
+    "validate_engine_shapes",
+    "validate_engine_zero_delta",
+    "validate_pulsar_surface",
+    "zero_delta_tolerance",
 ]

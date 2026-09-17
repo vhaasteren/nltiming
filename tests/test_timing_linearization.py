@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import ClassVar
+
 import numpy as np
 import pytest
 
@@ -9,10 +11,11 @@ jax = pytest.importorskip("jax")
 jax.config.update("jax_enable_x64", True)
 
 
-from nltiming import TimingInference  # noqa: E402
 from _engine_stubs import JaxLinearTestEngine
-from nltiming.engine_support import LinearModel  # noqa: E402
-from nltiming.nonlinear_timing_model import TimingSpec  # noqa: E402
+
+from nltiming import TimingInference
+from nltiming.engine_support import LinearModel
+from nltiming.nonlinear_timing_model import TimingSpec
 
 
 class _Pulsar:
@@ -150,6 +153,7 @@ def test_joint_transport_uses_expansion_effective_residual(monkeypatch):
 
     ds.config(kernels="metamath")
     from discovery import transport as dst
+
     from nltiming.sampling.numpyro import build_joint_transport
 
     captured = {}
@@ -162,7 +166,7 @@ def test_joint_transport_uses_expansion_effective_residual(monkeypatch):
     monkeypatch.setattr(dst, "Transport", spy)
 
     class _Likelihood:
-        sampled_gps: list = []
+        sampled_gps: ClassVar[list] = []
 
     # A uniform DM prior gives a non-affine (prior_pit) chart, so delta(z) is
     # nonlinear and the effective residual genuinely departs from y off-zero

@@ -24,9 +24,10 @@ unit-cube prior transform.
 
 from __future__ import annotations
 
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable, Mapping, Sequence
+from typing import Any
 
 import numpy as np
 
@@ -112,7 +113,7 @@ def initial_cov(ctx, *, nsamples: int = 2000, seed: int = 0) -> np.ndarray:
 def timing_param_names(ctx) -> tuple[str, ...]:
     """Sampler-visible timing parameter names in vector order."""
     if not ctx.sampled:
-        return tuple()
+        return ()
     if ctx.model.static_layer == "identity":
         return tuple(ctx.delay_keys)
     site = ctx.latent_name_for_coord()

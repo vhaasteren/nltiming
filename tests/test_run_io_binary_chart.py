@@ -7,12 +7,12 @@ jax = pytest.importorskip("jax")
 jax.config.update("jax_enable_x64", True)
 pytest.importorskip("jug")
 
-from nltiming import TimingInference  # noqa: E402
-from nltiming.nonlinear_timing_model import TimingSpec  # noqa: E402
-from nltiming.physical_charts import kepler_from_laplace_vec  # noqa: E402
-from nltiming.run_io import RunResults, derived_kepler_columns  # noqa: E402
+from test_physical_charts_context import _BinaryPulsar
 
-from test_physical_charts_context import _BinaryPulsar  # noqa: E402
+from nltiming import TimingInference
+from nltiming.nonlinear_timing_model import TimingSpec
+from nltiming.physical_charts import kepler_from_laplace_vec
+from nltiming.run_io import RunResults, derived_kepler_columns
 
 
 def _conditioned(binary_chart="auto", inference=None):
@@ -146,7 +146,7 @@ def test_near_seam_uses_engine_branch():
     t0 = derived[chart.engine_names[2]]
     # The reference-local branch lets OM run continuously OUTSIDE [0, 360)
     # near the seam; the global normalization would wrap it.
-    glob_e, glob_om, glob_t0 = kepler_from_laplace_vec(
+    _glob_e, glob_om, _glob_t0 = kepler_from_laplace_vec(
         samples[chart.sample_names[0]],
         samples[chart.sample_names[1]],
         samples[chart.sample_names[2]],

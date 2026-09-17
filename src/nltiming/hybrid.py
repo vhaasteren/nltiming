@@ -158,13 +158,13 @@ def resolve_hybrid_partition(
 
 
 __all__ = [
+    "BINARY_AXES",
     "NONLINEAR_PARAMS_BINARY",
     "NONLINEAR_PARAMS_BINARY_PLUS",
     "NONLINEAR_PARAMS_MODES",
-    "BINARY_AXES",
-    "validate_nonlinear_params",
+    "hybrid_linearized_fitpars",
     "is_binary_axis",
     "is_hybrid_engine_axis",
-    "hybrid_linearized_fitpars",
     "resolve_hybrid_partition",
+    "validate_nonlinear_params",
 ]

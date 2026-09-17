@@ -16,7 +16,7 @@ class ExactNativeRef:
     values: tuple[str, ...]
 
     @classmethod
-    def from_mapping(cls, mapping: dict[str, str]) -> "ExactNativeRef":
+    def from_mapping(cls, mapping: dict[str, str]) -> ExactNativeRef:
         """Construct from exact decimal strings only."""
         names = tuple(mapping.keys())
         values = []
@@ -31,7 +31,7 @@ class ExactNativeRef:
         return cls(names=names, values=tuple(values))
 
     @classmethod
-    def from_float_mapping(cls, mapping: dict[str, float | int]) -> "ExactNativeRef":
+    def from_float_mapping(cls, mapping: dict[str, float | int]) -> ExactNativeRef:
         """Construct from numeric values with explicit float-string conversion."""
         names = tuple(mapping.keys())
         values = tuple(str(float(mapping[name])) for name in names)

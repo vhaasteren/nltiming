@@ -55,7 +55,7 @@ def test_from_dict_uses_1x_nested_mapping(monkeypatch):
     )
     assert out == "idata-1x"
     assert set(recorded["data"]) == {"posterior", "sample_stats"}
-    assert recorded["attrs"]["space_digest"] == "abc"
+    assert recorded["attrs"] == {"/": {"space_digest": "abc"}}
 
 
 def test_from_dict_1x_rejects_posterior_keyword_like_arviz_1_3(monkeypatch):
@@ -72,3 +72,4 @@ def test_from_dict_1x_rejects_posterior_keyword_like_arviz_1_3(monkeypatch):
         _Az.from_dict(posterior={"F1": np.zeros((1, 2))})
     out = inference_data_from_dict(posterior={"F1": np.zeros((1, 2))})
     assert out["groups"] == {"posterior"}
+    assert out["attrs"] is None

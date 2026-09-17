@@ -11,14 +11,13 @@ import pytest
 
 jax = pytest.importorskip("jax")
 jax.config.update("jax_enable_x64", True)
-import jax.numpy as jnp  # noqa: E402
-
-
-from nltiming import TimingInference  # noqa: E402
+import jax.numpy as jnp
 from _engine_stubs import JaxLinearTestEngine
-from nltiming.engine_support import LinearModel  # noqa: E402
-from nltiming.nonlinear_timing_model import TimingSpec  # noqa: E402
-from nltiming.priors import delta_uniform, normal  # noqa: E402
+
+from nltiming import TimingInference
+from nltiming.engine_support import LinearModel
+from nltiming.nonlinear_timing_model import TimingSpec
+from nltiming.priors import delta_uniform, normal
 
 REF = {
     "Offset": "0.0",

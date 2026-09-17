@@ -5,12 +5,18 @@ ArviZ 1.x moved that helper to a nested mapping
 (``from_dict({"posterior": ..., "sample_stats": ...})``) and rejects the
 ``posterior=`` keyword. Both shapes are in the wild; the notebooks must run
 on either.
+
+Callers pass a flat metadata dict (``space_digest``, ``context_digest``, …).
+On 0.x that lands on ``InferenceData.attrs``. On 1.x / ``arviz_base``,
+``attrs`` keys must be group names or ``"/"`` (tree-level); a flat dict is
+warned about and dropped, so this adapter wraps it as ``{"/": attrs}``.
 """
 
 from __future__ import annotations
 
 import inspect
-from typing import Any, Mapping
+from collections.abc import Mapping
+from typing import Any
 
 
 def inference_data_from_dict(
@@ -48,4 +54,5 @@ def inference_data_from_dict(
     data: dict[str, Any] = {"posterior": posterior}
     if sample_stats is not None:
         data["sample_stats"] = sample_stats
-    return from_dict(data, attrs=attrs)
+    az_attrs = {"/": dict(attrs)} if attrs is not None else None
+    return from_dict(data, attrs=az_attrs)

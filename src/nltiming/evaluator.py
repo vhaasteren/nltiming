@@ -15,8 +15,8 @@ from typing import Any, Literal, cast
 import numpy as np
 
 from .engine_config import DEFAULT_ENGINE
-from .selection import match_fitpars, validated_parameter_mapping_view
 from .protocols import JacobianTimingEngine, JaxTimingEngine
+from .selection import match_fitpars, validated_parameter_mapping_view
 from .space import ParameterSpace
 from .units import lookup_pint_param, normalize_param_name, units_map
 
@@ -281,7 +281,7 @@ class TimingEvaluator:
         self.capabilities = self._build_capabilities()
 
     @classmethod
-    def from_pulsar(cls, pulsar: Any, **kwargs: Any) -> "TimingEvaluator":
+    def from_pulsar(cls, pulsar: Any, **kwargs: Any) -> TimingEvaluator:
         return cls(pulsar, **kwargs)
 
     @property
@@ -474,7 +474,7 @@ class TimingEvaluator:
                 "method must be 'auto', 'reference', 'exact', or 'autodiff'"
             )
         if not isinstance(self.engine, JaxTimingEngine):
-            raise ValueError("autodiff requires a JAX-capable timing engine")
+            raise TypeError("autodiff requires a JAX-capable timing engine")
         from .sampling.numpyro import ensure_x64
 
         ensure_x64()

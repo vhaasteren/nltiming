@@ -2,19 +2,19 @@
 
 from __future__ import annotations
 
-from collections import namedtuple
-from decimal import Decimal, localcontext
 import hashlib
 import json
+from collections import namedtuple
+from collections.abc import Callable
+from decimal import Decimal, localcontext
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 import numpy as np
 
 from .bijectors import AxisPrior, PriorBijector, WhiteningLinear
 from .precision import ExactNativeRef
 from .units import to_display
-
 
 _STATIC_LAYERS = {"identity", "whitening"}
 
@@ -74,7 +74,7 @@ class ParameterSpace:
         static_layer: str = "identity",
         linear_transform: WhiteningLinear | None = None,
         pint_model: Any | None = None,
-    ) -> "ParameterSpace":
+    ) -> ParameterSpace:
         if all(isinstance(v, str) for v in theta_ref_mapping.values()):
             exact = ExactNativeRef.from_mapping(theta_ref_mapping)  # type: ignore[arg-type]
         else:
@@ -97,7 +97,7 @@ class ParameterSpace:
             pint_model=pint_model,
         )
 
-    def select(self, names) -> "ParameterSpace":
+    def select(self, names) -> ParameterSpace:
         """Extract the subspace over ``names`` (a subset of this space's axes).
 
         Preserves each axis's prior and exact reference. Requires an identity
@@ -315,7 +315,7 @@ class ParameterSpace:
         )
 
     @classmethod
-    def load(cls, path: str | Path) -> "ParameterSpace":
+    def load(cls, path: str | Path) -> ParameterSpace:
         base = Path(path)
         arrays = np.load(str(base) + ".npz")
         payload = json.loads(Path(str(base) + ".json").read_text(encoding="utf-8"))

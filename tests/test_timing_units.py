@@ -2,6 +2,7 @@
 
 import astropy.units as u
 import numpy as np
+import pytest
 
 from nltiming.units import (
     display_unit,
@@ -100,12 +101,22 @@ def test_native_physical_bounds():
     # orientations, and clipping to [0, 1] would halve Vela/pyvela's isotropic
     # Uniform(-1, 1) prior without saying so.
     assert native_physical_bounds("COSI") == (-1.0, 1.0)
-    assert native_physical_bounds("COSI_ng15") == (-1.0, 1.0)
     # STIG normalizes to STIGMA; sigma is positive-unbounded, not unit-interval.
     assert normalize_param_name("STIG") == "STIGMA"
     assert native_physical_bounds("STIG") == (0.0, None)
     assert native_physical_bounds("STIGMA") == (0.0, None)
     assert native_physical_bounds("STIG_epta") == (0.0, None)
+
+
+def test_native_physical_bounds_suffixed_cosi():
+    from nltiming.pint_compat import pint_parameter_name
+
+    if pint_parameter_name("COSI") is None:
+        pytest.xfail(
+            "PyPI pint-pulsar has no DDR COSI alias; "
+            "suffixed COSI_ng15 cannot strip until that PINT PR merges"
+        )
+    assert native_physical_bounds("COSI_ng15") == (-1.0, 1.0)
 
 
 def test_suffixed_composite_names_use_canonical_units_and_bounds():

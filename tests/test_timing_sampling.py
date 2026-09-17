@@ -2,14 +2,13 @@
 
 import numpy as np
 import pytest
+from _engine_stubs import JaxLinearTestEngine
 from numpyro import handlers
 
-from nltiming import WhiteningConfig
-from nltiming import TimingInference
-from _engine_stubs import JaxLinearTestEngine
+import nltiming.sampling as nlts
+from nltiming import TimingInference, WhiteningConfig
 from nltiming.engine_support import LinearModel
 from nltiming.nonlinear_timing_model import TimingSpec
-import nltiming.sampling as nlts
 
 
 class _Pulsar:
@@ -69,10 +68,13 @@ def pulsar():
     return _Pulsar()
 
 
-def _binding(whitening=WhiteningConfig(), **kwargs):
+_UNSET = object()
+
+
+def _binding(whitening=_UNSET, **kwargs):
     ntm = TimingSpec(
         engines="jug",
-        whitening=whitening,
+        whitening=WhiteningConfig() if whitening is _UNSET else whitening,
         inference=TimingInference.groups(delta_flat=["Offset"]),
         name="timing",
         **kwargs,
@@ -103,9 +105,8 @@ def _trace_model(model_fn, ctx):
     import jax.random as jr
 
     init = {ctx.latent_name_for_coord(): jnp.zeros(len(ctx.sampled))}
-    with handlers.seed(rng_seed=jr.PRNGKey(0)):
-        with handlers.substitute(data=init):
-            return handlers.trace(model_fn).get_trace()
+    with handlers.seed(rng_seed=jr.PRNGKey(0)), handlers.substitute(data=init):
+        return handlers.trace(model_fn).get_trace()
 
 
 def test_model_traces_timing_site_and_ll_factor(pulsar):

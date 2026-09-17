@@ -13,17 +13,17 @@ import pytest
 
 jax = pytest.importorskip("jax")
 jax.config.update("jax_enable_x64", True)
-import jax.numpy as jnp  # noqa: E402
+import jax.numpy as jnp
 
 pytest.importorskip("jug")
 
-from nltiming.physical_charts import kepler_from_laplace  # noqa: E402
+from test_physical_charts_context import _ctx
 
-from test_physical_charts_context import _ctx  # noqa: E402
+from nltiming.physical_charts import kepler_from_laplace
 
 
 def test_zero_delta_residual_identity():
-    _, off = _ctx(binary_chart="off")
+    _, _off = _ctx(binary_chart="off")
     _, ctx = _ctx()
     nfit = len(ctx.plan.fitpars)
     r_off = np.asarray(ctx.engine.residual_delta_jax(jnp.zeros(nfit)))

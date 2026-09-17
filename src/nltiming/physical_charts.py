@@ -15,13 +15,13 @@ pure NumPy (tests cross-check against PINT).
 from __future__ import annotations
 
 import warnings
+from collections.abc import Mapping
 from dataclasses import dataclass
 from decimal import Decimal, localcontext
 from typing import (
     TYPE_CHECKING,
     ClassVar,
     Literal,
-    Mapping,
     Protocol,
     runtime_checkable,
 )
@@ -562,9 +562,9 @@ class ChartCandidate:
     chart: KeplerLaplaceChart | None
     skip_reason: str | None  # candidacy-stage reason, else None
     e_ref: float | None
-    capability: "object | None" = None
+    capability: object | None = None
     secular_terms: tuple[str, ...] = ()
-    fw10_chart: "FW10AbsorbedChart | None" = None
+    fw10_chart: FW10AbsorbedChart | None = None
 
 
 def _group_fitpars(pulsar) -> dict[str, dict[str, str]]:
@@ -1149,12 +1149,15 @@ def _fw10_activation_reason(
     # PB sampled → inactive (frozen dependency; not a dependency_slot coupling).
     for ax in plan.axes:
         en = ax.engine_name or ax.name
-        if _fitpar_base(en, cand.suffix) == "PB" and ax.disposition == "sample":
-            # Same-suffix PB, or unsuffixed PB for the empty-suffix group.
-            if (cand.suffix and en.endswith(cand.suffix)) or (
-                not cand.suffix and _fitpar_base(en, "") == "PB"
-            ):
-                return "dependency_sampled"
+        if (
+            _fitpar_base(en, cand.suffix) == "PB"
+            and ax.disposition == "sample"
+            and (
+                (cand.suffix and en.endswith(cand.suffix))
+                or (not cand.suffix and _fitpar_base(en, "") == "PB")
+            )
+        ):
+            return "dependency_sampled"
 
     if _fw10_secular_present(cand.secular_terms):
         return "secular_terms_present"
@@ -1477,7 +1480,11 @@ def disk_shrink_factor(a: float, b: float, h1: float, h2: float, r_max: float) -
     """Largest c in (0, 1] with hypot(a + c*h1, b + c*h2) <= r_max, for
     a, b >= 0 (use |eps_ref| components). Closed form: if the c=1 corner is
     inside, 1; else the positive root of
-    (h1^2+h2^2)c^2 + 2(a*h1+b*h2)c + (a^2+b^2-r_max^2) = 0."""
+    (h1^2+h2^2)c^2 + 2(a*h1+b*h2)c + (a^2+b^2-r_max^2) = 0.
+
+    The quadratic can land one ulp outside ``r_max``; snap ``c`` inward so
+    the reconstructed hypot satisfies the closed support.
+    """
     if float(np.hypot(a + h1, b + h2)) <= r_max:
         return 1.0
     A = h1 * h1 + h2 * h2
@@ -1485,7 +1492,15 @@ def disk_shrink_factor(a: float, b: float, h1: float, h2: float, r_max: float) -
     C = a * a + b * b - r_max * r_max
     if C >= 0.0:  # reference itself outside r_max — cannot happen post-candidacy
         raise ValueError("reference eccentricity outside the physical disk")
-    return float((-Bq + np.sqrt(Bq * Bq - 4.0 * A * C)) / (2.0 * A))
+    c = float((-Bq + np.sqrt(Bq * Bq - 4.0 * A * C)) / (2.0 * A))
+    r = float(np.hypot(a + c * h1, b + c * h2))
+    if r > r_max:
+        c *= r_max / r
+        r = float(np.hypot(a + c * h1, b + c * h2))
+        while r > r_max and c > 0.0:
+            c = float(np.nextafter(c, 0.0))
+            r = float(np.hypot(a + c * h1, b + c * h2))
+    return c
 
 
 @dataclass(frozen=True)
@@ -1529,7 +1544,7 @@ class ResolvedPhysicalChart:
     ``fw10_absorbed`` activations leave them empty / None.
     """
 
-    chart: "KeplerLaplaceChart | FW10AbsorbedChart"
+    chart: KeplerLaplaceChart | FW10AbsorbedChart
     eps_supports: tuple = ()
     reachability_rect: object | None = None
 

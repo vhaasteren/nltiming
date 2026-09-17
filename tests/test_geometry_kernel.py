@@ -16,7 +16,7 @@ jax = pytest.importorskip("jax")
 jax.config.update("jax_enable_x64", True)
 pytest.importorskip("numpyro")
 
-from nltiming.geometry import (  # noqa: E402
+from nltiming.geometry import (
     conditional_identity_spread,
     deterministic_xi_probes,
     target_metrics_at,
@@ -118,5 +118,5 @@ def test_kernel_requires_site_metadata():
 
         numpyro.sample("xi", dist.Normal(0.0, 1.0).expand([2]).to_event(1))
 
-    with pytest.raises(ValueError, match="xi_site"):
+    with pytest.raises(TypeError, match="xi_site"):
         target_metrics_at(bare_model, xi=np.zeros(2), hyper={})

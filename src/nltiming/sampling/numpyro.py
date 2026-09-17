@@ -16,7 +16,8 @@ Discovery ``makesampler_nuts`` workflows.
 
 from __future__ import annotations
 
-from typing import Any, Callable, Mapping
+from collections.abc import Callable, Mapping
+from typing import Any, ClassVar
 
 import numpy as np
 
@@ -73,9 +74,9 @@ def _static_pullback_distribution_cls():
     from numpyro.distributions import Distribution, constraints
 
     class StaticTimingPullback(Distribution):
-        arg_constraints: dict = {}
+        arg_constraints: ClassVar[dict] = {}
         support = constraints.real_vector
-        reparametrized_params: list = []
+        reparametrized_params: ClassVar[list] = []
 
         def __init__(self, C, z0, logabsdet, *, validate_args=None):
             self._C = jnp.asarray(C)
@@ -1193,8 +1194,8 @@ def decentered_model(
     _require_differentiable_timing(ctx, caller="sampling.numpyro.decentered_model")
     import jax.numpy as jnp
     import numpyro
-    from numpyro import distributions as dist
     from discovery import transport as dst
+    from numpyro import distributions as dist
 
     from ..metric import assert_static_layer_identity
 

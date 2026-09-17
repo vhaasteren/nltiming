@@ -11,8 +11,9 @@ No Discovery, Enterprise, NumPyro, pandas, or sampler imports live here.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Literal, Mapping
+from typing import Literal
 
 NonAffineLinearPolicy = Literal["warn", "ignore"]
 
@@ -86,15 +87,15 @@ class TimingExpansionSpec:
             raise ValueError(f"{self.mode} expansion takes no delta mapping")
 
     @classmethod
-    def engine_reference(cls) -> "TimingExpansionSpec":
+    def engine_reference(cls) -> TimingExpansionSpec:
         return cls(mode="engine_reference")
 
     @classmethod
-    def prior_center(cls) -> "TimingExpansionSpec":
+    def prior_center(cls) -> TimingExpansionSpec:
         return cls(mode="prior_center")
 
     @classmethod
-    def explicit_delta(cls, delta: Mapping[str, float]) -> "TimingExpansionSpec":
+    def explicit_delta(cls, delta: Mapping[str, float]) -> TimingExpansionSpec:
         return cls(mode="explicit_delta", delta=dict(delta))
 
     def as_dict(self) -> dict[str, object]:

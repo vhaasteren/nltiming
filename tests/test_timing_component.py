@@ -1,21 +1,21 @@
 """Slice-5 tests for TimingSpec component behavior."""
 
-import numpy as np
-import pytest
+from typing import ClassVar
 
 import jax.numpy as jnp
 import jax.random as jr
+import numpy as np
+import pytest
+from _engine_stubs import JaxLinearTestEngine, LinearTestEngine
+from _planhelp import plan_for
 from numpyro import handlers
 
+import nltiming.sampling as nlts
 from nltiming import TimingInference, WhiteningConfig
-from _engine_stubs import JaxLinearTestEngine, LinearTestEngine
 from nltiming.engine_support import LinearModel
 from nltiming.nonlinear_timing_model import TimingSpec
-from nltiming.whitening import normalized_basis
 from nltiming.sampling.numpyro import _sample_timing_coord, sample_timing
-import nltiming.sampling as nlts
-from _planhelp import plan_for
-from nltiming.whitening import schur_delta_wls
+from nltiming.whitening import normalized_basis, schur_delta_wls
 
 
 class _Pulsar:
@@ -411,7 +411,7 @@ def _host_ctx(pulsar, *, inference=None):
 
 class _DummyLikelihood:
     class logL:
-        params = []
+        params: ClassVar[list] = []
 
 
 def test_numpyro_helpers_refuse_sampled_host_delay(pulsar):
@@ -573,7 +573,7 @@ def test_set_prior_validated_against_sampled_partition(pulsar):
     ntm.set_prior("F0", "uniform", lower=-1.0, upper=1.0)
     # F0 is delta-flat here, so the override is rejected with the §4.4 remedy.
     with pytest.raises(ValueError, match="delta-flat.*z-prior"):
-        ntm.for_pulsar(pulsar).space
+        _ = ntm.for_pulsar(pulsar).space
 
 
 def test_set_prior_unknown_name_raises(pulsar):
@@ -585,7 +585,7 @@ def test_set_prior_unknown_name_raises(pulsar):
     )
     ntm.set_prior("F11", "uniform", lower=-1.0, upper=1.0)
     with pytest.raises(ValueError, match="unknown fit parameters"):
-        ntm.for_pulsar(pulsar).space
+        _ = ntm.for_pulsar(pulsar).space
 
 
 def test_enterprise_signal_forwards_engines(pulsar):
@@ -660,7 +660,7 @@ def test_timing_coord_distribution_log_prob_matches_logprior_coord(pulsar):
         )
         ctx = ntm.for_pulsar(pulsar)
 
-        def model():
+        def model(ctx=ctx, coord=coord):
             _sample_timing_coord(ctx, coord=coord)
 
         trace = handlers.trace(handlers.seed(model, jr.PRNGKey(0))).get_trace()

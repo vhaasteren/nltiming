@@ -133,7 +133,7 @@ def _explicit_scalar_delay_function(sampled_names: tuple[str, ...], evaluator):
         f"    return _evaluator({call})\n"
     )
     namespace = {"_evaluator": evaluator}
-    exec(source, namespace)
+    exec(source, namespace)  # noqa: S102 — names already checked as identifiers
     return namespace["_delay_body"]
 
 

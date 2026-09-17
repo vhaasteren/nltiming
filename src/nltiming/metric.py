@@ -81,7 +81,7 @@ class WhiteningConfig:
         }
 
 
-def _array_digest(hasher: "hashlib._Hash", array: np.ndarray | None) -> None:
+def _array_digest(hasher: hashlib._Hash, array: np.ndarray | None) -> None:
     if array is None:
         hasher.update(b"\x00none")
         return
@@ -122,9 +122,10 @@ class LocalPosteriorMetric:
             )
         if np.asarray(self.expansion_delta, dtype=float).shape != (ndim,):
             raise ValueError("expansion_delta must have one entry per sampled param")
-        if self.score_delta is not None:
-            if np.asarray(self.score_delta, dtype=float).shape != (ndim,):
-                raise ValueError("score_delta must have one entry per sampled param")
+        if self.score_delta is not None and np.asarray(
+            self.score_delta, dtype=float
+        ).shape != (ndim,):
+            raise ValueError("score_delta must have one entry per sampled param")
         if self.reference_noise not in _REFERENCE_NOISE_CLASSES:
             raise ValueError(f"unknown reference_noise class {self.reference_noise!r}")
 

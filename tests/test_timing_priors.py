@@ -2,10 +2,10 @@
 
 import numpy as np
 import pytest
+from _planhelp import plan_for
 
 from nltiming.bijectors import AxisPrior
 from nltiming.priors import PriorBlock, PriorOverrideSpec, store_prior_override
-from _planhelp import plan_for
 from nltiming.space import ParameterSpace
 from nltiming.whitening import (
     diagonal_white,
