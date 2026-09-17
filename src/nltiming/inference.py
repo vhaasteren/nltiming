@@ -18,9 +18,10 @@ from __future__ import annotations
 
 import hashlib
 import json
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Literal, Mapping, Sequence
+from typing import Literal
 
 from .bijectors import AxisPrior
 from .coordinates import TimingCoordinatePolicy
@@ -62,12 +63,12 @@ class Marginalize:
     coordinate: MarginalCoordinate
 
     @classmethod
-    def delta_flat(cls) -> "Marginalize":
+    def delta_flat(cls) -> Marginalize:
         """Linearize in physical delta and use an improper flat delta measure."""
         return cls(coordinate="delta")
 
     @classmethod
-    def z_prior(cls) -> "Marginalize":
+    def z_prior(cls) -> Marginalize:
         """Linearize in prior-normal z and integrate z ~ Normal(0, I)."""
         return cls(coordinate="z")
 
@@ -90,11 +91,11 @@ class TimingInference:
         object.__setattr__(self, "marginalize", dict(self.marginalize))
 
     @classmethod
-    def sample_all(cls) -> "TimingInference":
+    def sample_all(cls) -> TimingInference:
         return cls(marginalize={})
 
     @classmethod
-    def default(cls) -> "TimingInference":
+    def default(cls) -> TimingInference:
         return cls(marginalize={}, preset="default_delta")
 
     @classmethod
@@ -103,7 +104,7 @@ class TimingInference:
         *,
         delta_flat: Sequence[str] = (),
         z_prior: Sequence[str] = (),
-    ) -> "TimingInference":
+    ) -> TimingInference:
         overlap = set(delta_flat) & set(z_prior)
         if overlap:
             raise ValueError(f"timing inference groups overlap: {sorted(overlap)}")
@@ -377,7 +378,7 @@ class TimingParameterPlan:
     def analytically_marginalized(self) -> tuple[str, ...]:
         return self.marginalized_delta
 
-    def with_axes(self, axes: Sequence[ResolvedTimingAxis]) -> "TimingParameterPlan":
+    def with_axes(self, axes: Sequence[ResolvedTimingAxis]) -> TimingParameterPlan:
         """Return a copy with replacement axes (used to fill prior/chart records)."""
         return TimingParameterPlan(
             fitpars=self.fitpars,

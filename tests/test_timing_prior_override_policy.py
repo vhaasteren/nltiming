@@ -5,10 +5,10 @@ from __future__ import annotations
 import warnings
 
 import pytest
+from _planhelp import plan_for
 
 from nltiming import TimingInference
 from nltiming.nonlinear_timing_model import TimingSpec
-from _planhelp import plan_for
 
 
 class _StubBackend:

@@ -10,11 +10,10 @@ from __future__ import annotations
 
 import numpy as np
 import pytest
-
-from nltiming import WhiteningConfig
-from nltiming import TimingInference
-from nltiming.bijectors import WhiteningLinear
 from _engine_stubs import JaxLinearTestEngine
+
+from nltiming import TimingInference, WhiteningConfig
+from nltiming.bijectors import WhiteningLinear
 from nltiming.engine_support import LinearModel
 from nltiming.metric import (
     DynamicTransportRecord,

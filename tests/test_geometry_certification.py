@@ -8,20 +8,20 @@ geometry is known, then confirm each metric catches its intended defect.
 """
 
 import warnings
+from typing import ClassVar
 
 import numpy as np
 import pytest
 
 jax = pytest.importorskip("jax")
 jax.config.update("jax_enable_x64", True)
-import jax.numpy as jnp  # noqa: E402
+import jax.numpy as jnp
 
 pytest.importorskip("discovery")
 numpyro = pytest.importorskip("numpyro")
-import numpyro.distributions as dist  # noqa: E402
-
-import discovery as ds  # noqa: E402
-from discovery import transport as tr  # noqa: E402
+import discovery as ds
+import numpyro.distributions as dist
+from discovery import transport as tr
 
 
 @pytest.fixture(autouse=True)
@@ -34,7 +34,9 @@ def _metamath():
     ds.config(kernels="metamath")
 
 
-from nltiming import (  # noqa: E402
+from test_joint_model import _Pulsar
+
+from nltiming import (
     GeometryCertificationError,
     GeometryDiagnosticWarning,
     GeometryThresholds,
@@ -47,10 +49,8 @@ from nltiming import (  # noqa: E402
     transport_center_report,
     write_geometry_report,
 )
-from nltiming.geometry import target_metrics_at  # noqa: E402
-from nltiming.nonlinear_timing_model import TimingSpec  # noqa: E402
-
-from test_joint_model import _Pulsar  # noqa: E402
+from nltiming.geometry import target_metrics_at
+from nltiming.nonlinear_timing_model import TimingSpec
 
 
 class _NonlinearEngine:
@@ -85,6 +85,7 @@ class _BigPulsar(_Pulsar):
 
     def __init__(self, n=400):
         from _engine_stubs import JaxLinearTestEngine
+
         from nltiming.engine_support import LinearModel
 
         self.name = "J0000+0000"
@@ -146,7 +147,7 @@ def _oracle(
     r_eff = ctx.linearization.transport_effective_residual(y) * center_mult
 
     class _Prec:
-        params = []
+        params: ClassVar[list] = []
 
         def __call__(self, params):
             return jnp.ones(k)
@@ -228,7 +229,7 @@ def test_wrong_timing_basis_fails_hessian_and_identity():
 
 
 def test_localized_toa_remainder_fails_when_global_rms_passes():
-    wrap = lambda base: _NonlinearEngine(  # noqa: E731
+    wrap = lambda base: _NonlinearEngine(
         base, row=200, scale=2.0e6, direction=[1.0, 0.0, 0.0]
     )
     model, ctx, _ = _oracle(pulsar=_BigPulsar(), engine_wrap=wrap)
@@ -382,20 +383,20 @@ def _sample_report(**over):
         local_chart_ratio=0.2,
         interior=False,
     )
-    base = dict(
-        passed=False,
-        failures=("center_interior[point 0]: axis F0",),
-        hyper_points=({"log10_A": -14.0},),
-        xi_points_digest="deadbeef",
-        center_axes=(axis,),
-        max_residual_remainder_rms=0.02,
-        max_residual_remainder_standardized_toa=0.3,
-        max_xi_gradient_inf_norm=0.01,
-        xi_hessian_eigen_min=0.9,
-        xi_hessian_eigen_max=1.1,
-        max_xi_eta_cross_operator_norm=0.05,
-        max_conditional_identity_spread=0.04,
-        per_point=(
+    base = {
+        "passed": False,
+        "failures": ("center_interior[point 0]: axis F0",),
+        "hyper_points": ({"log10_A": -14.0},),
+        "xi_points_digest": "deadbeef",
+        "center_axes": (axis,),
+        "max_residual_remainder_rms": 0.02,
+        "max_residual_remainder_standardized_toa": 0.3,
+        "max_xi_gradient_inf_norm": 0.01,
+        "xi_hessian_eigen_min": 0.9,
+        "xi_hessian_eigen_max": 1.1,
+        "max_xi_eta_cross_operator_norm": 0.05,
+        "max_conditional_identity_spread": 0.04,
+        "per_point": (
             {
                 "hyper": {"log10_A": -14.0},
                 "residual_remainder_rms": 0.02,
@@ -407,10 +408,10 @@ def _sample_report(**over):
                 "conditional_identity_spread": 0.04,
             },
         ),
-        thresholds=GeometryThresholds(),
-        context_fingerprint="c" * 64,
-        model_fingerprint="d" * 64,
-    )
+        "thresholds": GeometryThresholds(),
+        "context_fingerprint": "c" * 64,
+        "model_fingerprint": "d" * 64,
+    }
     base.update(over)
     return JointGeometryReport(**base)
 

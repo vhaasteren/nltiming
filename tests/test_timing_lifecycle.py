@@ -8,8 +8,8 @@ from __future__ import annotations
 
 import numpy as np
 import pytest
-
 from _engine_stubs import JaxLinearTestEngine
+
 from nltiming.engine_support import LinearModel
 from nltiming.metric import (
     LocalPosteriorMetric,

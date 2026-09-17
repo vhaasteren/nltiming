@@ -4,10 +4,10 @@ from nltiming import (
     EnterprisePulsarLike,
     EphemerisExtras,
     JaxTimingEngine,
-    TimingSpec,
     ParameterSpace,
     TimingEngine,
     TimingPulsar,
+    TimingSpec,
 )
 
 
@@ -30,23 +30,21 @@ def test_timing_imports_and_constructs_without_jug():
     import subprocess
     import sys
 
-    code = "; ".join(
-        [
-            "import sys",
-            "sys.modules['jug'] = None",
-            "sys.modules['jax'] = None",
-            "import nltiming",
-            "from nltiming import TimingSpec",
-            "default = TimingSpec()",
-            "assert default.engines == {'tempo2': 'vela_jax', 'pint': 'vela_jax'}",
-            "assert default.tempo2_jug_options is None",
-            "m = TimingSpec(" "engines={'tempo2': 'libstempo', 'pint': 'pint'})",
-            "assert m.tempo2_jug_options is None",
-            "m.set_prior('F0', 'normal', mean=0.0, std=1.0)",
-            "m2 = m.with_engines({'tempo2': 'libstempo', 'pint': 'pint'})",
-            "assert m2.tempo2_jug_options is None",
-        ]
-    )
+    code = """
+import sys
+sys.modules['jug'] = None
+sys.modules['jax'] = None
+import nltiming
+from nltiming import TimingSpec
+default = TimingSpec()
+assert default.engines == {'tempo2': 'vela_jax', 'pint': 'vela_jax'}
+assert default.tempo2_jug_options is None
+m = TimingSpec(engines={'tempo2': 'libstempo', 'pint': 'pint'})
+assert m.tempo2_jug_options is None
+m.set_prior('F0', 'normal', mean=0.0, std=1.0)
+m2 = m.with_engines({'tempo2': 'libstempo', 'pint': 'pint'})
+assert m2.tempo2_jug_options is None
+"""
     subprocess.run([sys.executable, "-c", code], check=True)
 
 

@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+from typing import ClassVar
+
 import numpy as np
 import pytest
-
 from _engine_stubs import JaxLinearTestEngine
 from psrdata import ResidualCentering
 
+from nltiming import TimingInference, WhiteningConfig
 from nltiming.engine_support import (
     LinearModel,
     LinearModelEngine,
@@ -20,7 +22,6 @@ from nltiming.nonlinear_timing_model import (
     _normalize_residual_centering,
 )
 from nltiming.run_io import build_run_manifest
-from nltiming import WhiteningConfig, TimingInference
 
 
 def _model():
@@ -122,9 +123,9 @@ def test_normalize_raises_when_the_engine_omits_residual_centering():
 
     class _Wrong:
         fitpars = ("F0", "Offset")
-        residual_centering = {"single": "none"}
+        residual_centering: ClassVar[dict] = {"single": "none"}
 
-    with pytest.raises(ValueError, match="ResidualCentering"):
+    with pytest.raises(TypeError, match="ResidualCentering"):
         _normalize_residual_centering(_Pulsar(), _Wrong())
 
 

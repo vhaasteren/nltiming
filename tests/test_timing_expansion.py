@@ -8,13 +8,14 @@ import pytest
 jax = pytest.importorskip("jax")
 jax.config.update("jax_enable_x64", True)
 
+from _engine_stubs import JaxLinearTestEngine
+
 from nltiming import (
     ExpansionOutsidePriorInteriorError,
     TimingExpansionSpec,
     TimingInference,
 )
 from nltiming import priors as P
-from _engine_stubs import JaxLinearTestEngine
 from nltiming.engine_support import LinearModel
 from nltiming.nonlinear_timing_model import TimingSpec
 

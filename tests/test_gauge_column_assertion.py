@@ -4,14 +4,14 @@ from __future__ import annotations
 
 import numpy as np
 import pytest
+from _engine_stubs import CompositeView, JaxLinearTestEngine, TestContribution
+from psrdata import ResidualCentering
 
-from _engine_stubs import JaxLinearTestEngine, TestContribution, CompositeView
 from nltiming.engine_support import LinearModel
 from nltiming.nonlinear_timing_model import (
     GaugeColumnMissingError,
     assert_gauge_column_present,
 )
-from psrdata import ResidualCentering
 
 
 def _gf():

@@ -6,19 +6,19 @@ from typing import Any
 
 import numpy as np
 import pytest
-
 from _engine_stubs import JaxLinearTestEngine, LinearTestEngine
+
+import nltiming.sampling as nlts
 from nltiming import TimingInference, WhiteningConfig
 from nltiming.engine_support import LinearModel
 from nltiming.nonlinear_timing_model import TimingSpec
-import nltiming.sampling as nlts
 
 pytest.importorskip("discovery")
 pytest.importorskip("jax")
 
-import discovery as ds  # noqa: E402
-import jax  # noqa: E402
-import jax.numpy as jnp  # noqa: E402
+import discovery as ds
+import jax
+import jax.numpy as jnp
 
 
 class _Pulsar:

@@ -18,33 +18,35 @@ mode's frozen-``N0`` transport-internal formula, which is wrong under live
 ``C(eta)``); ``origin="conditional_mode"`` fixes ``d(eta) = 0``.
 """
 
+from typing import ClassVar
+
 import numpy as np
 import pytest
 
 jax = pytest.importorskip("jax")
 jax.config.update("jax_enable_x64", True)
-import jax.numpy as jnp  # noqa: E402
+import jax.numpy as jnp
 
 pytest.importorskip("jug")
 pytest.importorskip("discovery")
 pytest.importorskip("numpyro")
 
-import discovery as ds  # noqa: E402
-from discovery import metamatrix as mm  # noqa: E402
-from numpyro.infer.util import log_density  # noqa: E402
+import discovery as ds
+from discovery import metamatrix as mm
+from numpyro.infer.util import log_density
+from test_joint_model import _Pulsar
 
-from nltiming import TimingInference, WhiteningConfig  # noqa: E402
-from nltiming.metric import OneAffineLayerError  # noqa: E402
-from nltiming.nonlinear_timing_model import TimingSpec  # noqa: E402
-import nltiming.sampling as nlts  # noqa: E402
-from nltiming import (  # noqa: E402
+import nltiming.sampling as nlts
+from nltiming import (
     GeometryThresholds,
+    TimingInference,
+    WhiteningConfig,
     certify_decentered_geometry,
     read_geometry_report,
     write_geometry_report,
 )
-
-from test_joint_model import _Pulsar  # noqa: E402
+from nltiming.metric import OneAffineLayerError
+from nltiming.nonlinear_timing_model import TimingSpec
 
 
 @pytest.fixture(autouse=True)
@@ -204,7 +206,7 @@ def test_decentered_requires_identity_static_layer():
 
     class _FakeLikelihood:
         class logL:
-            params: list = []
+            params: ClassVar[list] = []
 
         N = None
 
@@ -276,7 +278,7 @@ def test_decentered_accounting_and_binding(monkeypatch):
 
     class _FakeLikelihood:
         class logL:
-            params: list = []
+            params: ClassVar[list] = []
 
         N = None
 

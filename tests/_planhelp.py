@@ -7,7 +7,7 @@ the metric/whitening/prior helpers.
 
 from __future__ import annotations
 
-from typing import Sequence
+from collections.abc import Sequence
 
 from nltiming.coordinates import TimingCoordinatePolicy
 from nltiming.inference import TimingInference, resolve_inference_plan

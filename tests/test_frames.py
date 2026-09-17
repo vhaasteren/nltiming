@@ -14,7 +14,7 @@ from nltiming.inference import (
 
 jax = pytest.importorskip("jax")
 jax.config.update("jax_enable_x64", True)
-import jax.numpy as jnp  # noqa: E402
+import jax.numpy as jnp
 
 
 def _plan(fitpars, dispositions):
@@ -82,10 +82,11 @@ def test_engine_delta_map_matches_legacy_scatter():
 # ---------------------------------------------------------------------------
 
 
-from nltiming import TimingInference as _TI  # noqa: E402
 from _engine_stubs import JaxLinearTestEngine
-from nltiming.engine_support import LinearModel  # noqa: E402
-from nltiming.nonlinear_timing_model import TimingSpec  # noqa: E402
+
+from nltiming import TimingInference as _TI
+from nltiming.engine_support import LinearModel
+from nltiming.nonlinear_timing_model import TimingSpec
 
 
 class _LinearPulsar:

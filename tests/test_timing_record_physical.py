@@ -2,13 +2,12 @@
 
 import numpy as np
 import pytest
-
-from nltiming import WhiteningConfig
-from nltiming import TimingInference
 from _engine_stubs import JaxLinearTestEngine
+
+from nltiming import TimingInference, WhiteningConfig
 from nltiming.engine_support import LinearModel
 from nltiming.nonlinear_timing_model import TimingSpec
-from nltiming.sampling.numpyro import sample_timing, record_physical_postprocess
+from nltiming.sampling.numpyro import record_physical_postprocess, sample_timing
 
 
 class _Host:

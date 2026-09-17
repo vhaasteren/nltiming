@@ -10,10 +10,9 @@ import json
 
 import numpy as np
 import pytest
-
-from nltiming import WhiteningConfig
-from nltiming import TimingInference
 from _engine_stubs import JaxLinearTestEngine
+
+from nltiming import TimingInference, WhiteningConfig
 from nltiming.engine_support import LinearModel
 from nltiming.nonlinear_timing_model import TimingSpec
 from nltiming.run_io import (
@@ -175,7 +174,7 @@ def test_unsupported_schema_fails_with_migration_guidance(tmp_path, ntm, pulsar)
 
 
 def test_no_overwrite_of_incompatible_run(tmp_path, ntm, pulsar):
-    ctx, manifest = _write_run(tmp_path, ntm, pulsar)
+    _ctx, manifest = _write_run(tmp_path, ntm, pulsar)
     # A manifest with a different context digest must not clobber the existing run.
     other = TimingSpec(
         engines="jug",

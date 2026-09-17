@@ -2,17 +2,19 @@
 
 from __future__ import annotations
 
+from typing import ClassVar
+
 import numpy as np
 import pytest
+from psrdata import ResidualCentering
 
 from nltiming import TimingEvaluator
-from psrdata import ResidualCentering
 
 
 class _LinearBackend:
     backend_name = "vela_jax"
     fitpars = ("F0", "Offset")
-    native_units = {"F0": "Hz", "Offset": "s"}
+    native_units: ClassVar[dict] = {"F0": "Hz", "Offset": "s"}
 
     def __init__(self, design):
         self._design = np.asarray(design, dtype=float)
@@ -40,7 +42,7 @@ class _LinearBackend:
     def precision_critical_fitpars(self):
         return frozenset()
 
-    residual_centering = {
+    residual_centering: ClassVar[dict] = {
         "single": ResidualCentering(
             stored_residuals="none",
             standard_output="mean_removed",
@@ -51,7 +53,7 @@ class _LinearBackend:
 
 class _Pulsar:
     name = "J1234+5678"
-    fitpars = ["F0", "Offset"]
+    fitpars = ("F0", "Offset")
 
     def __init__(self):
         self.Mmat = np.asarray(

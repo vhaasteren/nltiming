@@ -4,6 +4,12 @@ from __future__ import annotations
 
 import numpy as np
 import pytest
+from test_physical_charts import (  # reuse fakes
+    _activate,
+    _FakeEngineNoCap,
+    _FakePulsar,
+    _plan,
+)
 
 from nltiming.fw10_absorbed import (
     FW10AbsorbedChart,
@@ -22,22 +28,15 @@ from nltiming.physical_charts import (
 )
 from nltiming.priors import delta_uniform
 
-from test_physical_charts import (  # reuse fakes
-    _FakeEngineNoCap,
-    _FakePulsar,
-    _activate,
-    _plan,
-)
-
 # J2145-like intrinsic engine point
-_J2145 = dict(
-    a1=10.16,
-    ecc=2.0e-5,
-    om_rad=1.0,
-    t0=55000.1,
-    h3=1.8e-7,
-    pb_days=6.838902511,
-)
+_J2145 = {
+    "a1": 10.16,
+    "ecc": 2.0e-5,
+    "om_rad": 1.0,
+    "t0": 55000.1,
+    "h3": 1.8e-7,
+    "pb_days": 6.838902511,
+}
 
 
 def _engine_refs(**overrides):
@@ -455,8 +454,8 @@ def test_delay_equivalence_along_stigma_grid():
     """
     astropy = pytest.importorskip("astropy")
     u = astropy.units
-    from pint.models.stand_alone_psr_binaries.ELL1H_model import ELL1Hmodel
     from pint.models.stand_alone_psr_binaries.DDH_model import DDHmodel
+    from pint.models.stand_alone_psr_binaries.ELL1H_model import ELL1Hmodel
 
     ls = u.lsec
     pb_d = _J2145["pb_days"]

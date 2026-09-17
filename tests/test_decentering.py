@@ -25,7 +25,6 @@ from nltiming.decentering import (
     decode_decentered_chain,
 )
 
-
 # ---------------------------------------------------------------------------
 # Toy live kernel: C(eta) = diag(n0) + F Phi(eta) F^T + M (1e40) M^T + W_m W_m^T
 # ---------------------------------------------------------------------------
@@ -228,15 +227,15 @@ def _enterprise_setup():
     import discovery as ds
 
     ds.config(kernels="metamath")
-    from enterprise.signals import (  # noqa: E402
+    import sys
+
+    from enterprise.signals import (
         gp_signals,
         parameter,
         signal_base,
         white_signals,
     )
     from enterprise.signals import utils as ent_utils
-
-    import sys
 
     sys.path.insert(0, str(__import__("pathlib").Path(__file__).parent))
     from test_decentered_model import _DiscoveryPulsar
@@ -605,9 +604,9 @@ def test_te1_cross_frontend_density_parity(_duck_ctx):
     from enterprise.signals import utils as ent_utils
     from numpyro.infer.util import log_density
 
+    import nltiming.sampling as nlts
     from nltiming import box_hyper_probe_points
     from nltiming.likelihoods.enterprise import enterprise_marginal_products
-    import nltiming.sampling as nlts
 
     decentered_target = nlts.ptmcmc.decentered_target
 

@@ -1,11 +1,13 @@
 """Tests for inference-based plan selection and constructor priors."""
 
+from typing import ClassVar
+
 import numpy as np
 import pytest
-
-from nltiming import priors as prior_specs
-from nltiming import TimingInference
 from _engine_stubs import JaxLinearTestEngine
+
+from nltiming import TimingInference
+from nltiming import priors as prior_specs
 from nltiming.engine_support import LinearModel
 from nltiming.nonlinear_timing_model import TimingSpec
 from nltiming.selection import (
@@ -526,8 +528,8 @@ def test_run_meta_records_engine_executed_nonlinear_params():
 def _hybrid_probe_pulsar(engine_mode):
     """Pulsar whose engine reports ``engine_mode`` regardless of the request."""
     import numpy as np
-
     from _engine_stubs import LinearTestEngine
+
     from nltiming.engine_support import LinearModel
 
     names = ("Offset", "F0", "F1")  # Offset: the gauge column the seam requires
@@ -546,13 +548,13 @@ def _hybrid_probe_pulsar(engine_mode):
 
     class _Pulsar:
         name = "J0000+0000"
-        fitpars = list(names)
+        fitpars = tuple(names)
         toas = np.array([1.0, 2.0, 3.0, 4.0]) * 86400.0
         residuals = np.zeros(4)
         toaerrs = np.full(4, 1e-6)
         freqs = np.full(4, 1400.0)
         Mmat = design
-        flags = {"pta": np.array(["x"] * 4)}
+        flags: ClassVar[dict] = {"pta": np.array(["x"] * 4)}
         backend_flags = np.array(["x"] * 4)
 
         def pint_model(self):

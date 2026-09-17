@@ -15,13 +15,13 @@ pure NumPy (tests cross-check against PINT).
 from __future__ import annotations
 
 import warnings
+from collections.abc import Mapping
 from dataclasses import dataclass
 from decimal import Decimal, localcontext
 from typing import (
     TYPE_CHECKING,
     ClassVar,
     Literal,
-    Mapping,
     Protocol,
     runtime_checkable,
 )
@@ -562,9 +562,9 @@ class ChartCandidate:
     chart: KeplerLaplaceChart | None
     skip_reason: str | None  # candidacy-stage reason, else None
     e_ref: float | None
-    capability: "object | None" = None
+    capability: object | None = None
     secular_terms: tuple[str, ...] = ()
-    fw10_chart: "FW10AbsorbedChart | None" = None
+    fw10_chart: FW10AbsorbedChart | None = None
 
 
 def _group_fitpars(pulsar) -> dict[str, dict[str, str]]:
@@ -1149,12 +1149,15 @@ def _fw10_activation_reason(
     # PB sampled → inactive (frozen dependency; not a dependency_slot coupling).
     for ax in plan.axes:
         en = ax.engine_name or ax.name
-        if _fitpar_base(en, cand.suffix) == "PB" and ax.disposition == "sample":
-            # Same-suffix PB, or unsuffixed PB for the empty-suffix group.
-            if (cand.suffix and en.endswith(cand.suffix)) or (
-                not cand.suffix and _fitpar_base(en, "") == "PB"
-            ):
-                return "dependency_sampled"
+        if (
+            _fitpar_base(en, cand.suffix) == "PB"
+            and ax.disposition == "sample"
+            and (
+                (cand.suffix and en.endswith(cand.suffix))
+                or (not cand.suffix and _fitpar_base(en, "") == "PB")
+            )
+        ):
+            return "dependency_sampled"
 
     if _fw10_secular_present(cand.secular_terms):
         return "secular_terms_present"
@@ -1529,7 +1532,7 @@ class ResolvedPhysicalChart:
     ``fw10_absorbed`` activations leave them empty / None.
     """
 
-    chart: "KeplerLaplaceChart | FW10AbsorbedChart"
+    chart: KeplerLaplaceChart | FW10AbsorbedChart
     eps_supports: tuple = ()
     reachability_rect: object | None = None
 

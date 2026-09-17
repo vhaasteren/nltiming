@@ -2,19 +2,21 @@
 
 from __future__ import annotations
 
+from typing import ClassVar
+
 import numpy as np
 import pytest
+from psrdata import ResidualCentering
 
 from nltiming import TimingEvaluator
 from nltiming.bijectors import PriorBijector
-from psrdata import ResidualCentering
 from nltiming.space import ParameterSpace
 
 
 class LinearJaxBackend:
     backend_name = "jug"
     fitpars = ("F0", "F1")
-    native_units = {"F0": "Hz", "F1": "Hz / s"}
+    native_units: ClassVar[dict] = {"F0": "Hz", "F1": "Hz / s"}
 
     def __init__(self, design):
         self._design = np.asarray(design, dtype=float)
@@ -43,7 +45,7 @@ class LinearJaxBackend:
     def precision_critical_fitpars(self):
         return frozenset({"F0"})
 
-    residual_centering = {
+    residual_centering: ClassVar[dict] = {
         "single": ResidualCentering(
             stored_residuals="none",
             standard_output="mean_removed",
@@ -70,7 +72,7 @@ class NonlinearJaxBackend(LinearJaxBackend):
 
 class EvaluatorPulsar:
     name = "J1234+5678"
-    fitpars = ["F0", "F1"]
+    fitpars = ("F0", "F1")
 
     def __init__(self):
         self.Mmat = np.asarray([[1.0, 0.0], [1.0, 1.0], [1.0, 2.0], [1.0, 3.0]])
@@ -320,7 +322,7 @@ def test_evaluator_parameter_mapping_uses_public_provider():
 def test_evaluator_no_mapping_capability_is_empty():
     class _PlainHost:
         name = "J0000+0000"
-        fitpars = ["F0", "F1"]
+        fitpars = ("F0", "F1")
 
         def __init__(self):
             self.Mmat = np.asarray([[1.0, 0.0], [1.0, 1.0], [1.0, 2.0], [1.0, 3.0]])
